@@ -10,7 +10,7 @@ import {
 /** An in-memory file system built from a list of file paths. */
 function fakeFileSystem(files: readonly string[]): WorkspaceFileSystem {
   return {
-    listSubdirectories: (dir) => {
+    listSubdirectories: (dir): Promise<readonly string[]> => {
       const prefix = `${dir}/`;
       const children = files
         .filter((file) => file.startsWith(prefix) && file.slice(prefix.length).includes('/'))

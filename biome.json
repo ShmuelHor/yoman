@@ -37,6 +37,7 @@
         "useExportType": "error",
         "useBlockStatements": "error",
         "useConst": "error",
+        "noMagicNumbers": "error",
         "useFilenamingConvention": {
           "level": "error",
           "options": { "filenameCases": ["kebab-case"] }
@@ -66,7 +67,8 @@
         "noGlobalEval": "error"
       },
       "nursery": {
-        "noFloatingPromises": "error"
+        "noFloatingPromises": "error",
+        "useExplicitReturnType": "error"
       }
     }
   },

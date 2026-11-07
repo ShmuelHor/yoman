@@ -21,6 +21,7 @@ import { type ChildExit, toExitOutcome } from './lib/child-exit.js';
 import { RootManifest, resolveWorkspaces, type WorkspaceFileSystem } from './lib/workspaces.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
@@ -32,7 +33,7 @@ function isMissing(error: unknown): boolean {
 }
 
 const diskFileSystem: WorkspaceFileSystem = {
-  async listSubdirectories(dir) {
+  async listSubdirectories(dir): Promise<readonly string[]> {
     try {
       const entries = await readdir(join(ROOT, dir), { withFileTypes: true });
       return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
@@ -43,7 +44,7 @@ const diskFileSystem: WorkspaceFileSystem = {
       throw error;
     }
   },
-  async isFile(path) {
+  async isFile(path): Promise<boolean> {
     try {
       return (await stat(join(ROOT, path))).isFile();
     } catch (error: unknown) {
@@ -76,7 +77,7 @@ async function main(script: string): Promise<number> {
   const workspaces = await resolveWorkspaces(globs, diskFileSystem);
   if (workspaces.length === 0) {
     process.stdout.write(`No workspaces yet, skipping "${script}".\n`);
-    return 0;
+    return EXIT_SUCCESS;
   }
 
   const args = ['run', script, '--if-present', ...workspaces.flatMap((dir) => ['-w', dir])];
