@@ -1,0 +1,13 @@
+# CodeQL configuration for .github/workflows/security.yml.
+name: yoman-codeql
+
+# security-extended adds lower-precision security queries on top of the default
+# suite (SECURITY.md §4).
+queries:
+  - uses: security-extended
+
+# Generated output and installed dependencies are not our code.
+paths-ignore:
+  - "**/node_modules"
+  - "**/dist"
+  - "**/coverage"

@@ -1,0 +1,335 @@
+# Blocking security gates from docs/SECURITY.md §4.
+#
+# Every job fails the run on a finding. Tools that speak SARIF also upload it to
+# code scanning (the Security tab), so only those jobs get `security-events: write`.
+# Trivy image scanning is not here: it needs built images and belongs to T06.
+#
+# Hardening rules for this file (checked by actionlint and zizmor below):
+# - Third-party actions are pinned to a full commit SHA, container images to a digest.
+# - The default token is read-only; each job asks only for what it needs.
+# - Checkouts never persist the token in .git/config.
+# - No pull_request_target and no continue-on-error.
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly, so new advisories against unchanged code still surface.
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gitleaks:
+    name: gitleaks (full history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The official gitleaks image rather than gitleaks-action: on pull_request
+      # the action scans only the PR's commits, and SECURITY.md requires the
+      # whole history on every run. `.gitleaks.toml` at the root is picked up
+      # automatically; without it gitleaks uses its default rules.
+      - name: Scan every commit
+        env:
+          GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env GIT_CONFIG_COUNT=1 \
+            --env GIT_CONFIG_KEY_0=safe.directory \
+            --env GIT_CONFIG_VALUE_0=/repo \
+            --volume "${GITHUB_WORKSPACE}:/repo" \
+            "${GITLEAKS_IMAGE}" \
+            git /repo \
+            --redact \
+            --verbose \
+            --exit-code 1 \
+            --report-format sarif \
+            --report-path /repo/gitleaks.sarif
+      - name: Upload SARIF
+        if: ${{ !cancelled() && hashFiles('gitleaks.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      # Reads package-lock.json only; nothing is installed.
+      - name: Audit the lockfile
+        run: npm audit --audit-level=moderate
+
+  osv-scanner:
+    name: OSV-Scanner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Exits non-zero on any known vulnerability, in every output format.
+      - name: Scan lockfiles
+        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: |-
+            --format=sarif
+            --output=osv.sarif
+            --recursive
+            ./
+      - name: Upload SARIF
+        if: ${{ !cancelled() && hashFiles('osv.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: osv.sarif
+          category: osv-scanner
+
+  dependency-review:
+    name: Dependency review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          # Copyleft licenses that would bind the whole project (SECURITY.md §4).
+          deny-licenses: >-
+            GPL-1.0-only, GPL-1.0-or-later, GPL-2.0-only, GPL-2.0-or-later,
+            GPL-3.0-only, GPL-3.0-or-later, AGPL-1.0-only, AGPL-1.0-or-later,
+            AGPL-3.0-only, AGPL-3.0-or-later, SSPL-1.0
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+      # Findings become code scanning alerts. The "CodeQL" code scanning check
+      # on the PR fails on new error-level or high/critical security alerts.
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: codeql-javascript-typescript
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: semgrep/semgrep:1.182.0@sha256:4a34048c04fef049f71665047f074cffb00cc3d89482f965a5cd151d589237af
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Registry rule packs plus the repo's own rules in .semgrep/.
+      # --error fails the job on any finding.
+      - name: Scan
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/nodejs \
+            --config p/typescript \
+            --config p/react \
+            --config p/docker-compose \
+            --config .semgrep/ \
+            --metrics off \
+            --error \
+            --sarif-output semgrep.sarif
+      - name: Upload SARIF
+        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  hadolint:
+    name: hadolint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No Dockerfile exists yet (they arrive with the services). Until then
+      # this job passes with a notice; the first tracked Dockerfile turns it on
+      # with no change to this file.
+      - name: Lint Dockerfiles
+        id: lint
+        env:
+          HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+        run: |
+          mapfile -d '' dockerfiles < <(git ls-files -z -- ':(glob)**/Dockerfile*' ':(glob)**/*.Dockerfile')
+          if (( ${#dockerfiles[@]} == 0 )); then
+            echo "::notice title=hadolint::No Dockerfiles in the repository yet, nothing to lint."
+            echo "found=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "found=true" >> "${GITHUB_OUTPUT}"
+          printf 'Linting %s\n' "${dockerfiles[@]}"
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
+            --workdir /repo \
+            --entrypoint /bin/hadolint \
+            "${HADOLINT_IMAGE}" \
+            --failure-threshold warning \
+            "${dockerfiles[@]}"
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
+            --workdir /repo \
+            --entrypoint /bin/hadolint \
+            "${HADOLINT_IMAGE}" \
+            --no-fail \
+            --format sarif \
+            "${dockerfiles[@]}" > hadolint.sarif
+      - name: Upload SARIF
+        if: ${{ !cancelled() && steps.lint.outputs.found == 'true' && hashFiles('hadolint.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: hadolint.sarif
+          category: hadolint
+
+  trivy:
+    name: Trivy fs and config
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Vulnerable dependencies. Only HIGH and CRITICAL with a released fix
+      # block; the rest is npm audit's and OSV-Scanner's job.
+      - name: Scan dependencies (fs)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+          format: sarif
+          output: trivy-fs.sarif
+          limit-severities-for-sarif: true
+      - name: Upload fs SARIF
+        if: ${{ !cancelled() && hashFiles('trivy-fs.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+      # Misconfigurations in Dockerfiles and other IaC.
+      - name: Scan configuration (config)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          trivyignores: .trivyignore
+          format: sarif
+          output: trivy-config.sarif
+          limit-severities-for-sarif: true
+          skip-setup-trivy: true
+      - name: Upload config SARIF
+        if: ${{ !cancelled() && hashFiles('trivy-config.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The official image bundles shellcheck, so run: blocks are checked too.
+      - name: Lint workflows
+        env:
+          ACTIONLINT_IMAGE: rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
+            --workdir /repo \
+            "${ACTIONLINT_IMAGE}" \
+            -color
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Audits every workflow and dependabot.yml, and uploads SARIF.
+      - name: Audit workflows
+        id: zizmor
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: 1.32.0
+      # In SARIF mode zizmor always exits 0 and leaves the verdict to the
+      # SARIF consumer, so the gate is enforced here instead.
+      - name: Fail on findings
+        env:
+          SARIF_FILE: ${{ steps.zizmor.outputs.output-file }}
+        run: |
+          count="$(jq '[.runs[].results[]] | length' "${SARIF_FILE}")"
+          if (( count > 0 )); then
+            jq -r '.runs[].results[] | "::error file=\(.locations[0].physicalLocation.artifactLocation.uri // "")::\(.ruleId): \(.message.text)"' "${SARIF_FILE}"
+            echo "zizmor reported ${count} finding(s)."
+            exit 1
+          fi
+          echo "zizmor: no findings."
