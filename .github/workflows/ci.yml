@@ -92,7 +92,7 @@ jobs:
       - run: npm run check:language
 
   build:
-    name: Build
+    name: Build (workspaces)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
