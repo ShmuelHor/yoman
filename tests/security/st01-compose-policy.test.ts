@@ -263,6 +263,27 @@ describe('ST01 compose policy', () => {
       expect(rulesBroken(model)).toEqual(['docker-socket']);
     });
 
+    it.each(['/var/run', '/run', '/var/run/docker.sock'])(
+      'rejects a named volume whose driver binds %s',
+      (device) => {
+        const model = {
+          ...modelWith({ volumes: [{ type: 'volume', source: 'dockerrun', target: '/mnt' }] }),
+          volumes: { dockerrun: { driver_opts: { type: 'none', o: 'bind', device } } },
+        };
+
+        expect(rulesBroken(model)).toEqual(['docker-socket']);
+      },
+    );
+
+    it('accepts a named volume whose driver binds an ordinary directory', () => {
+      const model = {
+        ...modelWith({ volumes: [{ type: 'volume', source: 'backups', target: '/backups' }] }),
+        volumes: { backups: { driver_opts: { type: 'none', o: 'bind', device: '/srv/backups' } } },
+      };
+
+      expect(rulesBroken(model)).toEqual([]);
+    });
+
     it('accepts ordinary bind mounts and named volumes', () => {
       const model = modelWith({
         volumes: [

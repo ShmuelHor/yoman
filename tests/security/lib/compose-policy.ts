@@ -50,6 +50,11 @@ const ComposeService = z.object({
   volumes: z.array(ComposeVolume).optional(),
 });
 
+/** A named volume; the local driver can bind a host path through `driver_opts.device`. */
+const ComposeNamedVolume = z.object({
+  driver_opts: z.object({ device: z.string().optional() }).optional(),
+});
+
 const ComposeNetwork = z.object({
   name: z.string().optional(),
   driver: z.string().optional(),
@@ -59,6 +64,7 @@ const ComposeNetwork = z.object({
 export const ComposeModel = z.object({
   services: z.record(z.string(), ComposeService),
   networks: z.record(z.string(), ComposeNetwork).optional(),
+  volumes: z.record(z.string(), ComposeNamedVolume).optional(),
 });
 export type ComposeModel = z.infer<typeof ComposeModel>;
 type ComposeService = z.infer<typeof ComposeService>;
@@ -244,12 +250,27 @@ function exposesDockerSocket(source: string): boolean {
   return DOCKER_SOCKET_PATHS.some((socket) => path === '/' || socket.startsWith(`${path}/`));
 }
 
-function checkDockerSocket(service: ComposeService): readonly string[] {
-  return (service.volumes ?? []).flatMap((volume) =>
-    volume.type === 'bind' && volume.source !== undefined && exposesDockerSocket(volume.source)
-      ? [`mounts ${volume.source}, which exposes the Docker socket`]
-      : [],
-  );
+/** The host path a mount exposes: its source for a bind, its driver's device for a named volume. */
+function hostPathOf(
+  volume: z.infer<typeof ComposeVolume>,
+  model: ComposeModel,
+): string | undefined {
+  if (volume.source === undefined) {
+    return undefined;
+  }
+  if (volume.type === 'bind') {
+    return volume.source;
+  }
+  return volume.type === 'volume' ? model.volumes?.[volume.source]?.driver_opts?.device : undefined;
+}
+
+function checkDockerSocket(service: ComposeService, model: ComposeModel): readonly string[] {
+  return (service.volumes ?? []).flatMap((volume) => {
+    const hostPath = hostPathOf(volume, model);
+    return hostPath !== undefined && exposesDockerSocket(hostPath)
+      ? [`mounts ${hostPath}, which exposes the Docker socket`]
+      : [];
+  });
 }
 
 /**
