@@ -130,9 +130,46 @@ describe('ST01 compose policy', () => {
     });
 
     it('rejects a service without no-new-privileges', () => {
-      expect(rulesBroken(modelWith({ security_opt: ['apparmor:unconfined'] }))).toEqual([
+      expect(rulesBroken(modelWith({ security_opt: ['label=type:container_t'] }))).toEqual([
         'no-new-privileges',
       ]);
+    });
+
+    it('rejects added capabilities, even after cap_drop ALL', () => {
+      expect(rulesBroken(modelWith({ cap_add: ['SYS_ADMIN', 'NET_ADMIN'] }))).toEqual(['cap-add']);
+    });
+
+    it('accepts an empty cap_add', () => {
+      expect(rulesBroken(modelWith({ cap_add: [] }))).toEqual([]);
+    });
+
+    it.each([
+      ['pid', { pid: 'host' }],
+      ['ipc', { ipc: 'host' }],
+      ['userns_mode', { userns_mode: 'host' }],
+    ])('rejects %s: host', (_name, override) => {
+      expect(rulesBroken(modelWith(override))).toEqual(['host-namespace']);
+    });
+
+    it('accepts a private ipc namespace', () => {
+      expect(rulesBroken(modelWith({ ipc: 'private' }))).toEqual([]);
+    });
+
+    it('rejects mapped host devices', () => {
+      const devices = [{ source: '/dev/mem', target: '/dev/mem', permissions: 'rwm' }];
+
+      expect(rulesBroken(modelWith({ devices }))).toEqual(['devices']);
+    });
+
+    it.each([
+      'seccomp:unconfined',
+      'seccomp=unconfined',
+      'apparmor:unconfined',
+      'apparmor=unconfined',
+    ])('rejects security_opt %s', (option) => {
+      const model = modelWith({ security_opt: ['no-new-privileges:true', option] });
+
+      expect(rulesBroken(model)).toEqual(['unconfined-profile']);
     });
 
     it('rejects a privileged service', () => {

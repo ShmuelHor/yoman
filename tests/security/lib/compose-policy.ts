@@ -31,6 +31,11 @@ const ComposeService = z.object({
   privileged: z.boolean().optional(),
   network_mode: z.string().optional(),
   cap_drop: z.array(z.string()).optional(),
+  cap_add: z.array(z.string()).optional(),
+  pid: z.string().optional(),
+  ipc: z.string().optional(),
+  userns_mode: z.string().optional(),
+  devices: z.array(z.unknown()).optional(),
   security_opt: z.array(z.string()).optional(),
   mem_limit: ByteSize.optional(),
   deploy: z
@@ -58,6 +63,10 @@ export type ComposeRule =
   | 'non-root'
   | 'read-only'
   | 'cap-drop'
+  | 'cap-add'
+  | 'host-namespace'
+  | 'devices'
+  | 'unconfined-profile'
   | 'no-new-privileges'
   | 'privileged'
   | 'memory-limit'
@@ -88,6 +97,13 @@ export const ALLOWED_BINDINGS: ReadonlySet<string> = new Set([
  */
 const NON_ROOT_USER = /^[1-9]\d*(?::[1-9]\d*)?$/u;
 const NO_NEW_PRIVILEGES = 'no-new-privileges:true';
+/** Security profiles that switch off seccomp or AppArmor confinement. */
+const UNCONFINED_PROFILES: ReadonlySet<string> = new Set([
+  'seccomp:unconfined',
+  'seccomp=unconfined',
+  'apparmor:unconfined',
+  'apparmor=unconfined',
+]);
 const DIGEST_PINNED = /@sha256:[0-9a-f]{64}$/u;
 const DOCKER_SOCKET_NAME = 'docker.sock';
 /** Where the rootful socket lives; mounting any ancestor of these also exposes it. */
@@ -130,6 +146,29 @@ function checkReadOnly(service: ComposeService): readonly string[] {
 function checkCapDrop(service: ComposeService): readonly string[] {
   const dropsAll = (service.cap_drop ?? []).some((cap) => cap.toUpperCase() === 'ALL');
   return dropsAll ? [] : ['does not drop ALL capabilities'];
+}
+
+/** Docker applies cap_add after cap_drop, so any added capability survives `cap_drop: [ALL]`. */
+function checkCapAdd(service: ComposeService): readonly string[] {
+  const added = service.cap_add ?? [];
+  return added.length === 0 ? [] : [`adds capabilities ${added.join(', ')}`];
+}
+
+function checkHostNamespaces(service: ComposeService): readonly string[] {
+  const namespaces = { pid: service.pid, ipc: service.ipc, userns_mode: service.userns_mode };
+  return Object.entries(namespaces).flatMap(([key, value]) =>
+    value === 'host' ? [`shares the host namespace (${key}: host)`] : [],
+  );
+}
+
+function checkDevices(service: ComposeService): readonly string[] {
+  return (service.devices ?? []).length === 0 ? [] : ['maps host devices into the container'];
+}
+
+function checkUnconfinedProfiles(service: ComposeService): readonly string[] {
+  return (service.security_opt ?? []).flatMap((option) =>
+    UNCONFINED_PROFILES.has(option) ? [`disables confinement with security_opt ${option}`] : [],
+  );
 }
 
 function checkNoNewPrivileges(service: ComposeService): readonly string[] {
@@ -199,7 +238,11 @@ const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
   ['non-root', checkUser],
   ['read-only', checkReadOnly],
   ['cap-drop', checkCapDrop],
+  ['cap-add', checkCapAdd],
+  ['host-namespace', checkHostNamespaces],
+  ['devices', checkDevices],
   ['no-new-privileges', checkNoNewPrivileges],
+  ['unconfined-profile', checkUnconfinedProfiles],
   ['privileged', checkPrivileged],
   ['memory-limit', checkMemoryLimit],
   ['docker-socket', checkDockerSocket],
