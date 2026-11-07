@@ -1,6 +1,11 @@
 language js
 
-`$client.$method($args)` where {
+// Covers member calls (`db.query(...)`) and bare calls to a destructured or
+// wrapped helper (`query(...)`).
+or {
+  `$client.$method($args)`,
+  `$method($args)`
+} where {
   $method <: or {
     `query`,
     `execute`
