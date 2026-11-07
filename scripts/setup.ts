@@ -6,7 +6,7 @@
  */
 import { fileURLToPath } from 'node:url';
 
-import { ensureEnvFile } from './lib/env-file.js';
+import { ensureEnvFile, UnsafeEnvFileError } from './lib/env-file.js';
 import { InvalidEnvFileError } from './lib/env-secrets.js';
 
 const ENV_PATH = fileURLToPath(new URL('../.env', import.meta.url));
@@ -25,11 +25,14 @@ try {
     process.stdout.write('Tightened .env permissions to 0600.\n');
   }
 } catch (error: unknown) {
-  if (!(error instanceof InvalidEnvFileError)) {
+  if (error instanceof InvalidEnvFileError) {
+    process.stderr.write(
+      `${error.message}\nFix or delete these lines and run \`npm run setup\` again. Nothing was changed.\n`,
+    );
+  } else if (error instanceof UnsafeEnvFileError) {
+    process.stderr.write(`Refusing to touch .env: ${error.message}\n`);
+  } else {
     throw error;
   }
-  process.stderr.write(
-    `${error.message}\nFix or delete these lines and run \`npm run setup\` again. Nothing was changed.\n`,
-  );
   process.exitCode = EXIT_FAILURE;
 }

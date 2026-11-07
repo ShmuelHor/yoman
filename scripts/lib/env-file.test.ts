@@ -1,14 +1,26 @@
-import { chmod, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ENV_FILE_MODE, ensureEnvFile, generateSecret } from './env-file.js';
+import { ENV_FILE_MODE, ensureEnvFile, generateSecret, UnsafeEnvFileError } from './env-file.js';
 import { InvalidEnvFileError, parseEnv, SECRETS } from './env-secrets.js';
 
 const PERMISSION_BITS = 0o777;
 const WIDE_MODE = 0o644;
+const NO_PERMISSIONS = 0o000;
 const SECRET_BYTES = 32;
 const HEX_LENGTH = SECRET_BYTES * 2;
 
@@ -107,7 +119,33 @@ describe('ensureEnvFile', () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
-  it('propagates read errors other than a missing file', async () => {
-    await expect(ensureEnvFile(dir)).rejects.toMatchObject({ code: 'EISDIR' });
+  it('refuses a symlinked .env without following or replacing it', async () => {
+    const target = join(dir, 'elsewhere');
+    await writeFile(target, '', { mode: ENV_FILE_MODE });
+    await symlink(target, envPath);
+
+    await expect(ensureEnvFile(envPath)).rejects.toBeInstanceOf(UnsafeEnvFileError);
+    expect((await lstat(envPath)).isSymbolicLink()).toBe(true);
+    expect(await readFile(target, 'utf8')).toBe('');
+  });
+
+  it('refuses a dangling symlink instead of creating its target', async () => {
+    const target = join(dir, 'planted');
+    await symlink(target, envPath);
+
+    await expect(ensureEnvFile(envPath)).rejects.toMatchObject({ code: 'UNSAFE_ENV_FILE' });
+    await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('refuses a .env that is not a regular file', async () => {
+    await mkdir(envPath);
+
+    await expect(ensureEnvFile(envPath)).rejects.toThrow('is not a regular file');
+  });
+
+  it('propagates other open errors, such as an unreadable .env', async () => {
+    await writeFile(envPath, '', { mode: NO_PERMISSIONS });
+
+    await expect(ensureEnvFile(envPath)).rejects.toMatchObject({ code: 'EACCES' });
   });
 });

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { chmod, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { chmod, type FileHandle, open, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 import { z } from 'zod';
@@ -27,12 +28,37 @@ export interface EnvFileResult {
   readonly fixedMode: boolean;
 }
 
-async function readIfExists(path: string): Promise<string | undefined> {
+/**
+ * Thrown when `.env` is a symlink or not a regular file. A planted symlink could
+ * redirect where secrets are read from and written to, so setup refuses to
+ * follow or replace it.
+ */
+export class UnsafeEnvFileError extends Error {
+  readonly code = 'UNSAFE_ENV_FILE';
+
+  constructor(
+    readonly path: string,
+    reason: string,
+  ) {
+    super(`${path} ${reason}. Remove it and run \`npm run setup\` again.`);
+    this.name = 'UnsafeEnvFileError';
+  }
+}
+
+/**
+ * Opens an existing `.env` without following a symlink (`O_NOFOLLOW`), so the
+ * check and the read are one step and cannot race. `undefined` means no file.
+ */
+async function openExisting(path: string): Promise<FileHandle | undefined> {
   try {
-    return await readFile(path, 'utf8');
+    return await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   } catch (error: unknown) {
-    if (FsError.safeParse(error).data?.code === 'ENOENT') {
+    const code = FsError.safeParse(error).data?.code;
+    if (code === 'ENOENT') {
       return undefined;
+    }
+    if (code === 'ELOOP') {
+      throw new UnsafeEnvFileError(path, 'is a symlink');
     }
     throw error;
   }
@@ -59,32 +85,42 @@ async function writeAtomically(path: string, content: string): Promise<void> {
   }
 }
 
-async function tightenMode(path: string): Promise<boolean> {
-  const mode = (await stat(path)).mode & PERMISSION_BITS;
-  if (mode === ENV_FILE_MODE) {
-    return false;
-  }
-  await chmod(path, ENV_FILE_MODE);
-  return true;
-}
-
 /**
  * Creates `.env` with every secret, or adds the missing ones to an existing file.
  * Existing values are never changed. When nothing is missing the file is not
- * written at all, so running setup again changes nothing.
+ * written at all, so running setup again changes nothing; only a too-wide mode
+ * is tightened.
  *
  * @throws InvalidEnvFileError when the existing file cannot be trusted; it is left untouched
+ * @throws UnsafeEnvFileError when `.env` is a symlink or not a regular file
  */
 export async function ensureEnvFile(
   path: string,
   generate: SecretGenerator = generateSecret,
 ): Promise<EnvFileResult> {
-  const existing = await readIfExists(path);
-  const plan = planEnv(existing, generate);
-
-  if (plan.added.length > 0) {
+  const handle = await openExisting(path);
+  if (handle === undefined) {
+    const plan = planEnv(undefined, generate);
     await writeAtomically(path, plan.content);
-    return { created: existing === undefined, added: plan.added, fixedMode: false };
+    return { created: true, added: plan.added, fixedMode: false };
   }
-  return { created: false, added: [], fixedMode: await tightenMode(path) };
+
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) {
+      throw new UnsafeEnvFileError(path, 'is not a regular file');
+    }
+    const plan = planEnv(await handle.readFile('utf8'), generate);
+    if (plan.added.length > 0) {
+      await writeAtomically(path, plan.content);
+      return { created: false, added: plan.added, fixedMode: false };
+    }
+    if ((stats.mode & PERMISSION_BITS) === ENV_FILE_MODE) {
+      return { created: false, added: [], fixedMode: false };
+    }
+    await handle.chmod(ENV_FILE_MODE);
+    return { created: false, added: [], fixedMode: true };
+  } finally {
+    await handle.close();
+  }
 }
