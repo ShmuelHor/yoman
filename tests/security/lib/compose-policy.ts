@@ -81,7 +81,12 @@ export const ALLOWED_BINDINGS: ReadonlySet<string> = new Set([
   `${LOOPBACK}:${String(GATEWAY_PORT)}`,
 ]);
 
-const ROOT_USERS: ReadonlySet<string> = new Set(['root', '0']);
+/**
+ * A numeric, non-zero uid with an optional non-zero gid. Names are rejected
+ * because the image's /etc/passwd can map any name to uid 0, and forms like
+ * `00` or `+0` are rejected because runc parses them as uid 0.
+ */
+const NON_ROOT_USER = /^[1-9]\d*(?::[1-9]\d*)?$/u;
 const NO_NEW_PRIVILEGES = 'no-new-privileges:true';
 const DIGEST_PINNED = /@sha256:[0-9a-f]{64}$/u;
 const DOCKER_SOCKET_NAME = 'docker.sock';
@@ -113,8 +118,9 @@ function checkUser(service: ComposeService): readonly string[] {
   if (service.user === undefined) {
     return ['has no user, so it runs as root'];
   }
-  const name = service.user.split(':')[0]?.trim() ?? '';
-  return name === '' || ROOT_USERS.has(name) ? [`runs as root (user: ${service.user})`] : [];
+  return NON_ROOT_USER.test(service.user)
+    ? []
+    : [`has user ${service.user}; it must be a numeric non-zero uid[:gid]`];
 }
 
 function checkReadOnly(service: ComposeService): readonly string[] {

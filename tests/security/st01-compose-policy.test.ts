@@ -86,6 +86,10 @@ describe('ST01 compose policy', () => {
       expect(rulesBroken(modelWith({ ports: [port] }))).toEqual(['published-port']);
     });
 
+    it.each(['1000', '1000:1000', '65534:65534'])('accepts the user %s', (user) => {
+      expect(rulesBroken(modelWith({ user }))).toEqual([]);
+    });
+
     it('rejects host networking', () => {
       expect(rulesBroken(modelWith({ network_mode: 'host' }))).toEqual(['host-network']);
     });
@@ -96,6 +100,12 @@ describe('ST01 compose policy', () => {
       ['uid 0', '0'],
       ['uid 0 with a group', '0:1000'],
       ['an empty user name', ':1000'],
+      ['a zero-padded uid 0', '00'],
+      ['a signed uid 0', '+0'],
+      ['a zero-padded uid 0 with group 0', '0000:0'],
+      ['a non-root uid with group 0', '1000:0'],
+      ['a named user, which may map to uid 0', 'app'],
+      ['a uid with whitespace', ' 1000'],
     ])('rejects %s', (_name, user) => {
       const service = compliantService();
       delete service.user;
