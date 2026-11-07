@@ -22,9 +22,9 @@
   | משאב משותף | איך נמנעת התנגשות |
   |---|---|
   | `docker-compose.yml` | משתמש ב-`include:` לקבצי `services/<x>/compose.yml`. ‏T10 יוצר את כל ה-stubs מראש |
-  | routes ב-gateway | ‏`@fastify/autoload` מ-`gateway/src/routes/<domain>/` |
+  | routes ב-gateway | ‏`@fastify/autoload` מ-`apps/gateway/src/routes/<domain>/` |
   | עמודי web | ‏`import.meta.glob('./pages/*/route.tsx')` |
-  | תרגומים | namespace לכל עמוד: ‏`web/src/i18n/{he,en}/<page>.json` |
+  | תרגומים | namespace לכל עמוד: ‏`apps/web/src/i18n/{he,en}/<page>.json` |
   | טסטי אבטחה | קובץ לכל ST: ‏`tests/security/stNN-*.test.ts` |
   | חוזים (`packages/shared`) | קובץ לכל domain. שינוי בחוזה = PR קטן נפרד שממוזג קודם |
 
@@ -40,9 +40,22 @@
   ```
 - **Conventional Commits** באנגלית: ‏`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `ci`, `build`, `security`. ‏scope = שם החבילה. ‏commitlint אוכף את זה
 - גוף ההודעה מסביר **למה** כשזה לא מובן מאליו
-- בלי `WIP`, ובלי שרשרת של "fix typo": מתקנים ב-amend לפני push
-- **PR לכל משימה** לפי התבנית: מה ולמה, איך נבדק, צ׳קליסט אבטחה, ובדיקות ST שהופעלו
-- merge ב-rebase (שומר על הקומיטים), רק אחרי CI ירוק ואישור הסוקר
+- בלי `WIP`, ובלי שרשרת של "fix typo": מתקנים ב-amend לפני ה-push הראשון
+
+### Branch ← PR ← Code Review ← Merge
+**אף אחד לא מקמט ישירות ל-`main`.** כל שינוי, כולל מסמכים ו-CI, עובר ב-branch וב-PR ב-GitHub. הפירוט המלא ב-[CLAUDE.md](../CLAUDE.md#git-flow-branch--pr--code-review--merge).
+
+```
+branch t13-…  →  קומיטים  →  push  →  PR (draft)  →  CI ירוק  →  Ready for review
+      →  CR: הערות inline (blocking / suggestion / question)  →  קומיטי תיקון  →  re-review
+      →  "Verdict: approved"  →  rebase merge  →  מחיקת ה-branch
+```
+
+- **PR לכל משימה**, עם כותרת בסגנון `T13: sessions service` וגוף לפי התבנית המלאה: מה ולמה, איך נבדק, צ׳קליסט אבטחה, בדיקות ST שהופעלו ותלויות חדשות
+- **Code Review על כל PR** על ידי סוכן סוקר שאינו מי שכתב את הקוד. הוא מריץ את ה-branch בעצמו, משאיר הערות inline על שורות ספציפיות ומסיים ב-`Verdict:`
+- **אחרי ה-push הראשון לא משכתבים היסטוריה** (בלי amend ובלי force push), כדי שהסוקר יראה מה השתנה. כל הערה מקבלת תיקון בקומיט חדש או תשובה מנומקת
+- **merge** ב-rebase (שומר על הקומיטים) ומחיקת ה-branch, רק כשה-CI ירוק, האישור האחרון הוא `Verdict: approved` וכל השרשורים סגורים
+- GitHub לא מאפשר לחשבון לאשר PR של עצמו, ולכן שורת ה-`Verdict` היא תיעוד האישור
 
 ---
 
@@ -66,11 +79,12 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 ### T01 · שלד הריפו ומוסכמות
 - **בעלות:** קבצי root, ‏`packages/` (ריק), ‏`.github/pull_request_template.md`
 - **מה:**
-  - npm workspaces (`agent`, `web`, `gateway`, `services/*`, `packages/*`), ‏`tsconfig.base.json` במצב strict, ‏ESLint (כולל `eslint-plugin-security` ו-`no-unsanitized`) ו-Prettier
+  - npm workspaces (`apps/*`, `services/*`, `packages/*`), ‏`tsconfig.base.json` במצב strict, ו-**Biome** ל-lint ולפורמט (במקום ESLint ו-Prettier)
   - ‏`.npmrc` עם `ignore-scripts=true` ו-`engine-strict`. ‏`.nvmrc` (22). ‏`.editorconfig`
   - ‏`.gitignore`: ‏node_modules, dist, `.env*` חוץ מ-`.env.example`, ‏`backups/`, ‏`data/`, ‏coverage
   - ‏commitlint + simple-git-hooks. תבנית PR עם הצ׳קליסט של SECURITY.md §6
-  - חוקי ESLint מקומיים: איסור `shell: true`, איסור `dangerouslySetInnerHTML`, ואיסור template string בתוך `query(`
+  - חוקי Biome: ‏`noDangerouslySetInnerHtml`, ‏`noExplicitAny`, ‏`noConsole`, ‏`noDefaultExport`, ‏`noFloatingPromises`, ‏kebab-case לשמות קבצים, ואיסור `exec` מ-`node:child_process`
+  - חוקים מותאמים ב-GritQL (`biome-plugins/`): איסור `shell: true`, ואיסור template string עם ערכים בתוך `query(` או `execute(`
   - ‏`scripts/check-language.ts`: נכשל על עברית בכל קובץ חוץ מקבצי תרגום ו-`docs/`
   - ‏`README.md` ראשוני באנגלית: מה זה, ארכיטקטורה, סטטוס ואיך מתחילים. ‏T55 מרחיב אותו
 - **גמור כש:**
@@ -90,7 +104,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 ### T03 · CI: שערי איכות ‖
 - **בעלות:** ‏`.github/workflows/ci.yml`
 - **מה:**
-  - שלבים: ‏`npm ci`, ‏lint, ‏typecheck, ‏unit tests עם כיסוי (סף **80%** ל-`services/*/src/domain` ול-`agent/src/core`, ‏60% לשאר), ו-build
+  - שלבים: ‏`npm ci`, ‏lint, ‏typecheck, ‏unit tests עם כיסוי (סף **80%** ל-`services/*/src/domain` ול-`apps/agent/src/core`, ‏60% לשאר), ו-build
   - ‏`permissions: contents: read`, ‏`concurrency`, ‏timeout לכל job. כל action נעול ל-SHA
 - **גמור כש:**
   - [ ] ה-CI ירוק
@@ -134,7 +148,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 - **תלוי ב:** T06
 - **בעלות:** ‏`scripts/github-protect.sh`, ‏`docs/REPO-SETTINGS.md`
 - **מה:**
-  - סקריפט `gh api` שמגדיר: ריפו פרטי, ‏branch protection ל-`main` (PR חובה, כל הבדיקות חובה, היסטוריה ליניארית, בלי force push), ‏secret scanning, ‏push protection, ‏Dependabot alerts, ו-Actions רק מ-allowlist
+  - סקריפט `gh api` שמגדיר: ריפו פרטי, ‏branch protection ל-`main` (PR חובה, כל הבדיקות חובה, סגירת כל שרשורי ה-review חובה, היסטוריה ליניארית, בלי force push ובלי מחיקה. בלי חובת approval, כי זה חשבון יחיד ואישור נעשה בשורת `Verdict`), ומחיקה אוטומטית של branches אחרי merge, ‏secret scanning, ‏push protection, ‏Dependabot alerts, ו-Actions רק מ-allowlist
   - **המתאם מריץ את הסקריפט רק אחרי אישור מפורש של המשתמש**
 - **גמור כש:**
   - [ ] אחרי הרצה: push ישיר ל-main נדחה
@@ -182,7 +196,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
   - [ ] ‏`ss -tln` מראה רק 4710 ו-4711, ושניהם על 127.0.0.1
 
 ### T11 · שלד web ‏‖
-- **בעלות:** ‏`web/` (חוץ מ-`web/src/pages/*` ו-`web/src/components/*`)
+- **בעלות:** ‏`apps/web/` (חוץ מ-`apps/web/src/pages/*` ו-`apps/web/src/components/*`)
 - **מה:**
   - Vite, ‏React, ‏TS, ‏Router עם glob, ‏TanStack Query, ו-api client מתוך החוזים
   - ‏react-i18next עם namespaces, ו-`dir` ו-`lang` על `<html>`
@@ -196,7 +210,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
   - [ ] אין שגיאות CSP בקונסול
 
 ### T12 · שלד agent ‏‖
-- **בעלות:** ‏`agent/src/core/`, ‏`agent/package.json`
+- **בעלות:** ‏`apps/agent/src/core/`, ‏`apps/agent/package.json`
 - **מה:**
   - scheduler, ‏config, ‏buffer ב-JSONL עם תקרה של 50MB, תיקיות ב-`0700` וקבצים ב-`0600`
   - pino עם redaction
@@ -215,7 +229,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 
 ## גל 2 · יחידות עצמאיות (עד 5 במקביל מתוך 14)
 
-כל סרוויס בבעלות `services/<x>/` (כולל ה-`compose.yml` שלו). כל collector בבעלות `agent/src/collectors/<x>/`.
+כל סרוויס בבעלות `services/<x>/` (כולל ה-`compose.yml` שלו). כל collector בבעלות `apps/agent/src/collectors/<x>/`.
 
 ### T13 · sessions-service
 - **מה:**
@@ -250,7 +264,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
   - [ ] יש טסטים לטבלה של 3 רמות × בפוקוס/לא, ל-rate limit, לסיכום ולחריגים
 
 ### T19 · gateway: ליבה ואבטחה
-- **בעלות:** ‏`gateway/src/core/`, ‏`gateway/compose.yml`
+- **בעלות:** ‏`apps/gateway/src/core/`, ‏`apps/gateway/compose.yml`
 - **מה:**
   - Bearer ל-agent עם `timingSafeEqual`
   - session cookie עם CSRF token
@@ -285,7 +299,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
   - [ ] התקנה חדשה מזוהה תוך 5 שנ׳
 
 ### T26 · web: tokens ורכיבים
-- **בעלות:** ‏`web/src/theme/`, ‏`web/src/components/`, ‏`web/src/pages/dev-components/`
+- **בעלות:** ‏`apps/web/src/theme/`, ‏`apps/web/src/components/`, ‏`apps/web/src/pages/dev-components/`
 - **מה:**
   - tokens בדיוק לפי DESIGN.md, וכל הרכיבים מ-DESIGN.md
   - דף `/dev/components` בשני המצבים ובשתי השפות
@@ -300,21 +314,21 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 
 ## גל 3 · חיבורים (עד 5 במקביל מתוך 15)
 
-### Gateway (כל משימה בבעלות `gateway/src/routes/<domain>/`)
+### Gateway (כל משימה בבעלות `apps/gateway/src/routes/<domain>/`)
 - **T27 · זרימת ingest:** פיצול לסרוויסים, סשנים סגורים ל-reports ול-goals, איסוף alerts, ‏focus ‏`/route`, ותשובה `{notify, mute}`. טסט אינטגרציה מול compose. מפעיל: **ST08** (ingest)
 - **T28 · routes של dashboard, reports, apps, rules ו-goals:** כולל aggregation של `today`. מפעיל: **ST08**
 - **T29 · routes של battery ו-system:** כולל העברת ציר הסשנים ל-`power-by-app`. מפעיל: **ST08**
 - **T30 · routes של focus:** ‏start ו-stop, פקודות mute ושחזור, ו-known-apps. מפעיל: **ST08**
 - **T31 · settings:** סכמה `gateway.settings` (שפה, ערכת צבעים, פרטיות, ספים, אפליקציות מערכת, שעות שקטות). מפעיל: **ST08**
 
-### Agent (כל משימה בבעלות `agent/src/actuators/<x>/` או `agent/src/sender/`)
+### Agent (כל משימה בבעלות `apps/agent/src/actuators/<x>/` או `apps/agent/src/sender/`)
 - **T32 · שליחה:** מנה כל 60 שנ׳, ‏backoff, מחיקה רק אחרי 2xx, וטיפול בתשובה
   - **גמור כש:** [ ] כיבוי הדוקר לשעה לא מאבד נתונים
-- **T33 · notifier:** ‏D-Bus Notify עם urgency, טקסט מתורגם (‏`agent/src/i18n/`), ופעולה "פתח דשבורד"
+- **T33 · notifier:** ‏D-Bus Notify עם urgency, טקסט מתורגם (‏`apps/agent/src/i18n/`), ופעולה "פתח דשבורד"
 - **T34 · muter בטוח:** ‏execFile, ‏regex ל-app-id, ‏allowlist של אפליקציות מערכת, ושמירה ושחזור של state. מפעיל: **ST14**
   - **גמור כש:** [ ] אחרי `kill -9` באמצע פוקוס, הכול משוחזר
 
-### Web (כל משימה בבעלות `web/src/pages/<x>/` ו-namespace משלה)
+### Web (כל משימה בבעלות `apps/web/src/pages/<x>/` ו-namespace משלה)
 - **T35 · היום:** מפעיל: **ST13** (XSS בכותרת)
 - **T36 · אפליקציות וחוקים:** כולל תצוגה מקדימה של "על מה החוק חל"
 - **T37 · יעדים**
@@ -336,14 +350,14 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 - **T42 · systemd user service:** התקנה והסרה, ובדיקה שהתוסף Window Calls מותקן
   - **גמור כש:** [ ] ה-agent עולה אחרי login וחוזר אחרי `kill -9`
 - **T43 · עמוד "שבוע":** עמודות לפי יום וקטגוריה, השוואה לשבוע קודם, וסיכום שבועי
-- **T44 · "נא לא להפריע" של GNOME:** אופציונלי לפי פרופיל, עם אותו מנגנון שמירה ושחזור. בעלות: ‏`agent/src/actuators/dnd/`
+- **T44 · "נא לא להפריע" של GNOME:** אופציונלי לפי פרופיל, עם אותו מנגנון שמירה ושחזור. בעלות: ‏`apps/agent/src/actuators/dnd/`
 - **T45 · טריגרים אוטומטיים לפוקוס:** לוח זמנים, ואפליקציה בפוקוס יותר מ-N דק׳. בעלות: ‏`services/focus/src/triggers/`
-- **T46 · Pomodoro:** בעלות: ‏`services/focus/src/pomodoro/` וקומפוננטה ב-`web/src/pages/focus/pomodoro/`
+- **T46 · Pomodoro:** בעלות: ‏`services/focus/src/pomodoro/` וקומפוננטה ב-`apps/web/src/pages/focus/pomodoro/`
 - **T47 · השהיה ופרטיות:** השהיה, "לא לשמור כותרות", ואפליקציות מוחרגות שלא נשלחות בכלל. מפעיל: **ST17** (כותרות)
 - **T48 · ייצוא וגיבוי:** CSV/JSON עם session, ו-`npm run backup` ב-`0600`. מפעיל: **ST15** (backups)
 - **T49 · ניקוי נתונים ישנים:** קובץ `src/jobs/retention.ts` בכל סרוויס, כולל לוג של מה נמחק
-- **T50 · אייקון בשורת המשימות:** StatusNotifierItem. בעלות: ‏`agent/src/tray/`
-- **T51 · CLI:** בעלות: ‏`agent/src/cli/`
+- **T50 · אייקון בשורת המשימות:** StatusNotifierItem. בעלות: ‏`apps/agent/src/tray/`
+- **T51 · CLI:** בעלות: ‏`apps/agent/src/cli/`
 
 **שער G4:**
 - [ ] כל הפיצ׳רים מטבלת הכיסוי מסומנים

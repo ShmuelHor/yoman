@@ -78,7 +78,7 @@ Yoman אוסף מידע רגיש מאוד: מה עשית במחשב בכל רג�
 | Trivy config + fs | ‏misconfig ותלויות | כל PR |
 | Trivy image | ‏images שנבנו | כל PR, ‏release ו-nightly |
 | actionlint + zizmor | אבטחת ה-workflows עצמם | כל PR |
-| ESLint security (‏`eslint-plugin-security`, ‏`no-unsanitized`) + חוקים מקומיים | ‏`shell:true`, ‏`dangerouslySetInnerHTML`, ‏template SQL | כל PR |
+| Biome (`biome ci`) + חוקי GritQL ב-`biome-plugins/` | ‏`shell:true`, ‏`dangerouslySetInnerHTML`, ‏template SQL, ‏`exec`, ‏`eval`, ‏`any` | כל PR |
 | tests/security (ST01–ST17) | ההתנהגות בפועל | כל PR |
 | ZAP baseline (ST18) | ‏DAST | nightly ו-release |
 | OpenSSF Scorecard | בריאות הריפו | weekly |
