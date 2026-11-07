@@ -102,20 +102,51 @@ export class InvalidEnvFileError extends Error {
 }
 
 const LINE_PATTERN = /^([^=\s]+)=(.*)$/u;
+const BYTE_ORDER_MARK = '\uFEFF';
 
 function isIgnorable(line: string): boolean {
   const trimmed = line.trim();
   return trimmed.length === 0 || trimmed.startsWith('#');
 }
 
+type LineResult = { readonly entry: EnvEntry } | { readonly problem: string };
+
+/**
+ * Parses one non-comment line. A problem names the key when the key is valid,
+ * but never the value, which may be a secret.
+ */
+function parseLine(line: string): LineResult {
+  const match = LINE_PATTERN.exec(line);
+  if (match === null) {
+    return { problem: 'expected KEY=VALUE with no spaces around "="' };
+  }
+  const [, key, value] = match;
+  const parsed = EnvEntry.safeParse({ key, value });
+  if (parsed.success) {
+    return { entry: parsed.data };
+  }
+  if (parsed.error.issues.some(({ path }) => path[0] === 'key')) {
+    return { problem: 'key must be upper case letters, digits and "_", starting with a letter' };
+  }
+  return {
+    problem: `value of ${String(key)} is longer than ${String(MAX_VALUE_LENGTH)} characters`,
+  };
+}
+
 /**
  * Parses `.env` content into entries. Only plain `KEY=VALUE` lines, blank lines
  * and `#` comments are allowed. Anything else fails, because setup would
- * otherwise guess at what the line means.
+ * otherwise guess at what the line means. A leading byte order mark is reported
+ * rather than stripped, since rewriting the file is not setup's call.
  *
  * Problems name the line and key but never the value, which may be a secret.
  */
 export function parseEnv(content: string): EnvEntry[] {
+  if (content.startsWith(BYTE_ORDER_MARK)) {
+    throw new InvalidEnvFileError([
+      'line 1: the file starts with a UTF-8 byte order mark; save it as UTF-8 without BOM',
+    ]);
+  }
   const entries: EnvEntry[] = [];
   const problems: string[] = [];
   const seen = new Set<string>();
@@ -124,19 +155,19 @@ export function parseEnv(content: string): EnvEntry[] {
     if (isIgnorable(line)) {
       return;
     }
-    const lineNumber = index + 1;
-    const match = LINE_PATTERN.exec(line);
-    const parsed = EnvEntry.safeParse({ key: match?.[1], value: match?.[2] });
-    if (match === null || !parsed.success) {
-      problems.push(`line ${String(lineNumber)}: expected KEY=VALUE with an upper case key`);
+    const lineNumber = `line ${String(index + 1)}`;
+    const result = parseLine(line);
+    if ('problem' in result) {
+      problems.push(`${lineNumber}: ${result.problem}`);
       return;
     }
-    if (seen.has(parsed.data.key)) {
-      problems.push(`line ${String(lineNumber)}: ${parsed.data.key} is defined twice`);
+    const { entry } = result;
+    if (seen.has(entry.key)) {
+      problems.push(`${lineNumber}: ${entry.key} is defined twice`);
       return;
     }
-    seen.add(parsed.data.key);
-    entries.push(parsed.data);
+    seen.add(entry.key);
+    entries.push(entry);
   });
 
   if (problems.length > 0) {

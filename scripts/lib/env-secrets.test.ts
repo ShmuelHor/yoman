@@ -75,12 +75,34 @@ describe('parseEnv', () => {
 
   it.each([
     ['a line without "="', 'NOT_AN_ASSIGNMENT\n'],
-    ['a lower case key', 'foo=bar\n'],
     ['a space around "="', 'FOO = bar\n'],
     ['an export prefix', 'export FOO=bar\n'],
   ])('rejects %s', (_name, content) => {
     expect(invalidProblems(() => parseEnv(content))).toEqual([
-      'line 1: expected KEY=VALUE with an upper case key',
+      'line 1: expected KEY=VALUE with no spaces around "="',
+    ]);
+  });
+
+  it.each([
+    ['a lower case key', 'foo=bar\n'],
+    ['a key starting with a digit', '1FOO=bar\n'],
+  ])('rejects %s, explaining the key rule', (_name, content) => {
+    expect(invalidProblems(() => parseEnv(content))).toEqual([
+      'line 1: key must be upper case letters, digits and "_", starting with a letter',
+    ]);
+  });
+
+  it('names the key, not the value, when a value is too long', () => {
+    const value = 'x'.repeat(MAX_VALUE_LENGTH + 1);
+
+    expect(invalidProblems(() => parseEnv(`# c\nOTHER=${value}\n`))).toEqual([
+      `line 2: value of OTHER is longer than ${String(MAX_VALUE_LENGTH)} characters`,
+    ]);
+  });
+
+  it('reports a leading byte order mark instead of a confusing key error', () => {
+    expect(invalidProblems(() => parseEnv('\uFEFFFOO=bar\n'))).toEqual([
+      'line 1: the file starts with a UTF-8 byte order mark; save it as UTF-8 without BOM',
     ]);
   });
 
@@ -88,12 +110,6 @@ describe('parseEnv', () => {
     expect(invalidProblems(() => parseEnv('FOO=a\nFOO=b\n'))).toEqual([
       'line 2: FOO is defined twice',
     ]);
-  });
-
-  it('rejects an oversized value', () => {
-    expect(() => parseEnv(`FOO=${'x'.repeat(MAX_VALUE_LENGTH + 1)}\n`)).toThrow(
-      InvalidEnvFileError,
-    );
   });
 });
 
