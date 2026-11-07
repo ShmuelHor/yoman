@@ -1,0 +1,125 @@
+# Yoman
+
+**Your computer's automatic diary: time, battery, load and focus. Local only.**
+
+_Yoman_ (Hebrew for "diary") quietly records how you use your Linux machine and turns it into a calm,
+readable daily journal. It tracks which apps you spend time in, how your battery is aging, when the
+system is choking and why, and gives you a focus mode that silences the apps you choose.
+Nothing ever leaves your computer.
+
+> **Status:** early development. The foundation (CI/CD and security gates) is being built first,
+> before any feature code. See the [roadmap](#roadmap).
+
+## Features
+
+| Area               | What it does                                                                                                                                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Time tracking**  | Records the focused window every few seconds, merges samples into sessions, detects idle time and screen lock, and sorts apps into categories with editable rules.                                                                      |
+| **Battery health** | Tracks capacity versus design capacity, charge cycles and discharge rate over months, and shows which apps drain the battery the most.                                                                                                  |
+| **System load**    | Uses Linux [PSI](https://docs.kernel.org/accounting/psi.html) to detect when the machine is actually stalling (not just busy), then names the heaviest processes and Docker containers. Also flags memory leaks and thermal throttling. |
+| **Focus mode**     | Mutes notifications from selected apps (Telegram, Chrome web apps, anything installed later) for a set time. Critical alerts still get through, and you get a summary at the end. Settings survive crashes and are always restored.     |
+| **Goals**          | Daily limits or targets per app or category, such as "at most one hour of YouTube".                                                                                                                                                     |
+| **Bilingual UI**   | Hebrew (RTL) and English (LTR), plus light, dark and system themes in a warm "paper and ink" design.                                                                                                                                    |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph host["Host (your machine)"]
+    agent["agent<br/>collectors · notifier · muter"]
+    web["web<br/>React UI"]
+  end
+
+  subgraph compose["Docker Compose · internal network"]
+    gateway["gateway<br/>auth · orchestration"]
+    sessions[sessions]
+    reports[reports]
+    goals[goals]
+    battery[battery]
+    system[system]
+    focus[focus]
+    db[(PostgreSQL<br/>schema per service)]
+  end
+
+  agent -- "batched ingest, 60s" --> gateway
+  web -- "HTTP" --> gateway
+  gateway --> sessions & reports & goals & battery & system & focus
+  sessions & reports & goals & battery & system & focus --> db
+```
+
+- **One entry point.** The UI and the agent talk only to the gateway, which orchestrates every flow.
+  Services never call each other.
+- **Each service owns its data.** It has its own PostgreSQL schema and its own database role, with
+  no access to anyone else's.
+- **The agent runs on the host**, not in a container, because it needs D-Bus, `/proc`, `/sys` and
+  GNOME settings. It buffers locally, so Docker can be stopped without losing data.
+- **Battery-conscious by design.** The agent targets ≤ 0.5% CPU and ≤ 60 MB of memory, and stops
+  sampling while the screen is locked.
+
+## Security
+
+The data Yoman collects is as sensitive as browser history, so security is enforced by automation
+rather than good intentions:
+
+- Only two ports are published, and both are bound to `127.0.0.1`. Everything else stays on an
+  internal Docker network.
+- The gateway defends against CSRF and DNS rebinding with a Host allowlist, Origin checks,
+  `SameSite=Strict` cookies and CSRF tokens.
+- Containers run as non-root with a read-only filesystem, all capabilities dropped and
+  `no-new-privileges`.
+- Secrets are generated locally and never committed. gitleaks runs on every commit and in CI.
+- CI blocks merges on CodeQL, Semgrep, Trivy, OSV-Scanner, npm audit, hadolint, actionlint, zizmor
+  and a suite of behavioral security tests. Releases are signed with cosign and ship with an SBOM.
+
+## Tech stack
+
+**Backend:** Node.js 22, TypeScript (strict), Fastify, zod, pino, PostgreSQL 16
+**Frontend:** React, Vite, TanStack Query, react-i18next
+**Agent:** Node.js with D-Bus (GNOME Shell, Mutter, freedesktop notifications)
+**Quality:** Vitest, fast-check, Playwright, Biome (lint, format and custom GritQL security rules), commitlint
+**Delivery:** Docker Compose, GitHub Actions, cosign, Syft, Trivy
+
+## Repository layout
+
+```
+apps/
+  agent/      host process: collectors, notifier, muter, tray, CLI
+  gateway/    the only public API; auth and orchestration
+  web/        React UI
+services/     sessions · reports · goals · battery · system · focus
+packages/     shared contracts and the service kit
+scripts/      repo tooling
+tests/        cross-cutting security and end-to-end tests
+docs/         specification, design system, security model, task plan
+```
+
+## Development
+
+Requirements: Node.js 22, Docker Engine with Compose v2, and GNOME on Wayland with the
+[Window Calls](https://extensions.gnome.org/extension/4724/window-calls/) extension.
+
+```bash
+npm ci
+npm run hooks:install   # commit-message checks (install scripts are disabled, see .npmrc)
+npm run check           # lint, typecheck, format and language checks
+npm test                # unit tests with coverage thresholds
+```
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and are enforced by
+commitlint.
+
+## Roadmap
+
+Work is split into six waves so several contributors can work in parallel without touching the
+same files:
+
+0. **CI/CD and security gates** (in progress)
+1. Contracts and infrastructure
+2. Independent units: services, collectors and UI components
+3. Integration: gateway flows, notifications, muting and pages
+4. Polish: Pomodoro, tray, CLI, export and retention
+5. Release: end-to-end tests, DAST, battery budget and security review
+
+## License
+
+All rights reserved. This repository is shared for portfolio purposes.
