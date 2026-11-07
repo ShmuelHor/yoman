@@ -1,63 +1,67 @@
-# Yoman: מערכת עיצוב "נייר ודיו"
+# Yoman: the "Paper and Ink" design system
 
-נייר חם, דיו כהה וצבעי אדמה. שקט, אישי, כמו מחברת טובה.
-**כל צבע, פונט, רדיוס וריווח מגיע מ-token.** אסור לכתוב ערך hex בקומפוננטה.
+Warm paper, dark ink and earth tones. Quiet and personal, like a good notebook.
+**Every color, font, radius and spacing value comes from a token.** Writing a hex value in a component is not allowed.
 
 ## Tokens
 
-| token | בהיר | כהה | שימוש |
+| Token | Light | Dark | Use |
 |---|---|---|---|
-| `--bg` | `#F3EDE2` | `#1B1916` | רקע העמוד |
-| `--surface` | `#FBF7F0` | `#24211D` | כרטיסים |
-| `--text` | `#1E1C19` | `#EDE6D9` | טקסט ראשי ומספרים |
-| `--muted` | `#7A7368` | `#A39A8B` | תוויות וטקסט משני |
-| `--line` | `#DDD3C3` | `#3A352E` | מסגרות וקווים מפרידים |
-| `--accent` | `#B4532A` | `#E07B4F` | פעולה ראשית וחריגות |
-| `--accent-bg` | `#F3DED2` | `#3A271E` | רקע להתראות וחריגות |
-| `--ok` | `#5E6B3A` | `#9AAA6A` | תקין, פעיל, מצב עבודה |
-| `--on-accent` | `#FBF7F0` | `#1B1916` | טקסט על accent |
-| `--cat-work` | `#B4532A` | `#E07B4F` | קטגוריה: עבודה |
-| `--cat-comms` | `#5E6B3A` | `#9AAA6A` | קטגוריה: תקשורת |
-| `--cat-fun` | `#C9A15B` | `#D9B26E` | קטגוריה: בידור |
-| `--cat-other` | `#8C8478` | `#7D7568` | קטגוריה: אחר |
-| `--cat-idle` | `var(--line)` | `var(--line)` | לא ליד המחשב |
+| `--bg` | `#F3EDE2` | `#1B1916` | Page background |
+| `--surface` | `#FBF7F0` | `#24211D` | Cards |
+| `--text` | `#1E1C19` | `#EDE6D9` | Primary text and numbers |
+| `--muted` | `#7A7368` | `#A39A8B` | Labels and secondary text |
+| `--line` | `#DDD3C3` | `#3A352E` | Borders and dividers |
+| `--accent` | `#B4532A` | `#E07B4F` | Primary action and anomalies |
+| `--accent-bg` | `#F3DED2` | `#3A271E` | Background for alerts and anomalies |
+| `--ok` | `#5E6B3A` | `#9AAA6A` | Healthy, active, focus mode |
+| `--on-accent` | `#FBF7F0` | `#1B1916` | Text on accent |
+| `--cat-work` | `#B4532A` | `#E07B4F` | Category: work |
+| `--cat-comms` | `#5E6B3A` | `#9AAA6A` | Category: communication |
+| `--cat-fun` | `#C9A15B` | `#D9B26E` | Category: entertainment |
+| `--cat-other` | `#8C8478` | `#7D7568` | Category: other |
+| `--cat-idle` | `var(--line)` | `var(--line)` | Away from the computer |
 
-| token | ערך |
+| Token | Value |
 |---|---|
-| `--radius` | `10px` (כרטיסים, כפתורים, שדות) |
-| `--radius-sm` | `3px` (פסי גרף, נקודות קטגוריה) |
+| `--radius` | `10px` (cards, buttons, fields) |
+| `--radius-sm` | `3px` (chart bars, category dots) |
 | `--border` | `1px solid var(--line)` |
 | `--space-1..6` | `4, 8, 12, 16, 24, 32px` |
 
-## טיפוגרפיה
-| תפקיד | פונט | גודל ומשקל |
+## Typography
+Both typefaces cover Hebrew and Latin, so the same fonts serve both UI languages.
+
+| Role | Font | Size and weight |
 |---|---|---|
-| מספר ראשי (hero) | Frank Ruhl Libre | 44px / 500 |
-| מספר משני | Frank Ruhl Libre | 28px / 500 |
-| ערכים בטבלה | Frank Ruhl Libre | 14px / 400 |
-| כותרת עמוד | Frank Ruhl Libre | 24px / 500 |
-| טקסט וממשק | Heebo | 14px / 400 |
-| תווית | Heebo | 12px / 400, ‏`--muted` |
+| Hero number | Frank Ruhl Libre | 44px / 500 |
+| Secondary number | Frank Ruhl Libre | 28px / 500 |
+| Table values | Frank Ruhl Libre | 14px / 400 |
+| Page title | Frank Ruhl Libre | 24px / 500 |
+| Body and UI | Heebo | 14px / 400 |
+| Label | Heebo | 12px / 400, `--muted` |
 
-שני משקלים בלבד: 400 ו-500. מספרים מוצגים עם `font-variant-numeric: tabular-nums`.
+Two weights only: 400 and 500. Numbers use `font-variant-numeric: tabular-nums`.
 
-## חוקים
-1. **כרטיס = יחידת מידע.** במבנה קבוע: תווית למעלה, ערך בסריף, ושורת הקשר מתחת ("47 דק׳ יותר מאתמול").
-2. **accent במשורה:** פעולה ראשית אחת בכל מסך, וחריגות. לא לקישוטים.
-3. **`--ok` (זית)** מסמן מצב תקין, מצב עבודה פעיל ומתג דלוק.
-4. **בלי גרדיאנטים, בלי צללים ובלי blur.** עומק נוצר רק ממסגרת ומהבדל בין `--bg` ל-`--surface`.
-5. **גרפים:** קווים בעובי 1.5px, פסים עם `--radius-sm`, ואזור חריגה בצבע `--accent` בשקיפות 12%.
-6. **RTL ו-LTR:** רק `margin-inline-*`, ‏`padding-inline-*` ו-`inset-inline-*`. אייקונים של כיוון (חצים) מתהפכים לפי `dir`.
-7. **מצב כהה** הוא רק סט ערכים אחר לאותם tokens: ‏`[data-theme="dark"]`, או `prefers-color-scheme` כשהבחירה היא `system`.
+## Rules
+1. **A card is a unit of information.** It has a fixed structure: a label on top, the value in the serif, and a context line below ("47 min more than yesterday").
+2. **Use accent sparingly:** one primary action per screen, and anomalies. Never for decoration.
+3. **`--ok` (olive)** marks a healthy state, active focus mode and a switch that is on.
+4. **No gradients, no shadows and no blur.** Depth comes only from borders and the difference between `--bg` and `--surface`.
+5. **Charts:** 1.5px lines, bars with `--radius-sm`, and anomaly regions in `--accent` at 12% opacity.
+6. **RTL and LTR:** only `margin-inline-*`, `padding-inline-*` and `inset-inline-*`. Directional icons (arrows) flip according to `dir`.
+7. **Dark mode** is only a different set of values for the same tokens: `[data-theme="dark"]`, or `prefers-color-scheme` when the choice is `system`.
 
-## רכיבים
-| רכיב | מראה |
+## Components
+| Component | Appearance |
 |---|---|
-| Button primary | רקע `--accent`, טקסט `--on-accent`, ‏radius 10 |
-| Button secondary | שקוף, ‏`--border`, טקסט `--text` |
-| Input | רקע `--bg`, ‏`--border`, ‏radius 10, ‏placeholder ב-`--muted` |
-| Switch | מסילה `--ok` כשדלוק ו-`--line` כשכבוי, ועיגול `--surface` |
-| Tag | ‏`--border` + ‏`--muted`. וריאנט חריגה: ‏`--accent-bg` + ‏`--accent` |
-| Nav tab | פעיל: רקע `--text` וטקסט `--bg`. לא פעיל: ‏`--muted` |
-| Alert card | רקע `--accent-bg`, מסגרת `--accent`, כותרת בסריף |
-| Focus banner | פס עליון ברקע `--ok`: "מצב עבודה · נשארו 47 דק׳" |
+| Button primary | `--accent` background, `--on-accent` text, radius 10 |
+| Button secondary | Transparent, `--border`, `--text` text |
+| Input | `--bg` background, `--border`, radius 10, placeholder in `--muted` |
+| Switch | Track `--ok` when on and `--line` when off, with a `--surface` knob |
+| Tag | `--border` + `--muted`. Anomaly variant: `--accent-bg` + `--accent` |
+| Nav tab | Active: `--text` background and `--bg` text. Inactive: `--muted` |
+| Alert card | `--accent-bg` background, `--accent` border, serif title |
+| Focus banner | Top bar on an `--ok` background: "Focus mode · 47 min left" |
+
+UI copy in this document is shown in English; the product strings are localized into Hebrew (the default language) in the i18n files.

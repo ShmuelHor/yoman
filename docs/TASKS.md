@@ -1,36 +1,36 @@
-# Yoman: משימות לעבודה מקבילית
+# Yoman: tasks for parallel work
 
-קובץ זה הוא תור העבודה של הסוכנים. לפני כל משימה: [CLAUDE.md](../CLAUDE.md), ‏[SPEC.md](SPEC.md), ‏[SECURITY.md](SECURITY.md), ‏[DESIGN.md](DESIGN.md).
+This file is the agents' work queue. Before any task, read: [CLAUDE.md](../CLAUDE.md), [SPEC.md](SPEC.md), [SECURITY.md](SECURITY.md), [DESIGN.md](DESIGN.md).
 
-## איך עובדים במקביל
+## How parallel work runs
 
-### תפקידים
-| תפקיד | מי | אחריות |
+### Roles
+| Role | Who | Responsibility |
 |---|---|---|
-| **מתאם** | הסשן הראשי | מחלק משימות, ממזג PRs, מריץ את שער הגל, ומעדכן את טבלת המצב. **רק הוא עורך את הקובץ הזה** |
-| **מבצע** | סוכן לכל משימה | עובד ב-worktree וב-branch משלו, נוגע **רק** בקבצים שבבעלות המשימה, ופותח PR |
-| **סוקר** | סוכן נפרד | סוקר כל PR לפני merge: נכונות, הצ׳קליסט של SECURITY.md §6, ובדיקה שה-"גמור כש" באמת מתקיים |
+| **Coordinator** | The main session | Assigns tasks, merges PRs, runs the wave gate and updates the status table. **Only the coordinator edits this file** |
+| **Worker** | One agent per task | Works in its own worktree and branch, touches **only** the files the task owns, and opens a PR |
+| **Reviewer** | A separate agent | Reviews every PR before merge: correctness, the SECURITY.md §6 checklist, and a check that every "Done when" item is actually met |
 
-### גלים
-- משימות באותו גל **לא תלויות זו בזו** ואפשר להריץ אותן במקביל. מומלץ עד 5 מבצעים בבת אחת.
-- גל חדש מתחיל רק אחרי **שער הגל** הקודם: הכול מוזג ל-`main`, ה-CI ירוק, והבדיקות של השער עברו.
-- גל 0 הוא **CI/CD ובדיקות אבטחה**, והוא בא לפני כל קוד של פיצ׳רים.
+### Waves
+- Tasks in the same wave **do not depend on each other** and can run in parallel. Up to 5 workers at a time is recommended.
+- A new wave starts only after the previous **wave gate**: everything is merged to `main`, CI is green, and the gate's checks pass.
+- Wave 0 is **CI/CD and security tests**, and it comes before any feature code.
 
-### בעלות על קבצים (כדי שלא יהיו התנגשויות)
-- לכל משימה יש רשימת **בעלות**. מבצע לא נוגע בקבצים מחוץ לה. אם צריך, הוא עוצר ומדווח למתאם.
-- המבנה תוכנן כך שכל אחד מוסיף קבצים משלו ולא עורך קובץ משותף:
-  | משאב משותף | איך נמנעת התנגשות |
+### File ownership (to avoid conflicts)
+- Every task has an **Owns** list. A worker does not touch files outside it. If it has to, it stops and reports to the coordinator.
+- The layout is designed so that each task adds its own files rather than editing a shared one:
+  | Shared resource | How conflicts are avoided |
   |---|---|
-  | `docker-compose.yml` | משתמש ב-`include:` לקבצי `services/<x>/compose.yml`. ‏T10 יוצר את כל ה-stubs מראש |
-  | routes ב-gateway | ‏`@fastify/autoload` מ-`apps/gateway/src/routes/<domain>/` |
-  | עמודי web | ‏`import.meta.glob('./pages/*/route.tsx')` |
-  | תרגומים | namespace לכל עמוד: ‏`apps/web/src/i18n/{he,en}/<page>.json` |
-  | טסטי אבטחה | קובץ לכל ST: ‏`tests/security/stNN-*.test.ts` |
-  | חוזים (`packages/shared`) | קובץ לכל domain. שינוי בחוזה = PR קטן נפרד שממוזג קודם |
+  | `docker-compose.yml` | Uses `include:` for `services/<x>/compose.yml` files. T10 creates all the stubs up front |
+  | Gateway routes | `@fastify/autoload` from `apps/gateway/src/routes/<domain>/` |
+  | Web pages | `import.meta.glob('./pages/*/route.tsx')` |
+  | Translations | A namespace per page: `apps/web/src/i18n/{he,en}/<page>.json` |
+  | Security tests | A file per ST: `tests/security/stNN-*.test.ts` |
+  | Contracts (`packages/shared`) | A file per domain. A contract change = a small separate PR that is merged first |
 
-### קומיטים כמו של מפתח אמיתי
-- **branch לכל משימה:** ‏`t13-sessions-service`, שנוצר מ-`main` העדכני
-- **קומיטים קטנים ולוגיים**, בדרך כלל 3–8 למשימה. כל קומיט עושה דבר אחד, נבנה, ועובר טסטים. למשל:
+### Commits like a real developer's
+- **A branch per task:** `t13-sessions-service`, created from an up-to-date `main`
+- **Small, logical commits**, usually 3–8 per task. Each commit does one thing, builds, and passes tests. For example:
   ```
   feat(sessions): add apps and sessions tables
   feat(sessions): merge consecutive samples into sessions
@@ -38,396 +38,396 @@
   feat(sessions): expose GET /sessions
   docs(sessions): document merge rules
   ```
-- **Conventional Commits** באנגלית: ‏`feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `ci`, `build`, `security`. ‏scope = שם החבילה. ‏commitlint אוכף את זה
-- גוף ההודעה מסביר **למה** כשזה לא מובן מאליו
-- בלי `WIP`, ובלי שרשרת של "fix typo": מתקנים ב-amend לפני ה-push הראשון
+- **Conventional Commits** in English: `feat`, `fix`, `test`, `refactor`, `docs`, `chore`, `ci`, `build`, `security`. scope = the package name. commitlint enforces this
+- The message body explains **why** when it isn't obvious
+- No `WIP`, and no chains of "fix typo": fix with an amend before the first push
 
-### Branch ← PR ← Code Review ← Merge
-**אף אחד לא מקמט ישירות ל-`main`.** כל שינוי, כולל מסמכים ו-CI, עובר ב-branch וב-PR ב-GitHub. הפירוט המלא ב-[CLAUDE.md](../CLAUDE.md#git-flow-branch--pr--code-review--merge).
+### Branch → PR → Code Review → Merge
+**Nobody commits directly to `main`.** Every change, including docs and CI, goes through a branch and a PR on GitHub. Full details in [CLAUDE.md](../CLAUDE.md#git-flow-branch--pr--code-review--merge).
 
 ```
-branch t13-…  →  קומיטים  →  push  →  PR (draft)  →  CI ירוק  →  Ready for review
-      →  CR: הערות inline (blocking / suggestion / question)  →  קומיטי תיקון  →  re-review
-      →  "Verdict: approved"  →  rebase merge  →  מחיקת ה-branch
+branch t13-…  →  commits  →  push  →  PR (draft)  →  CI green  →  Ready for review
+      →  CR: inline comments (blocking / suggestion / question)  →  fix commits  →  re-review
+      →  "Verdict: approved"  →  rebase merge  →  delete the branch
 ```
 
-- **PR לכל משימה**, עם כותרת בסגנון `T13: sessions service` וגוף לפי התבנית המלאה: מה ולמה, איך נבדק, צ׳קליסט אבטחה, בדיקות ST שהופעלו ותלויות חדשות
-- **Code Review על כל PR** על ידי סוכן סוקר שאינו מי שכתב את הקוד. הוא מריץ את ה-branch בעצמו, משאיר הערות inline על שורות ספציפיות ומסיים ב-`Verdict:`
-- **אחרי ה-push הראשון לא משכתבים היסטוריה** (בלי amend ובלי force push), כדי שהסוקר יראה מה השתנה. כל הערה מקבלת תיקון בקומיט חדש או תשובה מנומקת
-- **merge** ב-rebase (שומר על הקומיטים) ומחיקת ה-branch, רק כשה-CI ירוק, האישור האחרון הוא `Verdict: approved` וכל השרשורים סגורים
-- GitHub לא מאפשר לחשבון לאשר PR של עצמו, ולכן שורת ה-`Verdict` היא תיעוד האישור
+- **A PR per task**, with a title in the `T13: sessions service` style and a body that follows the full template: what and why, how it was tested, security checklist, enabled ST tests and new dependencies
+- **Code review on every PR** by a reviewer agent that did not write the code. It runs the branch itself, leaves inline comments on specific lines and finishes with `Verdict:`
+- **After the first push, history is never rewritten** (no amend and no force push), so the reviewer can see what changed. Every comment gets either a fix in a new commit or a reasoned reply
+- **Merge** with rebase (which keeps the commits) and delete the branch, only when CI is green, the latest approval is `Verdict: approved` and every thread is resolved
+- GitHub does not let an account approve its own PR, so the `Verdict` line is the approval record
 
 ---
 
-## מצב
+## Status
 
-| גל | משימות | שער |
+| Wave | Tasks | Gate |
 |---|---|---|
-| 0 · CI/CD ואבטחה | [ ] T01 [ ] T02 [ ] T03 [ ] T04 [ ] T05 [ ] T06 [ ] T07 | G0 |
-| 1 · חוזים ותשתית | [ ] T08 [ ] T09 [ ] T10 [ ] T11 [ ] T12 | G1 |
-| 2 · יחידות עצמאיות | [ ] T13 [ ] T14 [ ] T15 [ ] T16 [ ] T17 [ ] T18 [ ] T19 [ ] T20 [ ] T21 [ ] T22 [ ] T23 [ ] T24 [ ] T25 [ ] T26 | G2 |
-| 3 · חיבורים | [ ] T27 [ ] T28 [ ] T29 [ ] T30 [ ] T31 [ ] T32 [ ] T33 [ ] T34 [ ] T35 [ ] T36 [ ] T37 [ ] T38 [ ] T39 [ ] T40 [ ] T41 | G3 |
-| 4 · השלמות | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 | G4 |
-| 5 · שחרור | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
+| 0 · CI/CD and security | [ ] T01 [ ] T02 [ ] T03 [ ] T04 [ ] T05 [ ] T06 [ ] T07 | G0 |
+| 1 · Contracts and infrastructure | [ ] T08 [ ] T09 [ ] T10 [ ] T11 [ ] T12 | G1 |
+| 2 · Independent units | [ ] T13 [ ] T14 [ ] T15 [ ] T16 [ ] T17 [ ] T18 [ ] T19 [ ] T20 [ ] T21 [ ] T22 [ ] T23 [ ] T24 [ ] T25 [ ] T26 | G2 |
+| 3 · Integration | [ ] T27 [ ] T28 [ ] T29 [ ] T30 [ ] T31 [ ] T32 [ ] T33 [ ] T34 [ ] T35 [ ] T36 [ ] T37 [ ] T38 [ ] T39 [ ] T40 [ ] T41 | G3 |
+| 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 | G4 |
+| 5 · Release | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
 
 ---
 
-## גל 0 · CI/CD ובדיקות אבטחה (לפני כל פיצ׳ר)
+## Wave 0 · CI/CD and security tests (before any feature)
 
-T01 ← (T02 ‖ T03 ‖ T04 ‖ T05) ← T06 ← T07
+T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
 
-### T01 · שלד הריפו ומוסכמות
-- **בעלות:** קבצי root, ‏`packages/` (ריק), ‏`.github/pull_request_template.md`
-- **מה:**
-  - npm workspaces (`apps/*`, `services/*`, `packages/*`), ‏`tsconfig.base.json` במצב strict, ו-**Biome** ל-lint ולפורמט (במקום ESLint ו-Prettier)
-  - ‏`.npmrc` עם `ignore-scripts=true` ו-`engine-strict`. ‏`.nvmrc` (22). ‏`.editorconfig`
-  - ‏`.gitignore`: ‏node_modules, dist, `.env*` חוץ מ-`.env.example`, ‏`backups/`, ‏`data/`, ‏coverage
-  - ‏commitlint + simple-git-hooks. תבנית PR עם הצ׳קליסט של SECURITY.md §6
-  - חוקי Biome: ‏`noDangerouslySetInnerHtml`, ‏`noExplicitAny`, ‏`noConsole`, ‏`noDefaultExport`, ‏`noFloatingPromises`, ‏kebab-case לשמות קבצים, ואיסור `exec` מ-`node:child_process`
-  - חוקים מותאמים ב-GritQL (`biome-plugins/`): איסור `shell: true`, ואיסור template string עם ערכים בתוך `query(` או `execute(`
-  - ‏`scripts/check-language.ts`: נכשל על עברית בכל קובץ חוץ מקבצי תרגום ו-`docs/`
-  - ‏`README.md` ראשוני באנגלית: מה זה, ארכיטקטורה, סטטוס ואיך מתחילים. ‏T55 מרחיב אותו
-- **גמור כש:**
-  - [ ] `npm ci && npm run check` עוברים
-  - [ ] קומיט עם הודעה לא תקנית נחסם
+### T01 · Repo skeleton and conventions
+- **Owns:** root files, `packages/` (empty), `.github/pull_request_template.md`
+- **What:**
+  - npm workspaces (`apps/*`, `services/*`, `packages/*`), `tsconfig.base.json` in strict mode, and **Biome** for lint and formatting (instead of ESLint and Prettier)
+  - `.npmrc` with `ignore-scripts=true` and `engine-strict`. `.nvmrc` (22). `.editorconfig`
+  - `.gitignore`: node_modules, dist, `.env*` except `.env.example`, `backups/`, `data/`, coverage
+  - commitlint + simple-git-hooks. A PR template with the SECURITY.md §6 checklist
+  - Biome rules: `noDangerouslySetInnerHtml`, `noExplicitAny`, `noConsole`, `noDefaultExport`, `noFloatingPromises`, kebab-case file names, and a ban on `exec` from `node:child_process`
+  - Custom GritQL rules (`biome-plugins/`): a ban on `shell: true`, and a ban on template strings with values inside `query(` or `execute(`
+  - `scripts/check-language.ts`: fails on Hebrew in any file except UI translation files
+  - An initial `README.md` in English: what it is, architecture, status and how to get started. T55 expands it
+- **Done when:**
+  - [ ] `npm ci && npm run check` pass
+  - [ ] A commit with a non-conventional message is blocked
 
-### T02 · סודות והגנות קומיט
-- **בעלות:** ‏`scripts/setup.ts`, ‏`.env.example`, ‏`.gitleaks.toml`, ‏hook של pre-commit
-- **מה:**
-  - `npm run setup` יוצר `.env` בהרשאות `0600` עם סיסמת DB לכל סרוויס ו-`AGENT_TOKEN` (crypto, ‏32 בתים), ולא דורס ערכים קיימים
-  - ‏pre-commit מריץ `gitleaks protect --staged` וחוסם כל קובץ `.env*` חוץ מ-`.env.example`
-- **גמור כש:**
-  - [ ] ניסיון לקמט `.env` או מחרוזת שנראית כמו טוקן נחסם
-  - [ ] הרצה שנייה של `setup` לא משנה כלום
-  - [ ] ההרשאה של `.env` היא `0600`
+### T02 · Secrets and commit protection
+- **Owns:** `scripts/setup.ts`, `.env.example`, `.gitleaks.toml`, the pre-commit hook
+- **What:**
+  - `npm run setup` creates `.env` at `0600` with a DB password per service and `AGENT_TOKEN` (crypto, 32 bytes), and does not overwrite existing values
+  - pre-commit runs `gitleaks protect --staged` and blocks every `.env*` file except `.env.example`
+- **Done when:**
+  - [ ] An attempt to commit `.env` or a string that looks like a token is blocked
+  - [ ] A second run of `setup` changes nothing
+  - [ ] The permission of `.env` is `0600`
 
-### T03 · CI: שערי איכות ‖
-- **בעלות:** ‏`.github/workflows/ci.yml`
-- **מה:**
-  - שלבים: ‏`npm ci`, ‏lint, ‏typecheck, ‏unit tests עם כיסוי (סף **80%** ל-`services/*/src/domain` ול-`apps/agent/src/core`, ‏60% לשאר), ו-build
-  - ‏commitlint על כל קומיט ב-PR (בלי תלות ב-hooks מקומיים)
-  - ‏`permissions: contents: read`, ‏`concurrency`, ‏timeout לכל job. כל action נעול ל-SHA
-- **גמור כש:**
-  - [ ] ה-CI ירוק
-  - [ ] הורדת כיסוי מתחת לסף מפילה את ה-CI
+### T03 · CI: quality gates ‖
+- **Owns:** `.github/workflows/ci.yml`
+- **What:**
+  - Steps: `npm ci`, lint, typecheck, unit tests with coverage (a threshold of **80%** for `services/*/src/domain` and `apps/agent/src/core`, 60% for everything else), and build
+  - commitlint on every commit in the PR (independent of local hooks)
+  - `permissions: contents: read`, `concurrency`, a timeout for every job. Every action pinned to a SHA
+- **Done when:**
+  - [ ] CI is green
+  - [ ] Dropping coverage below the threshold fails CI
 
-### T04 · CI: שערי אבטחה ‖
-- **בעלות:** ‏`.github/workflows/security.yml`, ‏`.github/dependabot.yml`, ‏`.semgrep/`, ‏`.trivyignore` (ריק), ‏`.github/codeql/`
-- **מה:** כל הכלים מ-SECURITY.md §4. כולם חוסמים. דוחות SARIF עולים ל-Security tab. ‏Dependabot ל-npm, ‏docker ו-actions, שבועי. ‏nightly cron. ‏Scorecard שבועי
-- **גמור כש:**
-  - [ ] PR דמה עם סוד, עם `shell:true` או עם תלות פגיעה **נכשל**. מתעדים ב-PR שזה נבדק
-  - [ ] ‏zizmor ו-actionlint נקיים
+### T04 · CI: security gates ‖
+- **Owns:** `.github/workflows/security.yml`, `.github/dependabot.yml`, `.semgrep/`, `.trivyignore` (empty), `.github/codeql/`
+- **What:** every tool from SECURITY.md §4. All of them are blocking. SARIF reports are uploaded to the Security tab. Dependabot for npm, docker and actions, weekly. A nightly cron. Scorecard weekly
+- **Done when:**
+  - [ ] A dummy PR with a secret, with `shell:true` or with a vulnerable dependency **fails**. The PR documents that this was checked
+  - [ ] zizmor and actionlint are clean
 
-### T05 · תשתית בדיקות אבטחה ‖
-- **בעלות:** ‏`tests/security/`, ‏`scripts/security-todo.ts`
-- **מה:**
-  - חבילת vitest שבה כל ST01–ST19 מ-SECURITY.md §3 מופיעים, כל אחד בקובץ משלו
-  - **ST01 ו-ST02 פעילות כבר עכשיו:** ‏ST01 מנתח את `docker compose config --format json` ובודק את המדיניות
-  - השאר מוגדרות כ-`it.todo('…', { owner: 'T19' })`
-  - ‏`npm run security:todo` מדפיס רשימה לפי משימה, ונכשל עם `--strict`
-  - הבדיקות רצות ב-CI בכל PR
-- **גמור כש:**
-  - [ ] הוספת `ports: ["4712:4712"]` או הסרת `read_only` ב-compose מפילה את ST01
+### T05 · Security test infrastructure ‖
+- **Owns:** `tests/security/`, `scripts/security-todo.ts`
+- **What:**
+  - A vitest suite in which every ST01–ST19 from SECURITY.md §3 appears, each in its own file
+  - **ST01 and ST02 are active right away:** ST01 parses `docker compose config --format json` and checks the policy
+  - The rest are defined as `it.todo('…', { owner: 'T19' })`
+  - `npm run security:todo` prints a list by task, and fails with `--strict`
+  - The tests run in CI on every PR
+- **Done when:**
+  - [ ] Adding `ports: ["4712:4712"]` or removing `read_only` in compose fails ST01
 
-### T06 · CD: שחרור חתום
-- **תלוי ב:** T03, ‏T04, ‏T05
-- **בעלות:** ‏`.github/workflows/release.yml`, ‏`.github/workflows/main.yml`
-- **מה:**
-  - **ב-push ל-main:** בניית כל ה-images, ‏Trivy image (ST19), ‏`docker compose up` ב-runner, ובדיקות smoke ואבטחה מול ה-compose הרץ
-  - **בתג `v*.*.*`:**
-    - ‏`npm run security:todo --strict` (שום todo לא נשאר)
-    - בנייה, ‏Trivy, ‏SBOM (syft, ‏SPDX), חתימה keyless עם cosign דרך OIDC, ו-provenance attestation
-    - push ל-GHCR כ-package פרטי
-    - GitHub Release עם changelog מהקומיטים, SBOM, ו-`docker-compose.release.yml` שנעול ל-digests
-  - ‏ZAP baseline (ST18) מתווסף בגל 5. עד אז ה-job קיים ומדולג במפורש עם הפניה ל-T52
-  - בלי סודות חוץ מ-`GITHUB_TOKEN`, עם `permissions` מינימליות לכל job
-- **גמור כש:**
-  - [ ] תג `v0.0.1` על השלד מייצר release חתום
-  - [ ] `cosign verify` עובר
+### T06 · CD: signed release
+- **Depends on:** T03, T04, T05
+- **Owns:** `.github/workflows/release.yml`, `.github/workflows/main.yml`
+- **What:**
+  - **On push to main:** build every image, Trivy image (ST19), `docker compose up` on the runner, and smoke and security tests against the running compose
+  - **On a `v*.*.*` tag:**
+    - `npm run security:todo --strict` (no todo left)
+    - Build, Trivy, SBOM (syft, SPDX), keyless signing with cosign through OIDC, and a provenance attestation
+    - Push to GHCR as a private package
+    - A GitHub Release with a changelog from the commits, the SBOM, and a `docker-compose.release.yml` pinned to digests
+  - ZAP baseline (ST18) is added in wave 5. Until then the job exists and is explicitly skipped with a reference to T52
+  - No secrets other than `GITHUB_TOKEN`, with minimal `permissions` for every job
+- **Done when:**
+  - [ ] A `v0.0.1` tag on the skeleton produces a signed release
+  - [ ] `cosign verify` passes
 
-### T07 · הגנות על הריפו ב-GitHub
-- **תלוי ב:** T06
-- **בעלות:** ‏`scripts/github-protect.sh`, ‏`docs/REPO-SETTINGS.md`
-- **מה:**
-  - סקריפט `gh api` שמגדיר: ריפו פרטי, ‏branch protection ל-`main` (PR חובה, כל הבדיקות חובה, סגירת כל שרשורי ה-review חובה, היסטוריה ליניארית, בלי force push ובלי מחיקה. בלי חובת approval, כי זה חשבון יחיד ואישור נעשה בשורת `Verdict`), ומחיקה אוטומטית של branches אחרי merge, ‏secret scanning, ‏push protection, ‏Dependabot alerts, ו-Actions רק מ-allowlist
-  - **המתאם מריץ את הסקריפט רק אחרי אישור מפורש של המשתמש**
-- **גמור כש:**
-  - [ ] אחרי הרצה: push ישיר ל-main נדחה
+### T07 · GitHub repo protection
+- **Depends on:** T06
+- **Owns:** `scripts/github-protect.sh`, `docs/REPO-SETTINGS.md`
+- **What:**
+  - A `gh api` script that configures: a private repo, branch protection for `main` (PR required, all checks required, resolving every review thread required, linear history, no force push and no deletion. No required approval, because this is a single account and approval happens through the `Verdict` line), automatic deletion of branches after merge, secret scanning, push protection, Dependabot alerts, and Actions from an allowlist only
+  - **The coordinator runs the script only after the user's explicit approval**
+- **Done when:**
+  - [ ] After running it, a direct push to main is rejected
 
-**שער G0:**
-- [ ] CI, אבטחה ו-CD ירוקים על השלד
-- [ ] release ‏v0.0.1 חתום
-- [ ] ST01 ו-ST02 פעילות, ושאר הבדיקות רשומות כ-todo עם בעלים
-
----
-
-## גל 1 · חוזים ותשתית (5 במקביל)
-
-### T08 · חוזים (`packages/shared`)
-- **בעלות:** ‏`packages/shared/`
-- **מה:**
-  - סכמות zod לכל ה-payloads ב-SPEC §5, קובץ לכל domain: ‏ingest, sessions, reports, goals, battery, system, focus, settings, alerts
-  - **route map** ‏(`routes.ts`): ‏method, ‏path, ‏auth, ‏req ו-res לכל endpoint ב-`/v1`. ‏ST03 ו-ST08 נגזרות ממנו
-  - fixtures ו-MSW handlers לכל route, כדי שה-web יוכל לעבוד בלי backend
-  - מפתחות i18n להתראות
-- **גמור כש:**
-  - [ ] כל route ב-SPEC מופיע ב-route map
-  - [ ] יש טסטים ל-parse תקין ולא תקין
-
-### T09 · service-kit ‏‖
-- **בעלות:** ‏`packages/service-kit/`, ‏`docker/Dockerfile.service`
-- **מה:**
-  - `createService()`: ‏Fastify, ‏pino עם redaction (A11), קונפיג zod, ‏`/health` שבודק גם DB, ‏pg pool עם המשתמש של הסרוויס, ‏node-pg-migrate, ‏validation אוטומטי של req ו-res מול החוזה, ‏graceful shutdown
-  - ‏Dockerfile רב-שלבי: base נעול ל-digest, ‏`USER node`, ‏rootfs שעובד במצב read-only, ו-`HEALTHCHECK`
-  - מפעיל: **ST11**
-- **גמור כש:**
-  - [ ] סרוויס דמה עולה ב-read-only כ-non-root
-  - [ ] hadolint נקי
-
-### T10 · compose ו-Postgres ‏‖
-- **בעלות:** ‏`docker-compose.yml`, ‏`infra/postgres/`, ‏`services/*/compose.yml` (stubs בלבד)
-- **מה:**
-  - ‏`x-service-defaults` עם `read_only`, ‏`cap_drop: [ALL]`, ‏`security_opt: [no-new-privileges:true]`, ‏`tmpfs`, ‏`mem_limit`, ‏`cpus` ו-`restart`
-  - רשת `core` עם `internal: true`, ורשת `edge` רק ל-gateway ול-web
-  - ‏Postgres 16 נעול ל-digest. סקריפט init שיוצר role וסכמה לכל סרוויס מ-`.env`, ‏`REVOKE` על public, ומגביל כל role ל-`search_path` שלו
-  - ‏`include:` לכל הסרוויסים כ-stubs. פורטים: רק `127.0.0.1:4710` ו-`127.0.0.1:4711`
-  - מפעיל: **ST16** (כבדיקת אינטגרציה)
-- **גמור כש:**
-  - [ ] ST01 ירוקה
-  - [ ] ‏`ss -tln` מראה רק 4710 ו-4711, ושניהם על 127.0.0.1
-
-### T11 · שלד web ‏‖
-- **בעלות:** ‏`apps/web/` (חוץ מ-`apps/web/src/pages/*` ו-`apps/web/src/components/*`)
-- **מה:**
-  - Vite, ‏React, ‏TS, ‏Router עם glob, ‏TanStack Query, ו-api client מתוך החוזים
-  - ‏react-i18next עם namespaces, ו-`dir` ו-`lang` על `<html>`
-  - ערכת צבעים system, light או dark (רק המנגנון, בלי tokens)
-  - ‏MSW במצב dev
-  - ‏nginx-unprivileged עם CSP קשוח ו-security headers
-  - ‏lint שאוסר CSS פיזי (left, right וכו׳)
-  - מפעיל: **ST07** (חלק ה-web)
-- **גמור כש:**
-  - [ ] החלפת שפה הופכת את כיוון הממשק
-  - [ ] אין שגיאות CSP בקונסול
-
-### T12 · שלד agent ‏‖
-- **בעלות:** ‏`apps/agent/src/core/`, ‏`apps/agent/package.json`
-- **מה:**
-  - scheduler, ‏config, ‏buffer ב-JSONL עם תקרה של 50MB, תיקיות ב-`0700` וקבצים ב-`0600`
-  - pino עם redaction
-  - ממשק אחיד ל-collectors ול-actuators (registry שנטען לפי תיקייה)
-  - מפעיל: **ST11** (agent), ‏**ST15** (state)
-- **גמור כש:**
-  - [ ] יש טסטים ל-buffer
-  - [ ] ההרשאות נבדקות בטסט
-
-**שער G1:**
-- [ ] `docker compose up -d` עולה וכל הקונטיינרים healthy
-- [ ] ה-web רץ על MSW
-- [ ] ST01, ‏ST02, ‏ST07 (web), ‏ST11, ‏ST15 ו-ST16 ירוקות
+**Gate G0:**
+- [ ] CI, security and CD are green on the skeleton
+- [ ] A signed v0.0.1 release
+- [ ] ST01 and ST02 are active, and the remaining tests are registered as todo with owners
 
 ---
 
-## גל 2 · יחידות עצמאיות (עד 5 במקביל מתוך 14)
+## Wave 1 · Contracts and infrastructure (5 in parallel)
 
-כל סרוויס בבעלות `services/<x>/` (כולל ה-`compose.yml` שלו). כל collector בבעלות `apps/agent/src/collectors/<x>/`.
+### T08 · Contracts (`packages/shared`)
+- **Owns:** `packages/shared/`
+- **What:**
+  - zod schemas for every payload in SPEC §5, a file per domain: ingest, sessions, reports, goals, battery, system, focus, settings, alerts
+  - **Route map** (`routes.ts`): method, path, auth, req and res for every endpoint under `/v1`. ST03 and ST08 are derived from it
+  - Fixtures and MSW handlers for every route, so the web can work without a backend
+  - i18n keys for alerts
+- **Done when:**
+  - [ ] Every route in the SPEC appears in the route map
+  - [ ] There are tests for valid and invalid parsing
+
+### T09 · service-kit ‖
+- **Owns:** `packages/service-kit/`, `docker/Dockerfile.service`
+- **What:**
+  - `createService()`: Fastify, pino with redaction (A11), zod config, a `/health` that also checks the DB, a pg pool with the service's user, node-pg-migrate, automatic validation of req and res against the contract, graceful shutdown
+  - A multi-stage Dockerfile: base pinned to a digest, `USER node`, a rootfs that works read-only, and `HEALTHCHECK`
+  - Enables: **ST11**
+- **Done when:**
+  - [ ] A dummy service starts read-only as non-root
+  - [ ] hadolint is clean
+
+### T10 · Compose and Postgres ‖
+- **Owns:** `docker-compose.yml`, `infra/postgres/`, `services/*/compose.yml` (stubs only)
+- **What:**
+  - `x-service-defaults` with `read_only`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `tmpfs`, `mem_limit`, `cpus` and `restart`
+  - A `core` network with `internal: true`, and an `edge` network for the gateway and web only
+  - Postgres 16 pinned to a digest. An init script that creates a role and schema per service from `.env`, a `REVOKE` on public, and restricts each role to its own `search_path`
+  - `include:` for every service as stubs. Ports: only `127.0.0.1:4710` and `127.0.0.1:4711`
+  - Enables: **ST16** (as an integration test)
+- **Done when:**
+  - [ ] ST01 is green
+  - [ ] `ss -tln` shows only 4710 and 4711, both on 127.0.0.1
+
+### T11 · Web skeleton ‖
+- **Owns:** `apps/web/` (except `apps/web/src/pages/*` and `apps/web/src/components/*`)
+- **What:**
+  - Vite, React, TS, a Router with glob, TanStack Query, and an API client built from the contracts
+  - react-i18next with namespaces, and `dir` and `lang` on `<html>`
+  - A system, light or dark color theme (only the mechanism, no tokens)
+  - MSW in dev mode
+  - nginx-unprivileged with a strict CSP and security headers
+  - A lint rule banning physical CSS (left, right, etc.)
+  - Enables: **ST07** (the web part)
+- **Done when:**
+  - [ ] Switching the language flips the UI direction
+  - [ ] No CSP errors in the console
+
+### T12 · Agent skeleton ‖
+- **Owns:** `apps/agent/src/core/`, `apps/agent/package.json`
+- **What:**
+  - Scheduler, config, a JSONL buffer with a 50MB cap, directories at `0700` and files at `0600`
+  - pino with redaction
+  - A uniform interface for collectors and actuators (a registry loaded by directory)
+  - Enables: **ST11** (agent), **ST15** (state)
+- **Done when:**
+  - [ ] There are tests for the buffer
+  - [ ] Permissions are checked in a test
+
+**Gate G1:**
+- [ ] `docker compose up -d` starts and every container is healthy
+- [ ] The web runs on MSW
+- [ ] ST01, ST02, ST07 (web), ST11, ST15 and ST16 are green
+
+---
+
+## Wave 2 · Independent units (up to 5 in parallel out of 14)
+
+Each service owns `services/<x>/` (including its `compose.yml`). Each collector owns `apps/agent/src/collectors/<x>/`.
 
 ### T13 · sessions-service
-- **מה:**
-  - איחוד דגימות לסשנים: פער מעל 15 שנ׳ או idle סוגר סשן
-  - טבלאות `apps`, ‏`sessions` ו-`category_rules`, עם חוקי ברירת מחדל והחלה מחדש על 30 יום
-  - API לפי SPEC
-  - מפעיל: **ST12**
-- **גמור כש:**
-  - [ ] יש טסטים: רצף, החלפת אפליקציה, פער, idle, דגימות לא לפי הסדר, ועדיפות חוקים
+- **What:**
+  - Merging samples into sessions: a gap of more than 15 s or idle closes a session
+  - `apps`, `sessions` and `category_rules` tables, with default rules and reapplication over 30 days
+  - API per the SPEC
+  - Enables: **ST12**
+- **Done when:**
+  - [ ] There are tests: a continuous run, an app switch, a gap, idle, out-of-order samples, and rule priority
 
 ### T14 · reports-service
-- **מה:** rollups, ‏focus streaks, ו-weekly summary. מפעיל: **ST12**
-- **גמור כש:**
-  - [ ] יש טסט ל-rollup שחוצה חצות
+- **What:** rollups, focus streaks, and the weekly summary. Enables: **ST12**
+- **Done when:**
+  - [ ] There is a test for a rollup that crosses midnight
 
 ### T15 · goals-service
-- **מה:** CRUD, ‏`/evaluate` עם התראה אחת לכל יעד ביום, ו-`/progress`. מפעיל: **ST12**
+- **What:** CRUD, `/evaluate` with one alert per goal per day, and `/progress`. Enables: **ST12**
 
 ### T16 · battery-service
-- **מה:** samples, ‏daily, בריאות, זמן נותר, ‏`power-by-app` והתראות. מפעיל: **ST12**
-- **גמור כש:**
-  - [ ] יש טסטים לחישוב בריאות ולשיוך צריכה לאפליקציה
+- **What:** samples, daily, health, time remaining, `power-by-app` and alerts. Enables: **ST12**
+- **Done when:**
+  - [ ] There are tests for the health calculation and for per-app power attribution
 
 ### T17 · system-service
-- **מה:** incidents עם סף של 15 שנ׳, ‏culprits, זליגת זיכרון, ו-critical ל-OOM. מפעיל: **ST12**
-- **גמור כש:**
-  - [ ] יש טסטים: קפיצה קצרה לא פותחת incident, ועומס מתמשך פותח incident אחד
+- **What:** incidents with a 15 s threshold, culprits, memory leaks, and critical for OOM. Enables: **ST12**
+- **Done when:**
+  - [ ] There are tests: a short spike does not open an incident, and sustained load opens exactly one incident
 
 ### T18 · focus-service
-- **מה:** מצב, פרופילים (כולל "השתק אפליקציות חדשות"), חריגים, לוחות זמנים, ‏`alert_policy`, ‏`/route`, ‏rate limit, תור, סיכום ביציאה, ו-known-apps. מפעיל: **ST12**
-- **גמור כש:**
-  - [ ] יש טסטים לטבלה של 3 רמות × בפוקוס/לא, ל-rate limit, לסיכום ולחריגים
+- **What:** state, profiles (including "mute new apps"), exceptions, schedules, `alert_policy`, `/route`, rate limit, queue, a summary on exit, and known-apps. Enables: **ST12**
+- **Done when:**
+  - [ ] There are tests for the table of 3 levels × in focus/not in focus, for the rate limit, for the summary and for exceptions
 
-### T19 · gateway: ליבה ואבטחה
-- **בעלות:** ‏`apps/gateway/src/core/`, ‏`apps/gateway/compose.yml`
-- **מה:**
-  - Bearer ל-agent עם `timingSafeEqual`
-  - session cookie עם CSRF token
-  - allowlist ל-Host ובדיקת Origin, ‏CORS, ‏rate limit, ‏body limit, ‏helmet/CSP
-  - autoload ל-routes
-  - service client עם timeout של 3 שנ׳ ותשובה חלקית (degraded)
-  - validation של כל req מול החוזה
-  - מפעיל: **ST03–ST10**
-- **גמור כש:**
-  - [ ] כל בדיקות ST שבאחריות T19 ירוקות
+### T19 · Gateway: core and security
+- **Owns:** `apps/gateway/src/core/`, `apps/gateway/compose.yml`
+- **What:**
+  - Bearer for the agent with `timingSafeEqual`
+  - A session cookie with a CSRF token
+  - A Host allowlist and Origin check, CORS, rate limit, body limit, helmet/CSP
+  - Route autoload
+  - A service client with a 3 s timeout and a partial (degraded) response
+  - Validation of every req against the contract
+  - Enables: **ST03–ST10**
+- **Done when:**
+  - [ ] Every ST test owned by T19 is green
 
-### T20 · collector: חלון פעיל
-- **מה:** Window Calls דרך D-Bus. אם התוסף חסר: אזהרה, בלי קריסה
+### T20 · Collector: active window
+- **What:** Window Calls over D-Bus. If the extension is missing: a warning, no crash
 
-### T21 · collector: סרק ונעילה
-- **מה:** IdleMonitor, ונעילת מסך שעוצרת את כל הדגימות
+### T21 · Collector: idle and lock
+- **What:** IdleMonitor, and a screen lock that stops all sampling
 
-### T22 · collector: סוללה
-- **מה:** קריאת `/sys/class/power_supply`, ונטרול אוטומטי כשאין סוללה
+### T22 · Collector: battery
+- **What:** reading `/sys/class/power_supply`, and automatic disabling when there is no battery
 
-### T23 · collector: עומס ותהליכים
-- **מה:** PSI, ו-snapshot של התהליכים רק בעומס. **רק `comm`**. מפעיל: **ST17** (cmdline)
-- **גמור כש:**
-  - [ ] ה-overhead נמדד בטסט
+### T23 · Collector: load and processes
+- **What:** PSI, and a process snapshot only under load. **Only `comm`**. Enables: **ST17** (cmdline)
+- **Done when:**
+  - [ ] The overhead is measured in a test
 
-### T24 · collector: טמפרטורה ו-cgroup
-- **מה:** thermal ו-throttle. מיפוי לקונטיינר דרך cgroup, **בלי docker socket** כברירת מחדל
+### T24 · Collector: temperature and cgroup
+- **What:** thermal and throttling. Mapping to a container through cgroup, **without the docker socket** by default
 
-### T25 · collector: גילוי אפליקציות
-- **מה:** inotify על תיקיות `.desktop`, ‏gsettings monitor, חישוב notification-id, ואפליקציות Chrome כנפרדות
-- **גמור כש:**
-  - [ ] התקנה חדשה מזוהה תוך 5 שנ׳
+### T25 · Collector: app discovery
+- **What:** inotify on `.desktop` directories, gsettings monitor, computing the notification-id, and Chrome apps as separate apps
+- **Done when:**
+  - [ ] A new install is detected within 5 s
 
-### T26 · web: tokens ורכיבים
-- **בעלות:** ‏`apps/web/src/theme/`, ‏`apps/web/src/components/`, ‏`apps/web/src/pages/dev-components/`
-- **מה:**
-  - tokens בדיוק לפי DESIGN.md, וכל הרכיבים מ-DESIGN.md
-  - דף `/dev/components` בשני המצבים ובשתי השפות
-  - בדיקה ב-CI שאין hex מחוץ ל-`tokens.css`
+### T26 · Web: tokens and components
+- **Owns:** `apps/web/src/theme/`, `apps/web/src/components/`, `apps/web/src/pages/dev-components/`
+- **What:**
+  - Tokens exactly as in DESIGN.md, and every component from DESIGN.md
+  - A `/dev/components` page in both modes and both languages
+  - A CI check that there are no hex values outside `tokens.css`
 
-**שער G2:**
-- [ ] כל הסרוויסים healthy
-- [ ] contract tests: כל תשובה של סרוויס עוברת validation מול החוזה
-- [ ] ST03–ST12, ‏ST16 ו-ST17 ירוקות
-
----
-
-## גל 3 · חיבורים (עד 5 במקביל מתוך 15)
-
-### Gateway (כל משימה בבעלות `apps/gateway/src/routes/<domain>/`)
-- **T27 · זרימת ingest:** פיצול לסרוויסים, סשנים סגורים ל-reports ול-goals, איסוף alerts, ‏focus ‏`/route`, ותשובה `{notify, mute}`. טסט אינטגרציה מול compose. מפעיל: **ST08** (ingest)
-- **T28 · routes של dashboard, reports, apps, rules ו-goals:** כולל aggregation של `today`. מפעיל: **ST08**
-- **T29 · routes של battery ו-system:** כולל העברת ציר הסשנים ל-`power-by-app`. מפעיל: **ST08**
-- **T30 · routes של focus:** ‏start ו-stop, פקודות mute ושחזור, ו-known-apps. מפעיל: **ST08**
-- **T31 · settings:** סכמה `gateway.settings` (שפה, ערכת צבעים, פרטיות, ספים, אפליקציות מערכת, שעות שקטות). מפעיל: **ST08**
-
-### Agent (כל משימה בבעלות `apps/agent/src/actuators/<x>/` או `apps/agent/src/sender/`)
-- **T32 · שליחה:** מנה כל 60 שנ׳, ‏backoff, מחיקה רק אחרי 2xx, וטיפול בתשובה
-  - **גמור כש:** [ ] כיבוי הדוקר לשעה לא מאבד נתונים
-- **T33 · notifier:** ‏D-Bus Notify עם urgency, טקסט מתורגם (‏`apps/agent/src/i18n/`), ופעולה "פתח דשבורד"
-- **T34 · muter בטוח:** ‏execFile, ‏regex ל-app-id, ‏allowlist של אפליקציות מערכת, ושמירה ושחזור של state. מפעיל: **ST14**
-  - **גמור כש:** [ ] אחרי `kill -9` באמצע פוקוס, הכול משוחזר
-
-### Web (כל משימה בבעלות `apps/web/src/pages/<x>/` ו-namespace משלה)
-- **T35 · היום:** מפעיל: **ST13** (XSS בכותרת)
-- **T36 · אפליקציות וחוקים:** כולל תצוגה מקדימה של "על מה החוק חל"
-- **T37 · יעדים**
-- **T38 · סוללה:** מגמה, מחזורים, "מה שורף לי סוללה", וזמן נותר
-- **T39 · מערכת:** גרף מסונכרן עם ציר האפליקציות, ‏incidents, אשמים קבועים וספים
-- **T40 · מצב עבודה והתראות:** פרופילים, אפליקציות עם תג "חדש", חריגים, לוחות זמנים, מרכז התראות, ‏FocusBanner, ומדיניות רמות
-- **T41 · הגדרות:** שפה, ערכת צבעים, פרטיות, ספים, אפליקציות מערכת ושעות שקטות
-
-**שער G3:**
-- [ ] **E2E ידני:** ‏agent אמיתי ← הנתונים מופיעים בעמוד "היום"
-- [ ] פוקוס משתיק את Telegram, ואחרי העצירה הוא משוחזר
-- [ ] כל עמוד נבדק בעברית, באנגלית, בבהיר ובכהה
-- [ ] ST08, ‏ST13 ו-ST14 ירוקות
+**Gate G2:**
+- [ ] Every service is healthy
+- [ ] Contract tests: every service response is validated against the contract
+- [ ] ST03–ST12, ST16 and ST17 are green
 
 ---
 
-## גל 4 · השלמות (עד 5 במקביל מתוך 10)
+## Wave 3 · Integration (up to 5 in parallel out of 15)
 
-- **T42 · systemd user service:** התקנה והסרה, ובדיקה שהתוסף Window Calls מותקן
-  - **גמור כש:** [ ] ה-agent עולה אחרי login וחוזר אחרי `kill -9`
-- **T43 · עמוד "שבוע":** עמודות לפי יום וקטגוריה, השוואה לשבוע קודם, וסיכום שבועי
-- **T44 · "נא לא להפריע" של GNOME:** אופציונלי לפי פרופיל, עם אותו מנגנון שמירה ושחזור. בעלות: ‏`apps/agent/src/actuators/dnd/`
-- **T45 · טריגרים אוטומטיים לפוקוס:** לוח זמנים, ואפליקציה בפוקוס יותר מ-N דק׳. בעלות: ‏`services/focus/src/triggers/`
-- **T46 · Pomodoro:** בעלות: ‏`services/focus/src/pomodoro/` וקומפוננטה ב-`apps/web/src/pages/focus/pomodoro/`
-- **T47 · השהיה ופרטיות:** השהיה, "לא לשמור כותרות", ואפליקציות מוחרגות שלא נשלחות בכלל. מפעיל: **ST17** (כותרות)
-- **T48 · ייצוא וגיבוי:** CSV/JSON עם session, ו-`npm run backup` ב-`0600`. מפעיל: **ST15** (backups)
-- **T49 · ניקוי נתונים ישנים:** קובץ `src/jobs/retention.ts` בכל סרוויס, כולל לוג של מה נמחק
-- **T50 · אייקון בשורת המשימות:** StatusNotifierItem. בעלות: ‏`apps/agent/src/tray/`
-- **T51 · CLI:** בעלות: ‏`apps/agent/src/cli/`
+### Gateway (each task owns `apps/gateway/src/routes/<domain>/`)
+- **T27 · Ingest flow:** splitting to the services, closed sessions to reports and goals, collecting alerts, focus `/route`, and a `{notify, mute}` response. An integration test against compose. Enables: **ST08** (ingest)
+- **T28 · Dashboard, reports, apps, rules and goals routes:** including the `today` aggregation. Enables: **ST08**
+- **T29 · Battery and system routes:** including passing the session timeline to `power-by-app`. Enables: **ST08**
+- **T30 · Focus routes:** start and stop, mute and restore commands, and known-apps. Enables: **ST08**
+- **T31 · Settings:** the `gateway.settings` schema (language, color theme, privacy, thresholds, system apps, quiet hours). Enables: **ST08**
 
-**שער G4:**
-- [ ] כל הפיצ׳רים מטבלת הכיסוי מסומנים
-- [ ] ‏`npm run security:todo` מראה רק את ST18
+### Agent (each task owns `apps/agent/src/actuators/<x>/` or `apps/agent/src/sender/`)
+- **T32 · Sending:** a batch every 60 s, backoff, deletion only after a 2xx, and handling the response
+  - **Done when:** [ ] Shutting down Docker for an hour loses no data
+- **T33 · Notifier:** D-Bus Notify with urgency, translated text (`apps/agent/src/i18n/`), and an "Open dashboard" action
+- **T34 · Safe muter:** execFile, an app-id regex, a system-app allowlist, and saving and restoring state. Enables: **ST14**
+  - **Done when:** [ ] After `kill -9` in the middle of focus, everything is restored
 
----
+### Web (each task owns `apps/web/src/pages/<x>/` and its own namespace)
+- **T35 · Today:** Enables: **ST13** (XSS in a title)
+- **T36 · Apps and rules:** including a preview of "what the rule applies to"
+- **T37 · Goals**
+- **T38 · Battery:** trend, cycles, "what is draining my battery", and time remaining
+- **T39 · System:** a chart synced with the app timeline, incidents, recurring culprits and thresholds
+- **T40 · Focus mode and alerts:** profiles, apps with a "new" tag, exceptions, schedules, an alert center, FocusBanner, and the level policy
+- **T41 · Settings:** language, color theme, privacy, thresholds, system apps and quiet hours
 
-## גל 5 · שחרור
-
-- **T52 · E2E ו-DAST:**
-  - Playwright מול compose עם agent מדומה: כל העמודים, שתי שפות, שני מצבים, ופוקוס
-  - ZAP baseline ב-CD. מפעיל: **ST18**
-- **T53 · תקציב סוללה:** סקריפט שמודד במשך שעה את ה-CPU וה-RSS של ה-agent ואת צריכת הקונטיינרים בסרק. **נכשל אם עוברים את SPEC §4.4**
-- **T54 · סקירת אבטחה מלאה:**
-  - סוכן נפרד עובר על כל SECURITY.md
-  - ניסיונות תקיפה ידניים: ‏DNS rebinding, ‏CSRF מאתר אחר, גישה מה-LAN, הזרקה ל-muter ו-XSS בכותרת
-  - ‏`docker inspect` לכל קונטיינר
-  - דוח ב-`docs/security-review-v1.md`. כל ממצא מקבל תיקון או החלטה מתועדת
-- **T55 · README מפורט באנגלית (לתיק עבודות):** פסקת פתיחה, צילומי מסך ו-GIF בשני המצבים ובשתי השפות, דיאגרמת ארכיטקטורה, החלטות הנדסיות ולמה (ADR קצרים ב-`docs/adr/`), אבטחה, ‏CI/CD, התקנה מאפס, פתרון תקלות, ואיך מאמתים חתימה של release
-
-**שער G5:**
-- [ ] ‏`security:todo --strict` עובר
-- [ ] כל ה-CI ירוק
-- [ ] תג `v1.0.0` ← release חתום
+**Gate G3:**
+- [ ] **Manual E2E:** a real agent → the data appears on the "Today" page
+- [ ] Focus mutes Telegram, and after stopping it is restored
+- [ ] Every page is checked in Hebrew, in English, in light and in dark
+- [ ] ST08, ST13 and ST14 are green
 
 ---
 
-## מטריצת כיסוי: כל דרישה ← משימה
+## Wave 4 · Completion (up to 5 in parallel out of 10)
 
-| דרישה | משימות |
+- **T42 · systemd user service:** install and uninstall, and a check that the Window Calls extension is installed
+  - **Done when:** [ ] The agent starts after login and comes back after `kill -9`
+- **T43 · "Week" page:** columns by day and category, comparison with the previous week, and the weekly summary
+- **T44 · GNOME "Do Not Disturb":** optional per profile, with the same save-and-restore mechanism. Owns: `apps/agent/src/actuators/dnd/`
+- **T45 · Automatic focus triggers:** a schedule, and an app in focus for more than N min. Owns: `services/focus/src/triggers/`
+- **T46 · Pomodoro:** Owns: `services/focus/src/pomodoro/` and a component in `apps/web/src/pages/focus/pomodoro/`
+- **T47 · Pause and privacy:** pause, "don't store titles", and excluded apps that are never sent at all. Enables: **ST17** (titles)
+- **T48 · Export and backup:** CSV/JSON with a session, and `npm run backup` at `0600`. Enables: **ST15** (backups)
+- **T49 · Cleaning up old data:** a `src/jobs/retention.ts` file in every service, including a log of what was deleted
+- **T50 · Tray icon:** StatusNotifierItem. Owns: `apps/agent/src/tray/`
+- **T51 · CLI:** Owns: `apps/agent/src/cli/`
+
+**Gate G4:**
+- [ ] Every feature in the coverage matrix is checked off
+- [ ] `npm run security:todo` shows only ST18
+
+---
+
+## Wave 5 · Release
+
+- **T52 · E2E and DAST:**
+  - Playwright against compose with a mocked agent: every page, both languages, both modes, and focus
+  - ZAP baseline in CD. Enables: **ST18**
+- **T53 · Battery budget:** a script that measures, over one hour, the agent's CPU and RSS and the containers' idle consumption. **Fails if SPEC §4.4 is exceeded**
+- **T54 · Full security review:**
+  - A separate agent goes through all of SECURITY.md
+  - Manual attack attempts: DNS rebinding, CSRF from another site, access from the LAN, injection into the muter, and XSS in a title
+  - `docker inspect` for every container
+  - A report in `docs/security-review-v1.md`. Every finding gets a fix or a documented decision
+- **T55 · Detailed English README (for the portfolio):** an opening paragraph, screenshots and a GIF in both modes and both languages, an architecture diagram, engineering decisions and their reasons (short ADRs in `docs/adr/`), security, CI/CD, installation from scratch, troubleshooting, and how to verify a release signature
+
+**Gate G5:**
+- [ ] `security:todo --strict` passes
+- [ ] All CI is green
+- [ ] A `v1.0.0` tag → a signed release
+
+---
+
+## Coverage matrix: every requirement → task
+
+| Requirement | Tasks |
 |---|---|
-| מעקב חלון פעיל | T20, T13, T27 |
-| סרק ונעילת מסך | T21, T13 |
-| קטגוריות וחוקים | T13, T36 |
-| עמודי "היום", "שבוע" ו"אפליקציות" | T35, T43, T36 |
-| פוקוס רציף (streaks) | T14, T35 |
-| סיכום שבועי | T14, T43, T33 |
-| יעדים והתראת חריגה | T15, T28, T37 |
-| בריאות סוללה, מחזורים וקצב פריקה | T22, T16, T29, T38 |
-| "מה שורף לי סוללה" | T16, T29, T38 |
-| התראות סוללה (15%, 8%, ‏100% לאורך זמן) | T16, T27, T33 |
-| עומס PSI ואירועי חנק | T23, T17, T29, T39 |
-| מי הכי כבד (כולל קונטיינרים) | T23, T24, T17 |
-| טמפרטורה ו-throttle | T24, T17 |
-| זליגת זיכרון | T17 |
-| התראה קופצת למחשב | T33, T27 |
-| רמות critical, important ו-normal | T18, T41 |
-| rate limit להתראות | T18 |
-| מצב עבודה: ידני, משך, עד שעה | T18, T30, T40, T51 |
-| מצב עבודה: לוח זמנים ואוטומטי | T45 |
+| Active window tracking | T20, T13, T27 |
+| Idle and screen lock | T21, T13 |
+| Categories and rules | T13, T36 |
+| "Today", "Week" and "Apps" pages | T35, T43, T36 |
+| Continuous focus (streaks) | T14, T35 |
+| Weekly summary | T14, T43, T33 |
+| Goals and breach alerts | T15, T28, T37 |
+| Battery health, cycles and discharge rate | T22, T16, T29, T38 |
+| "What is draining my battery" | T16, T29, T38 |
+| Battery alerts (15%, 8%, 100% for a long time) | T16, T27, T33 |
+| PSI load and choke incidents | T23, T17, T29, T39 |
+| Who is heaviest (including containers) | T23, T24, T17 |
+| Temperature and throttling | T24, T17 |
+| Memory leaks | T17 |
+| Desktop pop-up notifications | T33, T27 |
+| critical, important and normal levels | T18, T41 |
+| Rate limit for alerts | T18 |
+| Focus mode: manual, duration, until a time | T18, T30, T40, T51 |
+| Focus mode: schedule and automatic | T45 |
 | Pomodoro | T46 |
-| השתקה לכל אפליקציה, פרופילים וחריגים | T18, T30, T34, T40 |
-| אף פעם לא להשתיק אפליקציות מערכת | T34, T41 |
-| שחזור אחרי קריסה | T34 |
-| גילוי אוטומטי של אפליקציות חדשות | T25, T18, T40 |
-| אפליקציות Chrome בנפרד | T25 |
-| "נא לא להפריע" של GNOME | T44 |
-| סיכום ביציאה מפוקוס | T18, T33 |
-| i18n עברית ואנגלית, ‏RTL | T08, T11, T33, כל עמודי web |
-| בהיר, כהה ו-system | T11, T26, T41 |
-| עיצוב "נייר ודיו" | T26 + כל עמודי web |
-| השהיה ופרטיות | T47, T41 |
-| ייצוא וגיבוי | T48 |
-| ניקוי נתונים ישנים | T49 |
-| buffer מקומי (דוקר כבוי) | T12, T32 |
-| תקציב סוללה | T21, T23, T53 |
-| systemd, אייקון ו-CLI | T42, T50, T51 |
-| healthchecks | T09, T10 |
-| רק 2 פורטים על 127.0.0.1 | T10, ST01 |
-| בלי סודות בגיט | T02, T04, T07, ST02 |
-| CI/CD עם בדיקות ואבטחה מחמירה | T03–T07, T52 |
+| Per-app muting, profiles and exceptions | T18, T30, T34, T40 |
+| Never mute system apps | T34, T41 |
+| Restore after a crash | T34 |
+| Automatic discovery of new apps | T25, T18, T40 |
+| Chrome apps tracked separately | T25 |
+| GNOME "Do Not Disturb" | T44 |
+| Summary on leaving focus | T18, T33 |
+| Hebrew and English i18n, RTL | T08, T11, T33, every web page |
+| Light, dark and system | T11, T26, T41 |
+| "Paper and Ink" design | T26 + every web page |
+| Pause and privacy | T47, T41 |
+| Export and backup | T48 |
+| Cleaning up old data | T49 |
+| Local buffer (Docker down) | T12, T32 |
+| Battery budget | T21, T23, T53 |
+| systemd, tray icon and CLI | T42, T50, T51 |
+| Healthchecks | T09, T10 |
+| Only 2 ports on 127.0.0.1 | T10, ST01 |
+| No secrets in git | T02, T04, T07, ST02 |
+| CI/CD with tests and strict security | T03–T07, T52 |
 | README | T55 |

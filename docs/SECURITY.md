@@ -1,102 +1,102 @@
-# Yoman: אבטחה ופרטיות
+# Yoman: security and privacy
 
-Yoman אוסף מידע רגיש מאוד: מה עשית במחשב בכל רגע, כותרות חלונות (שמות מסמכים, אתרים, שיחות) ורשימות תהליכים.
-**ההנחה:** דליפה של הנתונים האלה חמורה כמו דליפה של היסטוריית הדפדפן. כל החלטה בפרויקט נבחנת מול המסמך הזה.
+Yoman collects highly sensitive data: what you were doing on your computer at every moment, window titles (document names, websites, conversations) and process lists.
+**Assumption:** a leak of this data is as serious as a leak of your browser history. Every decision in the project is measured against this document.
 
-**עיקרון:** אבטחה נאכפת אוטומטית ב-CI. בדיקה אדומה חוסמת merge, ואין `continue-on-error`. חריגה מותרת רק עם קובץ allowlist מתועד, שכולל סיבה ותאריך תפוגה.
+**Principle:** security is enforced automatically in CI. A red check blocks the merge, and there is no `continue-on-error`. An exception is allowed only through a documented allowlist file that includes a reason and an expiry date.
 
-## 1. נכסים
-| נכס | רגישות |
+## 1. Assets
+| Asset | Sensitivity |
 |---|---|
-| היסטוריית חלונות וכותרות | **גבוהה מאוד** |
-| רשימות תהליכים | גבוהה (שורות פקודה יכולות לכלול טוקנים) |
-| `AGENT_TOKEN`, סיסמאות DB | גבוהה |
-| הגדרות השתקה של GNOME | בינונית (שיבוש = פספוס הודעות) |
-| נתוני סוללה ועומס | נמוכה |
+| Window history and titles | **Very high** |
+| Process lists | High (command lines can contain tokens) |
+| `AGENT_TOKEN`, DB passwords | High |
+| GNOME mute settings | Medium (tampering = missed notifications) |
+| Battery and load data | Low |
 
-## 2. איומים והגנות
+## 2. Threats and mitigations
 
-| # | איום | הגנה | משימה | בדיקה |
+| # | Threat | Mitigation | Task | Test |
 |---|---|---|---|---|
-| A1 | **סודות מגיעים לגיטהאב** | `.env` ב-`.gitignore`. ‏gitleaks ב-pre-commit וב-CI על כל ההיסטוריה. ‏`npm run setup` מייצר ערכים אקראיים. רק placeholders ב-`.env.example` | T02, T04 | ST02 |
-| A2 | **API חשוף לרשת המקומית** | פורטים רק על `127.0.0.1`. הסרוויסים הפנימיים ברשת `internal: true` | T10 | ST01 |
-| A3 | **אתר זדוני שולח בקשות ל-localhost** (CSRF) | cookie ‏`HttpOnly; SameSite=Strict`, טוקן CSRF לכל בקשה שמשנה נתונים, בדיקת `Origin`, ‏CORS רק ל-4710 | T19 | ST05, ST06 |
-| A4 | **DNS rebinding** | allowlist של `Host`: רק `127.0.0.1:4711` ו-`localhost:4711`, אחרת 421 | T19 | ST04 |
-| A5 | **תהליך מקומי מתחזה ל-agent** | Bearer `AGENT_TOKEN` (32 בתים), ‏`.env` ב-`0600`, השוואה ב-`timingSafeEqual` | T02, T19 | ST03, ST15 |
-| A6 | **XSS דרך כותרת חלון** (כותרת = קלט מבחוץ) | React escaping בלבד, lint שאוסר `dangerouslySetInnerHTML`, ‏CSP ‏`default-src 'self'` בלי inline | T11, T26 | ST07, ST13 |
-| A7 | **הזרקת פקודות ב-muter** | רק `execFile` עם מערך ארגומנטים. ‏app-id נבדק מול `^[a-zA-Z0-9._-]{1,128}$` | T34 | ST14 |
-| A8 | **SQL injection** | רק שאילתות עם פרמטרים. lint שאוסר template string בתוך `query()` | T09 | ST12 |
-| A9 | **סרוויס פרוץ קורא נתונים של אחר** | משתמש DB לכל סרוויס, עם הרשאות רק לסכמה שלו. ‏`REVOKE ALL ON SCHEMA public` | T10 | ST16 |
-| A10 | **פריצה מקונטיינר** | non-root, ‏`read_only`, ‏`cap_drop: [ALL]`, ‏`no-new-privileges`, ‏`tmpfs: /tmp`, מגבלות CPU וזיכרון, בלי docker socket | T09, T10 | ST01, ST19 |
-| A11 | **מידע רגיש בלוגים** | redaction ב-pino: ‏`authorization`, `cookie`, `title`, `cmdline`, `token`, `password` | T09, T12 | ST11 |
-| A12 | **סודות בשורות פקודה של תהליכים** | ה-agent שולח רק `comm`, לעולם לא `cmdline` | T23 | ST17 |
-| A13 | **תלות זדונית** (supply chain) | ‏`npm ci`, ‏`ignore-scripts=true`, ‏audit, ‏OSV, ‏Dependabot, ‏dependency-review, ‏Actions נעולים ל-SHA, ‏images נעולים ל-digest, ‏SBOM וחתימה | T01, T04, T06 | ST19, CI |
-| A14 | **אפליקציה נשארת מושתקת אחרי קריסה** | שמירת state לפני שינוי ושחזור בעלייה | T34 | טסט T34 |
-| A15 | **docker socket = הרשאות root** | ה-agent לא דורש קבוצת `docker`. מיפוי דרך שמות cgroup. ה-socket אופציונלי וכבוי כברירת מחדל | T24 | ST01 |
-| A16 | **גיבויים וייצוא פתוחים** | ‏`backups/` ב-`.gitignore` ובהרשאות `0600`. ייצוא רק עם session | T48 | ST03, ST15 |
-| A17 | **הצפת API** | rate limit: ‏ingest פעם ב-10 שנ׳, ‏web ‏300 בקשות לדקה. ‏body limit של 1MB | T19 | ST09, ST10 |
-| A18 | **קלט לא צפוי מפיל סרוויס** | zod בכל גבול. fuzzing לכל route | T19 | ST08 |
-| A19 | **CI/CD עצמו נפרץ** | הרשאות `contents: read` כברירת מחדל, בלי `pull_request_target`, ‏zizmor ו-actionlint, חתימה keyless עם OIDC בלי מפתחות שמורים | T03–T06 | CI |
+| A1 | **Secrets reach GitHub** | `.env` in `.gitignore`. gitleaks in pre-commit and in CI over the full history. `npm run setup` generates random values. Only placeholders in `.env.example` | T02, T04 | ST02 |
+| A2 | **API exposed to the local network** | Ports bound to `127.0.0.1` only. Internal services on an `internal: true` network | T10 | ST01 |
+| A3 | **A malicious website sends requests to localhost** (CSRF) | `HttpOnly; SameSite=Strict` cookie, a CSRF token on every state-changing request, `Origin` check, CORS for 4710 only | T19 | ST05, ST06 |
+| A4 | **DNS rebinding** | `Host` allowlist: only `127.0.0.1:4711` and `localhost:4711`, otherwise 421 | T19 | ST04 |
+| A5 | **A local process impersonates the agent** | Bearer `AGENT_TOKEN` (32 bytes), `.env` at `0600`, comparison with `timingSafeEqual` | T02, T19 | ST03, ST15 |
+| A6 | **XSS through a window title** (title = external input) | React escaping only, a lint rule banning `dangerouslySetInnerHTML`, CSP `default-src 'self'` with no inline | T11, T26 | ST07, ST13 |
+| A7 | **Command injection in the muter** | `execFile` with an args array only. app-id validated against `^[a-zA-Z0-9._-]{1,128}$` | T34 | ST14 |
+| A8 | **SQL injection** | Parameterized queries only. A lint rule banning template strings inside `query()` | T09 | ST12 |
+| A9 | **A compromised service reads another service's data** | A DB user per service, with privileges on its own schema only. `REVOKE ALL ON SCHEMA public` | T10 | ST16 |
+| A10 | **Container escape** | non-root, `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, `tmpfs: /tmp`, CPU and memory limits, no docker socket | T09, T10 | ST01, ST19 |
+| A11 | **Sensitive data in logs** | pino redaction: `authorization`, `cookie`, `title`, `cmdline`, `token`, `password` | T09, T12 | ST11 |
+| A12 | **Secrets in process command lines** | The agent sends only `comm`, never `cmdline` | T23 | ST17 |
+| A13 | **Malicious dependency** (supply chain) | `npm ci`, `ignore-scripts=true`, audit, OSV, Dependabot, dependency-review, Actions pinned to a SHA, images pinned to a digest, SBOM and signing | T01, T04, T06 | ST19, CI |
+| A14 | **An app stays muted after a crash** | Save state before every change and restore it on startup | T34 | T34 test |
+| A15 | **docker socket = root privileges** | The agent does not require the `docker` group. Mapping via cgroup names. The socket is optional and off by default | T24 | ST01 |
+| A16 | **Exposed backups and exports** | `backups/` in `.gitignore` and at `0600`. Export only with a session | T48 | ST03, ST15 |
+| A17 | **API flooding** | Rate limit: ingest once per 10 s, web 300 requests per minute. 1MB body limit | T19 | ST09, ST10 |
+| A18 | **Unexpected input crashes a service** | zod at every boundary. Fuzzing for every route | T19 | ST08 |
+| A19 | **The CI/CD itself is compromised** | `contents: read` permissions by default, no `pull_request_target`, zizmor and actionlint, keyless signing with OIDC and no stored keys | T03–T06 | CI |
 
-## 3. בדיקות אבטחה אוטומטיות (`tests/security/`)
+## 3. Automated security tests (`tests/security/`)
 
-משימה T05 יוצרת את כל הבדיקות כ-`it.todo` עם מזהה המשימה האחראית.
-**כל משימה שמופיעה בעמודה "מפעילה" חייבת להפוך את ה-todo לבדיקה אמיתית באותו PR.**
-ה-CD נכשל אם נשאר todo אחד (`npm run security:todo`). ככה אי אפשר לשכוח בדיקה.
+Task T05 creates every test as `it.todo` with the ID of the responsible task.
+**Every task listed in the "Enabled by" column must turn the todo into a real test in the same PR.**
+CD fails if a single todo remains (`npm run security:todo`). That way no test can be forgotten.
 
-| # | בדיקה | מפעילה |
+| # | Test | Enabled by |
 |---|---|---|
-| ST01 | **Compose policy:** רק 2 פורטים, ושניהם על 127.0.0.1. כל סרוויס עם non-root, ‏read_only, ‏cap_drop ALL, ‏no-new-privileges ומגבלת זיכרון. אין mount של docker.sock. ‏images נעולים ל-digest | T05 (פעילה מההתחלה) |
-| ST02 | סודות: ‏gitleaks נקי, ‏`.env` לא במעקב גיט, ‏`.env.example` רק עם placeholders | T05 (פעילה מההתחלה) |
-| ST03 | **אימות:** כל route ב-route map של החוזים, בלי טוקן או session ← 401. נגזר אוטומטית, כך ש-route חדש מכוסה לבד | T19 |
-| ST04 | ‏Host זר ← 421 | T19 |
-| ST05 | בקשה משנה בלי CSRF או עם Origin זר ← 403 | T19 |
-| ST06 | ‏CORS: ‏origin זר לא מקבל `Access-Control-Allow-Origin` | T19 |
-| ST07 | headers: ‏CSP, ‏`X-Content-Type-Options`, ‏`Referrer-Policy: no-referrer`, ‏`frame-ancestors 'none'` ב-web וב-gateway | T11, T19 |
-| ST08 | **fuzzing:** לכל route, ‏500 קלטים לא תקינים (fast-check מתוך סכמת zod) ← תמיד 400 ואף פעם לא 500 | T19 + כל משימת route |
-| ST09 | rate limit ← 429 | T19 |
-| ST10 | body גדול מ-1MB ← 413 | T19 |
-| ST11 | **redaction:** טוקן וכותרת שהוזרקו לא מופיעים בפלט הלוג | T09, T12 |
-| ST12 | payloads של SQL injection בכל פרמטר ← אין שגיאת DB ואין דליפה | T13–T18 |
-| ST13 | **XSS:** כותרת `<img src=x onerror=…>` מוצגת כטקסט (Playwright) | T35 |
-| ST14 | ‏muter: ‏app-id עם `;`, `$()` או רווח נדחה, ו-`execFile` נקרא בלי shell | T34 |
-| ST15 | הרשאות: ‏`.env`, ‏state ו-backups נוצרים ב-`0600`/`0700` | T02, T12, T48 |
-| ST16 | ‏least privilege: משתמש DB של סרוויס לא מצליח לקרוא סכמה של סרוויס אחר | T10 |
-| ST17 | ה-agent לא שולח `cmdline` ולא שולח כותרת כשההגדרה כבויה | T23, T47 |
-| ST18 | **DAST:** ‏OWASP ZAP baseline מול compose רץ. ‏0 ממצאים ברמת Medium ומעלה | T52 |
-| ST19 | **סריקת images:** ‏Trivy, ‏0 ממצאים HIGH או CRITICAL שיש להם תיקון | T06 |
+| ST01 | **Compose policy:** only 2 ports, both on 127.0.0.1. Every service is non-root, read_only, cap_drop ALL, no-new-privileges and has a memory limit. No docker.sock mount. Images pinned to a digest | T05 (active from the start) |
+| ST02 | Secrets: gitleaks clean, `.env` not tracked by git, `.env.example` contains only placeholders | T05 (active from the start) |
+| ST03 | **Authentication:** every route in the contracts' route map, without a token or session → 401. Derived automatically, so a new route is covered on its own | T19 |
+| ST04 | Foreign Host → 421 | T19 |
+| ST05 | State-changing request without CSRF or with a foreign Origin → 403 | T19 |
+| ST06 | CORS: a foreign origin does not receive `Access-Control-Allow-Origin` | T19 |
+| ST07 | Headers: CSP, `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'` on web and gateway | T11, T19 |
+| ST08 | **Fuzzing:** for every route, 500 invalid inputs (fast-check from the zod schema) → always 400, never 500 | T19 + every route task |
+| ST09 | Rate limit → 429 | T19 |
+| ST10 | Body larger than 1MB → 413 | T19 |
+| ST11 | **Redaction:** an injected token and title do not appear in the log output | T09, T12 |
+| ST12 | SQL injection payloads in every parameter → no DB error and no leak | T13–T18 |
+| ST13 | **XSS:** a title of `<img src=x onerror=…>` is rendered as text (Playwright) | T35 |
+| ST14 | Muter: an app-id containing `;`, `$()` or a space is rejected, and `execFile` is called without a shell | T34 |
+| ST15 | Permissions: `.env`, state and backups are created at `0600`/`0700` | T02, T12, T48 |
+| ST16 | Least privilege: a service's DB user cannot read another service's schema | T10 |
+| ST17 | The agent never sends `cmdline`, and does not send the title when the setting is off | T23, T47 |
+| ST18 | **DAST:** OWASP ZAP baseline against a running compose. 0 findings at Medium or above | T52 |
+| ST19 | **Image scanning:** Trivy, 0 fixable HIGH or CRITICAL findings | T06 |
 
-## 4. שערי אבטחה ב-CI (חוסמים)
-| כלי | מה בודק | מתי |
+## 4. CI security gates (blocking)
+| Tool | What it checks | When |
 |---|---|---|
-| gitleaks | סודות בכל ההיסטוריה | כל PR, ‏push ו-nightly |
-| npm audit (`--audit-level=moderate`) + OSV-Scanner | תלויות פגיעות | כל PR ו-nightly |
-| dependency-review-action | תלות חדשה פגיעה או ברישיון אסור (GPL/AGPL) | כל PR |
-| CodeQL (javascript-typescript, ‏security-extended) | ניתוח קוד סטטי | כל PR ו-weekly |
-| Semgrep (‏`p/owasp-top-ten`, ‏`p/nodejs`, ‏`p/typescript`, ‏`p/react`, ‏`p/docker-compose` + חוקים מקומיים) | דפוסים מסוכנים | כל PR |
-| hadolint | Dockerfiles | כל PR |
-| Trivy config + fs | ‏misconfig ותלויות | כל PR |
-| Trivy image | ‏images שנבנו | כל PR, ‏release ו-nightly |
-| actionlint + zizmor | אבטחת ה-workflows עצמם | כל PR |
-| Biome (`biome ci`) + חוקי GritQL ב-`biome-plugins/` | ‏`shell:true`, ‏`dangerouslySetInnerHTML`, ‏template SQL, ‏`exec`, ‏`eval`, ‏`any` | כל PR |
-| tests/security (ST01–ST17) | ההתנהגות בפועל | כל PR |
-| ZAP baseline (ST18) | ‏DAST | nightly ו-release |
-| OpenSSF Scorecard | בריאות הריפו | weekly |
+| gitleaks | Secrets across the full history | Every PR, push and nightly |
+| npm audit (`--audit-level=moderate`) + OSV-Scanner | Vulnerable dependencies | Every PR and nightly |
+| dependency-review-action | A new dependency that is vulnerable or has a disallowed license (GPL/AGPL) | Every PR |
+| CodeQL (javascript-typescript, security-extended) | Static code analysis | Every PR and weekly |
+| Semgrep (`p/owasp-top-ten`, `p/nodejs`, `p/typescript`, `p/react`, `p/docker-compose` + local rules) | Dangerous patterns | Every PR |
+| hadolint | Dockerfiles | Every PR |
+| Trivy config + fs | Misconfiguration and dependencies | Every PR |
+| Trivy image | Built images | Every PR, release and nightly |
+| actionlint + zizmor | Security of the workflows themselves | Every PR |
+| Biome (`biome ci`) + GritQL rules in `biome-plugins/` | `shell:true`, `dangerouslySetInnerHTML`, template SQL, `exec`, `eval`, `any` | Every PR |
+| tests/security (ST01–ST17) | Actual behavior | Every PR |
+| ZAP baseline (ST18) | DAST | Nightly and release |
+| OpenSSF Scorecard | Repo health | Weekly |
 
-## 5. הרשאות קבצים
-| נתיב | הרשאה |
+## 5. File permissions
+| Path | Permission |
 |---|---|
 | `.env` | `0600` |
 | `~/.config/yoman/` | `0700` |
-| `~/.local/state/yoman/` | `0700`, קבצים ב-`0600` |
-| `backups/` | `0700`, קבצים ב-`0600` |
+| `~/.local/state/yoman/` | `0700`, files at `0600` |
+| `backups/` | `0700`, files at `0600` |
 
-## 6. צ׳קליסט לכל PR
-- [ ] כל קלט חיצוני נבדק ב-zod בגבול (route או collector)
-- [ ] אין סודות, כותרות או tokens בלוגים ובהודעות שגיאה
-- [ ] אין `shell: true` ואין הרכבה של פקודה ממחרוזת
-- [ ] SQL רק עם פרמטרים
-- [ ] אין פורט חדש, ואין שינוי ב-CORS, ‏Host או CSP בלי עדכון המסמך הזה
-- [ ] תלות חדשה: מוסברת ב-PR, מתוחזקת, רישיון תואם, ובלי install scripts
-- [ ] בדיקות ה-ST שהמשימה מפעילה הפכו מ-todo לבדיקות אמיתיות
-- [ ] קבצים חדשים נוצרים בהרשאות מהטבלה
+## 6. Checklist for every PR
+- [ ] Every external input is validated with zod at the boundary (route or collector)
+- [ ] No secrets, titles or tokens in logs or error messages
+- [ ] No `shell: true` and no command built from a string
+- [ ] SQL with parameters only
+- [ ] No new port, and no change to CORS, Host or CSP without updating this document
+- [ ] New dependency: justified in the PR, maintained, compatible license, and no install scripts
+- [ ] The ST tests the task enables have gone from todo to real tests
+- [ ] New files are created with the permissions from the table

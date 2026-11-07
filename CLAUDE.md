@@ -36,7 +36,7 @@ Nobody commits to `main` directly. Every change, including docs and CI, goes thr
 
 ### Reviewer (code review)
 1. Read the task in `docs/TASKS.md`, then the full diff: `gh pr diff <n>`. Run the branch locally and run the checks yourself. Don't trust the description.
-2. Review against: every "גמור כש" item of the task, the SECURITY.md §6 checklist, the code quality standard below, file ownership, test quality, and whether the PR does exactly what the task asks (no more, no less).
+2. Review against: every "Done when" item of the task, the SECURITY.md §6 checklist, the code quality standard below, file ownership, test quality, and whether the PR does exactly what the task asks (no more, no less).
 3. Leave **inline comments** on specific lines (`gh api repos/{owner}/{repo}/pulls/<n>/comments`), each labeled `blocking:`, `suggestion:` or `question:`. Blocking means a bug, a security issue, a missing requirement, or a standard violation.
 4. Finish with a review summary (`gh pr review <n> --comment --body …`) that ends with a verdict line: `Verdict: changes requested` or `Verdict: approved`. GitHub doesn't let an account approve its own PR, so this verdict line is the approval record.
 5. Re-review only what changed since the last round, until there are no blocking comments left.
@@ -67,7 +67,8 @@ Zod is the only validation library in the repo.
 
 ## Language
 - **All code is English:** identifiers, comments, log messages, error messages, commit messages, PR descriptions, `README.md` and code-level docs.
-- Hebrew is allowed only in translation files (`**/i18n/he/**`, `**/i18n/he.json`) and in `docs/` planning documents. `npm run check` runs `scripts/check-language.ts`, which fails on Hebrew anywhere else.
+- **Docs are English too:** everything in `docs/` and this `CLAUDE.md`.
+- Hebrew is allowed **only** in UI translation files (`**/i18n/he/**`, `**/i18n/he.json`). `npm run check` runs `scripts/check-language.ts`, which fails on Hebrew anywhere else.
 
 ## Code quality standard
 This repo is a portfolio piece. Code should read like it was written by a strong senior engineer.
