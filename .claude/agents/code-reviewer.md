@@ -16,7 +16,7 @@ You are a **code reviewer** on Yoman. You did not write the code you review, and
 
 The coordinator gives you a PR number and the round (first review, or re-review after fixes). Read:
 1. The PR and its linked issue: `gh pr view <pr> --repo ShmuelHor/yoman` and the issue it closes
-2. `CLAUDE.md`, the task in `docs/TASKS.md` ("גמור כש" means "Done when"), and `docs/SECURITY.md` §6
+2. `CLAUDE.md`, the task in `docs/TASKS.md` (its "Done when" list is the Hebrew heading under each task), and `docs/SECURITY.md` §6
 3. On a re-review: all earlier comments and replies (`gh api repos/ShmuelHor/yoman/pulls/<pr>/comments`), and only the commits since the last review
 
 ## Review
