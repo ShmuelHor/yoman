@@ -214,13 +214,8 @@ jobs:
           fi
           echo "found=true" >> "${GITHUB_OUTPUT}"
           printf 'Linting %s\n' "${dockerfiles[@]}"
-          docker run --rm \
-            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
-            --workdir /repo \
-            --entrypoint /bin/hadolint \
-            "${HADOLINT_IMAGE}" \
-            --failure-threshold warning \
-            "${dockerfiles[@]}"
+          # SARIF first (it never fails), so the report exists even when the
+          # blocking run below fails the job.
           docker run --rm \
             --volume "${GITHUB_WORKSPACE}:/repo:ro" \
             --workdir /repo \
@@ -229,6 +224,13 @@ jobs:
             --no-fail \
             --format sarif \
             "${dockerfiles[@]}" > hadolint.sarif
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/repo:ro" \
+            --workdir /repo \
+            --entrypoint /bin/hadolint \
+            "${HADOLINT_IMAGE}" \
+            --failure-threshold warning \
+            "${dockerfiles[@]}"
       - name: Upload SARIF
         if: ${{ !cancelled() && steps.lint.outputs.found == 'true' && hashFiles('hadolint.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
@@ -250,6 +252,10 @@ jobs:
       # Vulnerable dependencies. Only HIGH and CRITICAL with a released fix
       # block; the rest is npm audit's and OSV-Scanner's job.
       - name: Scan dependencies (fs)
+        env:
+          # Trivy skips devDependencies by default. They run in CI and on the
+          # developer's machine, so they are in scope (same as npm audit).
+          TRIVY_INCLUDE_DEV_DEPS: "true"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
