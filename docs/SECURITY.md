@@ -18,7 +18,7 @@ Yoman collects highly sensitive data: what you were doing on your computer at ev
 
 | # | Threat | Mitigation | Task | Test |
 |---|---|---|---|---|
-| A1 | **Secrets reach GitHub** | `.env` in `.gitignore`. gitleaks in pre-commit and in CI over the full history. `npm run setup` generates random values. Only placeholders in `.env.example` | T02, T04 | ST02 |
+| A1 | **Secrets reach GitHub** | `.env*` in `.gitignore`, and pre-commit always blocks staged `.env*` files except `.env.example`. gitleaks runs in pre-commit when installed (best-effort locally) and in CI over the full history, where it is the enforcing gate. `npm run setup` generates random values. Only placeholders in `.env.example` | T02, T04 | ST02 |
 | A2 | **API exposed to the local network** | Ports bound to `127.0.0.1` only. Internal services on an `internal: true` network | T10 | ST01 |
 | A3 | **A malicious website sends requests to localhost** (CSRF) | `HttpOnly; SameSite=Strict` cookie, a CSRF token on every state-changing request, `Origin` check, CORS for 4710 only | T19 | ST05, ST06 |
 | A4 | **DNS rebinding** | `Host` allowlist: only `127.0.0.1:4711` and `localhost:4711`, otherwise 421 | T19 | ST04 |
