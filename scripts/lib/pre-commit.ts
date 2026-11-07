@@ -18,7 +18,8 @@ export interface PreCommitDeps {
 }
 
 export const GITLEAKS_MISSING_WARNING = `Warning: gitleaks is not installed, so staged changes were not scanned for secrets.
-CI still runs gitleaks on every push and pull request and will fail on a leak.
+The local gitleaks scan is best-effort: the gitleaks job in CI is the enforcing gate,
+and a leak it finds after a push means the secret must be rotated.
 Install it from the official releases (https://github.com/gitleaks/gitleaks/releases),
 with your package manager (for example \`brew install gitleaks\`), or with
 \`go install github.com/zricethezav/gitleaks/v8@latest\`.
@@ -27,9 +28,10 @@ with your package manager (for example \`brew install gitleaks\`), or with
 /**
  * The pre-commit hook: blocks staged env files, then scans staged changes with gitleaks.
  *
- * The env file check never depends on gitleaks, so it always runs. A missing
- * gitleaks only warns, because CI is the enforcing gate; a gitleaks that runs
- * and fails, for a leak or any other reason, blocks the commit.
+ * The env file check never depends on gitleaks, so it always runs. The local
+ * gitleaks scan is best-effort: a missing gitleaks only warns, because CI is the
+ * enforcing gate. A gitleaks that runs and fails, for a leak or any other reason,
+ * blocks the commit.
  *
  * @returns the hook's exit code: 0 to allow the commit, non-zero to block it
  */
