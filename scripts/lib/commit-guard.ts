@@ -20,27 +20,33 @@ export function findForbiddenEnvFiles(paths: readonly string[]): string[] {
   return paths.filter(isForbiddenEnvFile);
 }
 
-/** gitleaks v8.19.0 replaced `protect --staged` with `git --staged`. */
-const GIT_COMMAND_SINCE = { major: 8, minor: 19 } as const;
-const VERSION_PATTERN = /^v?(\d+)\.(\d+)\.\d+/u;
+/**
+ * Which gitleaks command scans staged changes: `git --staged` since v8.19.0, or
+ * the older `protect --staged` (for example the 8.16 in Ubuntu's archive).
+ */
+export type GitleaksSyntax = 'git' | 'protect';
 
-const SHARED_FLAGS = ['--staged', '--redact', '--verbose', '--no-banner'] as const;
+/** What running `gitleaks git --help` showed. */
+export interface GitleaksHelpProbe {
+  readonly succeeded: boolean;
+  readonly output: string;
+}
+
+const STAGED_FLAG = '--staged';
+const SHARED_FLAGS = [STAGED_FLAG, '--redact', '--verbose', '--no-banner'] as const;
 
 /**
- * The gitleaks arguments that scan only the staged changes, for the installed version.
- * Older releases (such as the 8.16 in Ubuntu's archive) only know `protect`. An
- * unrecognized version gets the current syntax: if it is wrong, gitleaks fails and
- * the commit is blocked, never silently allowed.
- *
- * @param versionOutput the trimmed output of `gitleaks version`
+ * Detects the syntax from `gitleaks git --help` instead of the version string,
+ * which some builds do not set. Releases before v8.19.0 have no `git` command,
+ * so the probe fails there. The `git` syntax is chosen only when its help also
+ * lists `--staged`, so a build that has neither still gets `protect`, and if
+ * that is wrong too gitleaks fails and the commit is blocked.
  */
-export function gitleaksArgs(versionOutput: string): readonly string[] {
-  const match = VERSION_PATTERN.exec(versionOutput.trim());
-  const major = Number(match?.[1]);
-  const minor = Number(match?.[2]);
-  const isLegacy =
-    match !== null &&
-    (major < GIT_COMMAND_SINCE.major ||
-      (major === GIT_COMMAND_SINCE.major && minor < GIT_COMMAND_SINCE.minor));
-  return isLegacy ? ['protect', ...SHARED_FLAGS] : ['git', '--pre-commit', ...SHARED_FLAGS];
+export function detectGitleaksSyntax(probe: GitleaksHelpProbe): GitleaksSyntax {
+  return probe.succeeded && probe.output.includes(STAGED_FLAG) ? 'git' : 'protect';
+}
+
+/** The gitleaks arguments that scan only the staged changes. */
+export function gitleaksArgs(syntax: GitleaksSyntax): readonly string[] {
+  return syntax === 'git' ? ['git', '--pre-commit', ...SHARED_FLAGS] : ['protect', ...SHARED_FLAGS];
 }

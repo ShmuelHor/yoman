@@ -1,6 +1,6 @@
 import type { ChildExit } from './child-exit.js';
 import { toExitOutcome } from './child-exit.js';
-import { findForbiddenEnvFiles, gitleaksArgs } from './commit-guard.js';
+import { findForbiddenEnvFiles, type GitleaksSyntax, gitleaksArgs } from './commit-guard.js';
 
 const EXIT_SUCCESS = 0;
 const EXIT_BLOCKED = 1;
@@ -9,8 +9,8 @@ const EXIT_BLOCKED = 1;
 export interface PreCommitDeps {
   /** Repo-relative paths of the staged files that are added, copied, modified or renamed. */
   readonly listStagedFiles: () => Promise<readonly string[]>;
-  /** The output of `gitleaks version`, or `undefined` when gitleaks is not on `PATH`. */
-  readonly gitleaksVersion: () => Promise<string | undefined>;
+  /** The staged-scan syntax the installed gitleaks supports, or `undefined` when it is not on `PATH`. */
+  readonly detectGitleaks: () => Promise<GitleaksSyntax | undefined>;
   /** Runs gitleaks with the given arguments, its output going straight to the terminal. */
   readonly runGitleaks: (args: readonly string[]) => Promise<ChildExit>;
   readonly stdout: (text: string) => void;
@@ -45,13 +45,13 @@ export async function runPreCommit(deps: PreCommitDeps): Promise<number> {
     return EXIT_BLOCKED;
   }
 
-  const version = await deps.gitleaksVersion();
-  if (version === undefined) {
+  const syntax = await deps.detectGitleaks();
+  if (syntax === undefined) {
     deps.stderr(GITLEAKS_MISSING_WARNING);
     return EXIT_SUCCESS;
   }
 
-  const outcome = toExitOutcome('gitleaks', await deps.runGitleaks(gitleaksArgs(version)));
+  const outcome = toExitOutcome('gitleaks', await deps.runGitleaks(gitleaksArgs(syntax)));
   if (outcome.message !== undefined) {
     deps.stderr(`${outcome.message}\n`);
   }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { findForbiddenEnvFiles, gitleaksArgs, isForbiddenEnvFile } from './commit-guard.js';
+import {
+  detectGitleaksSyntax,
+  findForbiddenEnvFiles,
+  gitleaksArgs,
+  isForbiddenEnvFile,
+} from './commit-guard.js';
 
 describe('isForbiddenEnvFile', () => {
   it.each([
@@ -47,19 +52,45 @@ describe('findForbiddenEnvFiles', () => {
   });
 });
 
+describe('detectGitleaksSyntax', () => {
+  it('uses `git` when `gitleaks git --help` succeeds and lists --staged', () => {
+    expect(
+      detectGitleaksSyntax({ succeeded: true, output: '  --staged   scan staged commits' }),
+    ).toBe('git');
+  });
+
+  it('uses `protect` when there is no `git` command', () => {
+    expect(detectGitleaksSyntax({ succeeded: false, output: 'Error: unknown command "git"' })).toBe(
+      'protect',
+    );
+  });
+
+  it('uses `protect` when the help does not mention --staged', () => {
+    expect(detectGitleaksSyntax({ succeeded: true, output: 'Usage: gitleaks [command]' })).toBe(
+      'protect',
+    );
+  });
+});
+
 describe('gitleaksArgs', () => {
-  const current = ['git', '--pre-commit', '--staged', '--redact', '--verbose', '--no-banner'];
-  const legacy = ['protect', '--staged', '--redact', '--verbose', '--no-banner'];
-
-  it.each(['8.19.0', 'v8.28.0', '9.0.0', '8.19.2\n'])('uses `git --staged` on %s', (version) => {
-    expect(gitleaksArgs(version)).toEqual(current);
+  it('scans staged changes with the `git` command', () => {
+    expect(gitleaksArgs('git')).toEqual([
+      'git',
+      '--pre-commit',
+      '--staged',
+      '--redact',
+      '--verbose',
+      '--no-banner',
+    ]);
   });
 
-  it.each(['8.16.0', 'v8.18.4', '7.6.1'])('uses `protect --staged` on %s', (version) => {
-    expect(gitleaksArgs(version)).toEqual(legacy);
-  });
-
-  it('falls back to the current syntax for an unrecognized version', () => {
-    expect(gitleaksArgs('dev')).toEqual(current);
+  it('scans staged changes with the legacy `protect` command', () => {
+    expect(gitleaksArgs('protect')).toEqual([
+      'protect',
+      '--staged',
+      '--redact',
+      '--verbose',
+      '--no-banner',
+    ]);
   });
 });

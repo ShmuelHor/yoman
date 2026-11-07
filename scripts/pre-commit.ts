@@ -10,23 +10,30 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 
 import type { ChildExit } from './lib/child-exit.js';
+import { detectGitleaksSyntax, type GitleaksSyntax } from './lib/commit-guard.js';
 import { runPreCommit } from './lib/pre-commit.js';
 import { listStagedFiles } from './lib/staged-files.js';
 
 const run = promisify(execFile);
 
-/** The fields of a Node.js system error that we inspect. */
-const SystemError = z.object({ code: z.string().optional() });
+/** The fields of a failed `execFile` that we inspect. */
+const ExecError = z.object({
+  code: z.union([z.string(), z.number()]).optional(),
+  stdout: z.string().optional(),
+  stderr: z.string().optional(),
+});
 
-async function gitleaksVersion(): Promise<string | undefined> {
+/** Probes `gitleaks git --help`; `undefined` means gitleaks is not on `PATH`. */
+async function detectGitleaks(): Promise<GitleaksSyntax | undefined> {
   try {
-    const { stdout } = await run('gitleaks', ['version']);
-    return z.string().parse(stdout).trim();
+    const { stdout, stderr } = await run('gitleaks', ['git', '--help']);
+    return detectGitleaksSyntax({ succeeded: true, output: `${stdout}${stderr}` });
   } catch (error: unknown) {
-    if (SystemError.safeParse(error).data?.code === 'ENOENT') {
+    const { code, stdout = '', stderr = '' } = ExecError.parse(error);
+    if (code === 'ENOENT') {
       return undefined;
     }
-    throw error;
+    return detectGitleaksSyntax({ succeeded: false, output: `${stdout}${stderr}` });
   }
 }
 
@@ -42,7 +49,7 @@ function runGitleaks(args: readonly string[]): Promise<ChildExit> {
 
 process.exitCode = await runPreCommit({
   listStagedFiles: () => listStagedFiles(process.cwd()),
-  gitleaksVersion,
+  detectGitleaks,
   runGitleaks,
   stdout: (text) => process.stdout.write(text),
   stderr: (text) => process.stderr.write(text),

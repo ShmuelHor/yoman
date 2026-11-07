@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ChildExit } from './child-exit.js';
+import type { GitleaksSyntax } from './commit-guard.js';
 import { GITLEAKS_MISSING_WARNING, type PreCommitDeps, runPreCommit } from './pre-commit.js';
 
 const LEAK_FOUND = 1;
@@ -15,7 +16,7 @@ interface Harness {
 
 function harness(options: {
   readonly staged: readonly string[];
-  readonly version?: string;
+  readonly syntax?: GitleaksSyntax;
   readonly exit?: ChildExit;
 }): Harness {
   const stdout: string[] = [];
@@ -26,7 +27,7 @@ function harness(options: {
   return {
     deps: {
       listStagedFiles: () => Promise.resolve(options.staged),
-      gitleaksVersion: () => Promise.resolve(options.version),
+      detectGitleaks: () => Promise.resolve(options.syntax),
       runGitleaks,
       stdout: (text) => stdout.push(text),
       stderr: (text) => stderr.push(text),
@@ -39,7 +40,7 @@ function harness(options: {
 
 describe('runPreCommit', () => {
   it('blocks a staged .env without running gitleaks', async () => {
-    const h = harness({ staged: ['README.md', '.env'], version: '8.28.0' });
+    const h = harness({ staged: ['README.md', '.env'], syntax: 'git' });
 
     const code = await runPreCommit(h.deps);
 
@@ -64,7 +65,7 @@ describe('runPreCommit', () => {
   });
 
   it('runs gitleaks on the staged changes and allows a clean commit', async () => {
-    const h = harness({ staged: ['README.md'], version: '8.28.0' });
+    const h = harness({ staged: ['README.md'], syntax: 'git' });
 
     await expect(runPreCommit(h.deps)).resolves.toBe(0);
     expect(h.runGitleaks).toHaveBeenCalledWith([
@@ -81,7 +82,7 @@ describe('runPreCommit', () => {
   it('blocks the commit when gitleaks finds a leak', async () => {
     const h = harness({
       staged: ['src/config.ts'],
-      version: '8.16.0',
+      syntax: 'protect',
       exit: { code: CUSTOM_EXIT, signal: null },
     });
 
@@ -93,7 +94,7 @@ describe('runPreCommit', () => {
   it('blocks the commit when gitleaks is killed by a signal', async () => {
     const h = harness({
       staged: ['src/config.ts'],
-      version: '8.28.0',
+      syntax: 'git',
       exit: { code: null, signal: 'SIGTERM' },
     });
 
