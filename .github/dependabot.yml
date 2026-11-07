@@ -1,0 +1,43 @@
+# Weekly dependency updates. Minor and patch bumps are grouped per ecosystem so
+# they arrive as one PR; majors stay separate because they need a closer look.
+# The cooldown skips releases younger than a few days, which is when a
+# compromised package version is most likely to be caught and pulled.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  # No Dockerfile or compose file exists yet. Dependabot finds them as they
+  # land under any directory.
+  - package-ecosystem: docker
+    directories: ["/", "/**/*"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      docker-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci(deps)
