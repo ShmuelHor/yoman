@@ -10,16 +10,18 @@ const BINARY_SNIFF_WINDOW = 8000;
 const ASCII_X = 0x78;
 
 describe('shouldScan', () => {
-  it.each(['apps/web/src/app.tsx', 'README.md', 'docker-compose.yml', 'Dockerfile'])(
-    'scans %s',
-    (path) => {
-      expect(shouldScan(path)).toBe(true);
-    },
-  );
-
   it.each([
+    'apps/web/src/app.tsx',
+    'README.md',
+    'docker-compose.yml',
+    'Dockerfile',
     'docs/SPEC.md',
     'CLAUDE.md',
+  ])('scans %s', (path) => {
+    expect(shouldScan(path)).toBe(true);
+  });
+
+  it.each([
     'apps/web/src/i18n/he/today.json',
     'apps/agent/src/i18n/he.json',
     'apps/web/public/logo.png',
