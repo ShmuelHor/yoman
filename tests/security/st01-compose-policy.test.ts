@@ -12,6 +12,9 @@ import {
 } from './lib/compose-policy.js';
 
 const REPO_COMPOSE_FILE = fileURLToPath(new URL('../../docker-compose.yml', import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+/** In-memory models pretend the project lives here. */
+const PROJECT = '/srv/yoman';
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/compose/${name}`, import.meta.url));
 
@@ -47,8 +50,8 @@ function modelWith(overrides: Partial<ComposeModel['services'][string]>): Compos
   return { services: { web: { ...compliantService(), ...overrides } } };
 }
 
-function rulesBroken(model: ComposeModel): readonly ComposeRule[] {
-  return checkComposePolicy(model).map(({ rule }) => rule);
+function rulesBroken(model: ComposeModel, projectRoot = PROJECT): readonly ComposeRule[] {
+  return checkComposePolicy(model, projectRoot).map(({ rule }) => rule);
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -63,7 +66,7 @@ async function exists(path: string): Promise<boolean> {
 describe('ST01 compose policy', () => {
   describe('policy rules', () => {
     it('accepts a service that follows every rule', () => {
-      expect(checkComposePolicy(modelWith({}))).toEqual([]);
+      expect(checkComposePolicy(modelWith({}), PROJECT)).toEqual([]);
     });
 
     it('accepts both allowed loopback ports', () => {
@@ -302,10 +305,47 @@ describe('ST01 compose policy', () => {
       },
     );
 
-    it('accepts a service built from this repo without a pinned image', () => {
-      const model = modelWith({ image: 'yoman-gateway', build: { context: '.' } });
+    it('accepts a service built from a local context without an image', () => {
+      const service = compliantService();
+      delete service.image;
+      const build = {
+        context: `${PROJECT}/services/gateway`,
+        dockerfile: 'Dockerfile',
+        additional_contexts: { shared: `${PROJECT}/packages/shared` },
+      };
+
+      expect(rulesBroken({ services: { web: { ...service, build } } })).toEqual([]);
+    });
+
+    it('accepts a built service whose image is pinned by digest', () => {
+      const model = modelWith({ build: { context: PROJECT } });
 
       expect(rulesBroken(model)).toEqual([]);
+    });
+
+    it('rejects a built service whose image could be pulled unpinned', () => {
+      const model = modelWith({ image: 'alpine:latest', build: { context: PROJECT } });
+
+      expect(rulesBroken(model)).toEqual(['image-digest']);
+    });
+
+    it.each([
+      ['a remote git context', { context: 'https://github.com/x/y.git#main' }],
+      ['a git context without a scheme', { context: 'github.com/x/y' }],
+      ['an SSH git context', { context: 'git@github.com:x/y.git' }],
+      ['a context outside the project', { context: '/srv/other' }],
+      ['a sibling directory with the same prefix', { context: '/srv/yoman-evil' }],
+      ['an inline Dockerfile', { context: PROJECT, dockerfile_inline: 'FROM ubuntu:latest' }],
+      ['a Dockerfile outside the project', { context: PROJECT, dockerfile: '/tmp/Dockerfile' }],
+      [
+        'an image as an additional context',
+        { context: PROJECT, additional_contexts: { base: 'docker-image://alpine:latest' } },
+      ],
+    ])('rejects a build from %s', (_name, build) => {
+      const service = compliantService();
+      delete service.image;
+
+      expect(rulesBroken({ services: { web: { ...service, build } } })).toEqual(['build-source']);
     });
 
     it('rejects a service with neither image nor build', () => {
@@ -318,7 +358,7 @@ describe('ST01 compose policy', () => {
     it('reports every violation with its service name', () => {
       const model = { services: { db: { image: 'postgres:16' } } };
 
-      const violations = checkComposePolicy(model);
+      const violations = checkComposePolicy(model, PROJECT);
 
       expect(violations.map(({ rule }) => rule)).toEqual([
         'non-root',
@@ -338,19 +378,19 @@ describe('ST01 compose policy', () => {
     it('accepts the compliant fixture', async () => {
       const model = await loadComposeModel(fixture('valid.yml'));
 
-      expect(formatComposeViolations(checkComposePolicy(model))).toBe('');
+      expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
     });
 
     it('fails when a port is added', async () => {
       const model = await loadComposeModel(fixture('extra-port.yml'));
 
-      expect(rulesBroken(model)).toEqual(['published-port']);
+      expect(rulesBroken(model, REPO_ROOT)).toEqual(['published-port']);
     });
 
     it('fails when read_only is removed', async () => {
       const model = await loadComposeModel(fixture('no-read-only.yml'));
 
-      expect(rulesBroken(model)).toEqual(['read-only']);
+      expect(rulesBroken(model, REPO_ROOT)).toEqual(['read-only']);
     });
 
     it('the repo docker-compose.yml follows the policy', async ({ skip }) => {
@@ -360,7 +400,7 @@ describe('ST01 compose policy', () => {
 
       const model = await loadComposeModel(REPO_COMPOSE_FILE);
 
-      expect(formatComposeViolations(checkComposePolicy(model))).toBe('');
+      expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
     });
   });
 });

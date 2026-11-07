@@ -1,4 +1,4 @@
-import { basename, posix } from 'node:path';
+import { basename, isAbsolute, posix, relative } from 'node:path';
 
 import { z } from 'zod';
 
@@ -21,11 +21,19 @@ const ComposeVolume = z.object({
   target: z.string(),
 });
 
+/** Compose resolves a local build context to an absolute path; a remote one stays a URL. */
+const ComposeBuild = z.object({
+  context: z.string(),
+  dockerfile: z.string().optional(),
+  dockerfile_inline: z.string().optional(),
+  additional_contexts: z.record(z.string(), z.string()).optional(),
+});
+
 const ByteSize = z.union([z.string(), z.number()]);
 
 const ComposeService = z.object({
   image: z.string().optional(),
-  build: z.unknown().optional(),
+  build: ComposeBuild.optional(),
   user: z.string().optional(),
   read_only: z.boolean().optional(),
   privileged: z.boolean().optional(),
@@ -84,6 +92,7 @@ export type ComposeRule =
   | 'privileged'
   | 'memory-limit'
   | 'docker-socket'
+  | 'build-source'
   | 'image-digest';
 
 /** One broken rule in one service. */
@@ -130,7 +139,14 @@ const DOCKER_SOCKET_PATHS = ['/var/run/docker.sock', '/run/docker.sock'];
 /** Rootless Docker keeps its socket under the user's runtime directory. */
 const ROOTLESS_RUNTIME_DIR = '/run/user';
 
-type ServiceCheck = (service: ComposeService, model: ComposeModel) => readonly string[];
+/** What a rule may look at besides the service itself. */
+interface PolicyContext {
+  readonly model: ComposeModel;
+  /** Absolute path of the directory that holds the Compose project; builds must stay inside it. */
+  readonly projectRoot: string;
+}
+
+type ServiceCheck = (service: ComposeService, context: PolicyContext) => readonly string[];
 
 const HOST = 'host';
 /** `network_mode: container:<id>` joins a container that may live outside this project. */
@@ -159,7 +175,7 @@ function checkNetworkMode(service: ComposeService): readonly string[] {
 }
 
 /** Attaching to a network named `host`, or one with the host driver, is host networking too. */
-function checkHostNetworks(service: ComposeService, model: ComposeModel): readonly string[] {
+function checkHostNetworks(service: ComposeService, { model }: PolicyContext): readonly string[] {
   return Object.keys(service.networks ?? {}).flatMap((key) => {
     const network = model.networks?.[key];
     return network?.name === HOST || network?.driver === HOST
@@ -264,7 +280,7 @@ function hostPathOf(
   return volume.type === 'volume' ? model.volumes?.[volume.source]?.driver_opts?.device : undefined;
 }
 
-function checkDockerSocket(service: ComposeService, model: ComposeModel): readonly string[] {
+function checkDockerSocket(service: ComposeService, { model }: PolicyContext): readonly string[] {
   return (service.volumes ?? []).flatMap((volume) => {
     const hostPath = hostPathOf(volume, model);
     return hostPath !== undefined && exposesDockerSocket(hostPath)
@@ -273,17 +289,57 @@ function checkDockerSocket(service: ComposeService, model: ComposeModel): readon
   });
 }
 
+function isInside(root: string, path: string): boolean {
+  const fromRoot = relative(root, path);
+  return isAbsolute(path) && !fromRoot.startsWith('..') && !isAbsolute(fromRoot);
+}
+
 /**
- * Pulled images must be pinned by digest. A service with `build` runs an image
- * built from this repo, so there is nothing to pin here; its base images are
- * checked in the Dockerfile by hadolint and Trivy.
+ * A build is exempt from the digest rule only because hadolint and Trivy check
+ * its Dockerfile in this repo. So the context, the Dockerfile and every
+ * additional context must be local paths inside the project, and the
+ * Dockerfile can't be inline, where those tools never see it.
  */
-function checkImageDigest(service: ComposeService): readonly string[] {
-  if (service.build !== undefined) {
+function checkBuildSource(
+  service: ComposeService,
+  { projectRoot }: PolicyContext,
+): readonly string[] {
+  const build = service.build;
+  if (build === undefined) {
     return [];
   }
+  const problems: string[] = [];
+  if (!isInside(projectRoot, build.context)) {
+    problems.push(`builds from ${build.context}, which is not a local path inside the project`);
+  }
+  if (
+    build.dockerfile !== undefined &&
+    isAbsolute(build.dockerfile) &&
+    !isInside(projectRoot, build.dockerfile)
+  ) {
+    problems.push(`builds with ${build.dockerfile}, which is outside the project`);
+  }
+  if (build.dockerfile_inline !== undefined) {
+    problems.push('uses dockerfile_inline, which hadolint and Trivy never see');
+  }
+  for (const [name, source] of Object.entries(build.additional_contexts ?? {})) {
+    if (!isInside(projectRoot, source)) {
+      problems.push(
+        `has additional context ${name} from ${source}, which is not inside the project`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Pulled images must be pinned by digest. A service built from this repo has
+ * nothing to pin unless it also names an image, which `docker compose pull`
+ * could fetch instead of building, so that image must be pinned too.
+ */
+function checkImageDigest(service: ComposeService): readonly string[] {
   if (service.image === undefined) {
-    return ['has neither image nor build'];
+    return service.build === undefined ? ['has neither image nor build'] : [];
   }
   return DIGEST_PINNED.test(service.image)
     ? []
@@ -305,6 +361,7 @@ const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
   ['privileged', checkPrivileged],
   ['memory-limit', checkMemoryLimit],
   ['docker-socket', checkDockerSocket],
+  ['build-source', checkBuildSource],
   ['image-digest', checkImageDigest],
 ];
 
@@ -313,10 +370,14 @@ const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
  * SECURITY.md (A2, A10, A13, A15). Returns every violation, so one run shows
  * everything that needs fixing; an empty array means the model passes.
  */
-export function checkComposePolicy(model: ComposeModel): readonly ComposeViolation[] {
+export function checkComposePolicy(
+  model: ComposeModel,
+  projectRoot: string,
+): readonly ComposeViolation[] {
+  const context = { model, projectRoot };
   return Object.entries(model.services).flatMap(([name, service]) =>
     CHECKS.flatMap(([rule, check]) =>
-      check(service, model).map((message) => ({
+      check(service, context).map((message) => ({
         service: name,
         rule,
         message: `${name} ${message}`,
