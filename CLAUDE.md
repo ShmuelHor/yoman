@@ -4,9 +4,19 @@ Local-only time tracker, battery and system monitor, and focus mode for Linux (G
 Read before any task: `docs/TASKS.md` (work queue and parallel rules), `docs/SPEC.md` (what), `docs/SECURITY.md` (threats and required tests), `docs/DESIGN.md` (look).
 
 ## Roles
-- **Coordinator** (main session): assigns tasks, merges PRs, runs wave gates. The only one who edits `docs/TASKS.md`.
-- **Worker** (one per task): works in its own git worktree and branch, touches only the files the task owns, and opens one PR.
-- **Reviewer** (separate agent, never the task's worker): does the code review (CR) on every PR. Nothing merges without it.
+Roles are separated, and each non-coordinator role is a project agent in `.claude/agents/` with its own instructions and tool set.
+
+| Role | Definition | Tools | Does | Never |
+| --- | --- | --- | --- | --- |
+| **Coordinator** | main session | all | Moves cards on the [roadmap board](https://github.com/users/ShmuelHor/projects/3), launches workers and reviewers, merges, runs wave gates, owns `docs/` and `CLAUDE.md` | Implements task code |
+| **Worker** | `task-worker` | Read, Edit, Write, Bash, Grep, Glob | One task per branch and worktree, small commits, one PR, answers review | Reviews or merges its own PR, rewrites pushed history |
+| **Code reviewer** | `code-reviewer` | Read, Grep, Glob, Bash | Runs the branch, tries to break it, inline comments, `Verdict:` | Edits, commits, pushes or merges |
+| **Security reviewer** | `security-reviewer` | Read, Grep, Glob, Bash | A second review on PRs labeled `security`, attacking against SECURITY.md | Edits, commits, pushes or merges |
+
+Every PR gets a code review; PRs labeled `security` also get a security review, and both must end in `Verdict: approved`. Reviewers start from a clean context and are never the PR's worker. `.claude/settings.json` denies force pushes, `--no-verify` and reading `.env` for everyone.
+
+### Board flow
+`Todo` → **`Ready`** (all "Blocked by" issues closed; the coordinator moves it) → `In progress` (a worker took it) → `In review` (PR open) → `Done` (merged; `Closes #N` closes the issue).
 
 ## Git flow: branch → PR → code review → merge
 Nobody commits to `main` directly. Every change, including docs and CI, goes through a branch and a PR on GitHub.
