@@ -45,10 +45,10 @@
           "level": "error",
           "options": {
             "paths": {
-              "child_process": "Import from node:child_process and use execFile.",
+              "child_process": "Import named execFile or spawn from node:child_process (SECURITY A7).",
               "node:child_process": {
-                "importNames": ["exec", "execSync"],
-                "message": "Use execFile with an args array (SECURITY A7)."
+                "allowImportNames": ["execFile", "spawn"],
+                "message": "Only named execFile and spawn imports are allowed, with an args array (SECURITY A7)."
               }
             }
           }
