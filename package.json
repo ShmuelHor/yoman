@@ -25,6 +25,7 @@
     "hooks:install": "simple-git-hooks"
   },
   "simple-git-hooks": {
+    "pre-commit": "npx --no -- tsx scripts/pre-commit.ts",
     "commit-msg": "npx --no -- commitlint --edit \"$1\""
   },
   "devDependencies": {
