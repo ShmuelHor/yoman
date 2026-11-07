@@ -252,6 +252,10 @@ jobs:
       # Vulnerable dependencies. Only HIGH and CRITICAL with a released fix
       # block; the rest is npm audit's and OSV-Scanner's job.
       - name: Scan dependencies (fs)
+        env:
+          # Trivy skips devDependencies by default. They run in CI and on the
+          # developer's machine, so they are in scope (same as npm audit).
+          TRIVY_INCLUDE_DEV_DEPS: "true"
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
