@@ -4,6 +4,8 @@ import { findHebrew, formatViolation, shouldScan } from './language-policy.js';
 
 // Hebrew samples are written as escapes so this file passes its own check.
 const SHALOM = '\u05e9\u05dc\u05d5\u05dd';
+const EXCERPT_LIMIT = 80;
+const LONG_LINE_TAIL = 200;
 
 describe('shouldScan', () => {
   it.each(['apps/web/src/app.tsx', 'README.md', 'docker-compose.yml', 'Dockerfile'])(
@@ -43,9 +45,9 @@ describe('findHebrew', () => {
   });
 
   it('truncates long excerpts', () => {
-    const [violation] = findHebrew('a.ts', `${SHALOM} ${'x'.repeat(200)}`);
+    const [violation] = findHebrew('a.ts', `${SHALOM} ${'x'.repeat(LONG_LINE_TAIL)}`);
 
-    expect(violation?.excerpt).toHaveLength(80);
+    expect(violation?.excerpt).toHaveLength(EXCERPT_LIMIT);
   });
 });
 
