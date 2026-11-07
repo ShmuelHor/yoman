@@ -9,10 +9,16 @@ coverage/
 .env.*
 !.env.example
 
-# Local data never leaves this machine
-data/
-backups/
+# Local data never leaves this machine. Anchored to the root so that source
+# directories named data/ (services/x/src/data/) are still tracked.
+/data/
+/backups/
 *.dump
+
+# Key material, as defense in depth alongside gitleaks
+*.pem
+*.key
+*.p12
 
 # Tooling
 .vite/
