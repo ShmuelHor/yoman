@@ -1,9 +1,14 @@
-import { access } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadComposeModel } from './lib/compose-config.js';
+import {
+  COMPOSE_FILE_NAMES,
+  hasComposeProject,
+  loadComposeFile,
+  loadComposeProject,
+} from './lib/compose-config.js';
 import {
   type ComposeModel,
   type ComposeRule,
@@ -11,12 +16,19 @@ import {
   formatComposeViolations,
 } from './lib/compose-policy.js';
 
-const REPO_COMPOSE_FILE = fileURLToPath(new URL('../../docker-compose.yml', import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 /** In-memory models pretend the project lives here. */
 const PROJECT = '/srv/yoman';
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/compose/${name}`, import.meta.url));
+
+async function loadFixture(name: string): Promise<ComposeModel> {
+  const file = fixture(name);
+  return loadComposeFile(file, dirname(file));
+}
+
+/** Decided while collecting, so a missing project is an owned todo rather than a silent skip. */
+const repoHasComposeProject = await hasComposeProject(REPO_ROOT);
 
 /** Spawning the Compose CLI takes longer than Vitest's 5s default on a cold machine. */
 const COMPOSE_TIMEOUT_MS = 30_000;
@@ -52,15 +64,6 @@ function modelWith(overrides: Partial<ComposeModel['services'][string]>): Compos
 
 function rulesBroken(model: ComposeModel, projectRoot = PROJECT): readonly ComposeRule[] {
   return checkComposePolicy(model, projectRoot).map(({ rule }) => rule);
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 describe('ST01 compose policy', () => {
@@ -376,31 +379,39 @@ describe('ST01 compose policy', () => {
 
   describe('compose files', { timeout: COMPOSE_TIMEOUT_MS }, () => {
     it('accepts the compliant fixture', async () => {
-      const model = await loadComposeModel(fixture('valid.yml'));
+      const model = await loadFixture('valid.yml');
 
       expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
     });
 
     it('fails when a port is added', async () => {
-      const model = await loadComposeModel(fixture('extra-port.yml'));
+      const model = await loadFixture('extra-port.yml');
 
       expect(rulesBroken(model, REPO_ROOT)).toEqual(['published-port']);
     });
 
     it('fails when read_only is removed', async () => {
-      const model = await loadComposeModel(fixture('no-read-only.yml'));
+      const model = await loadFixture('no-read-only.yml');
 
       expect(rulesBroken(model, REPO_ROOT)).toEqual(['read-only']);
     });
 
-    it('the repo docker-compose.yml follows the policy', async ({ skip }) => {
-      if (!(await exists(REPO_COMPOSE_FILE))) {
-        skip('docker-compose.yml does not exist yet; T10 adds it');
-      }
+    it('includes the override file Compose merges on its own', async () => {
+      const model = await loadComposeProject(fixture('project-with-override'));
 
-      const model = await loadComposeModel(REPO_COMPOSE_FILE);
-
-      expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
+      expect(rulesBroken(model, REPO_ROOT)).toEqual(['published-port', 'privileged']);
     });
+
+    if (repoHasComposeProject) {
+      it('the repo Compose project follows the policy', async () => {
+        const model = await loadComposeProject(REPO_ROOT);
+
+        expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
+      });
+    } else {
+      it.todo(
+        `[T10] the repo Compose project (${COMPOSE_FILE_NAMES.join(', ')}) follows the policy`,
+      );
+    }
   });
 });
