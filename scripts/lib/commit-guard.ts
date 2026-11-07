@@ -1,19 +1,18 @@
 import { posix } from 'node:path';
 
-const ENV_FILE = '.env';
+const ENV_PREFIX = '.env';
 const ENV_EXAMPLE = '.env.example';
 
 /**
- * Whether a staged path is an env file that must never be committed:
- * `.env` or `.env.*` in any directory, except `.env.example`.
- * Matched case-insensitively, so `.ENV` cannot slip through on any file system.
+ * Whether a staged path is an env file that must never be committed: any basename
+ * starting with `.env`, in any directory, except exactly `.env.example`. The match
+ * is deliberately broad, so editor backups (`.env~`), copies (`.env.bak`, `.env-prod`)
+ * and tool files (`.envrc`) are caught too. It is case-insensitive, so `.ENV`
+ * cannot slip through on any file system.
  */
 export function isForbiddenEnvFile(path: string): boolean {
-  const name = posix.basename(path).toLowerCase();
-  if (name === ENV_EXAMPLE) {
-    return false;
-  }
-  return name === ENV_FILE || name.startsWith(`${ENV_FILE}.`);
+  const name = posix.basename(path);
+  return name.toLowerCase().startsWith(ENV_PREFIX) && name !== ENV_EXAMPLE;
 }
 
 /** The staged paths that {@link isForbiddenEnvFile} rejects, in their original order. */

@@ -12,6 +12,14 @@ describe('isForbiddenEnvFile', () => {
     'services/gateway/.env',
     'apps/agent/.env.test',
     '.ENV',
+    '.env~',
+    '.envrc',
+    '.env-prod',
+    '.env_local',
+    '.env.bak',
+    'docs/.environment.md',
+    '.ENV.EXAMPLE',
+    '.Env.example',
   ])('blocks %s', (path) => {
     expect(isForbiddenEnvFile(path)).toBe(true);
   });
@@ -19,9 +27,8 @@ describe('isForbiddenEnvFile', () => {
   it.each([
     '.env.example',
     'services/gateway/.env.example',
-    '.envrc',
     'env.ts',
-    'docs/.environment.md',
+    'apps/web/src/.prettierrc.env',
     'scripts/setup.ts',
   ])('allows %s', (path) => {
     expect(isForbiddenEnvFile(path)).toBe(false);
