@@ -1,0 +1,5 @@
+language js
+
+`shell: true` as $option where {
+  register_diagnostic(span=$option, message="Never spawn through a shell (SECURITY A7). Use execFile with an args array.")
+}
