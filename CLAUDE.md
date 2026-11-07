@@ -34,6 +34,10 @@ Nobody commits to `main` directly. Every change, including docs and CI, goes thr
 6. Address the review: answer **every** comment, either with a fix commit (`fix(sessions): handle out-of-order samples`) or a reasoned reply. After the first push, never rewrite history (no amend, no force push), so the reviewer can see what changed. Re-request review when done.
 7. If the spec is unclear or wrong, stop and ask. Don't invent behavior. Spec changes go in `docs/SPEC.md` in the same PR, called out in the description.
 
+### Shared state between worktrees
+- **Git hooks are shared** by every worktree (`.git/hooks`). Workers never run `npm run hooks:install`; the coordinator installs hooks from the main clone after a merge.
+- **Proving a gate fails** (a deliberately red commit) happens on a separate throwaway branch and draft PR that is closed unmerged, never on the task's PR, because every commit on `main` must pass. Link the red run in the task's PR and quote the key error lines, since logs expire.
+
 ### Reviewer (code review)
 1. Read the task in `docs/TASKS.md`, then the full diff: `gh pr diff <n>`. Run the branch locally and run the checks yourself. Don't trust the description.
 2. Review against: every "Done when" item of the task, the SECURITY.md §6 checklist, the code quality standard below, file ownership, test quality, and whether the PR does exactly what the task asks (no more, no less).

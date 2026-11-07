@@ -24,8 +24,9 @@ If anything is unclear or contradicts the spec, stop and report the question. Do
    ```
    git -C ~/yoman fetch -q origin
    git -C ~/yoman worktree add ~/yoman-worktrees/<branch> -b <branch> origin/main
-   cd ~/yoman-worktrees/<branch> && npm ci && npm run hooks:install
+   cd ~/yoman-worktrees/<branch> && npm ci
    ```
+   **Never run `npm run hooks:install` in a worktree.** Git hooks live in the shared `.git/hooks`, so installing a hook that exists only on your branch blocks every other agent's commits. Only the coordinator installs hooks, from the main clone, after a merge.
 
    The branch name is `t<id>-<short-kebab-summary>`, for example `t13-sessions-service`.
 3. Assign yourself and mark it started: `gh issue edit <n> --repo ShmuelHor/yoman --add-assignee @me`. The coordinator moves the board card.
