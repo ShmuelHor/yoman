@@ -74,7 +74,7 @@ branch t13-…  →  קומיטים  →  push  →  PR (draft)  →  CI ירו�
 
 ## גל 0 · CI/CD ובדיקות אבטחה (לפני כל פיצ׳ר)
 
-T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
+T01 ← (T02 ‖ T03 ‖ T04 ‖ T05) ← T06 ← T07
 
 ### T01 · שלד הריפו ומוסכמות
 - **בעלות:** קבצי root, ‏`packages/` (ריק), ‏`.github/pull_request_template.md`
@@ -105,6 +105,7 @@ T01 ← T02 ← (T03 ‖ T04 ‖ T05) ← T06 ← T07
 - **בעלות:** ‏`.github/workflows/ci.yml`
 - **מה:**
   - שלבים: ‏`npm ci`, ‏lint, ‏typecheck, ‏unit tests עם כיסוי (סף **80%** ל-`services/*/src/domain` ול-`apps/agent/src/core`, ‏60% לשאר), ו-build
+  - ‏commitlint על כל קומיט ב-PR (בלי תלות ב-hooks מקומיים)
   - ‏`permissions: contents: read`, ‏`concurrency`, ‏timeout לכל job. כל action נעול ל-SHA
 - **גמור כש:**
   - [ ] ה-CI ירוק
