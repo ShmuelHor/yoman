@@ -190,7 +190,7 @@
 **ה-CI/CD נבנה ראשון (גל 0), לפני כל קוד של פיצ׳רים.**
 
 - **טסטים:**
-  - vitest עם סף כיסוי: ‏80% ללוגיקה (`domain`, ‏`agent/core`) ו-60% לשאר
+  - vitest עם סף כיסוי: ‏80% ללוגיקה (`domain`, ‏`apps/agent/core`) ו-60% לשאר
   - fast-check ל-fuzzing של routes
   - contract tests: כל תשובה עוברת validation מול `packages/shared`
   - ‏Playwright ל-E2E
