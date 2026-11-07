@@ -1,0 +1,10 @@
+language js
+
+`$client.$method($args)` where {
+  $method <: or {
+    `query`,
+    `execute`
+  },
+  $args <: contains JsTemplateExpression() as $sql where { $sql <: contains JsTemplateElement() },
+  register_diagnostic(span=$sql, message="Interpolated SQL is banned (SECURITY A8). Pass values as query parameters.")
+}
