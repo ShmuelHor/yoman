@@ -30,6 +30,7 @@ const ComposeService = z.object({
   read_only: z.boolean().optional(),
   privileged: z.boolean().optional(),
   network_mode: z.string().optional(),
+  networks: z.record(z.string(), z.unknown()).optional(),
   cap_drop: z.array(z.string()).optional(),
   cap_add: z.array(z.string()).optional(),
   pid: z.string().optional(),
@@ -49,9 +50,15 @@ const ComposeService = z.object({
   volumes: z.array(ComposeVolume).optional(),
 });
 
+const ComposeNetwork = z.object({
+  name: z.string().optional(),
+  driver: z.string().optional(),
+});
+
 /** A Compose project as printed by `docker compose config --format json`. */
 export const ComposeModel = z.object({
   services: z.record(z.string(), ComposeService),
+  networks: z.record(z.string(), ComposeNetwork).optional(),
 });
 export type ComposeModel = z.infer<typeof ComposeModel>;
 type ComposeService = z.infer<typeof ComposeService>;
@@ -111,7 +118,11 @@ const DOCKER_SOCKET_PATHS = ['/var/run/docker.sock', '/run/docker.sock'];
 /** Rootless Docker keeps its socket under the user's runtime directory. */
 const ROOTLESS_RUNTIME_DIR = '/run/user';
 
-type ServiceCheck = (service: ComposeService) => readonly string[];
+type ServiceCheck = (service: ComposeService, model: ComposeModel) => readonly string[];
+
+const HOST = 'host';
+/** `network_mode: container:<id>` joins a container that may live outside this project. */
+const CONTAINER_NETWORK_MODE = 'container:';
 
 function checkPorts(service: ComposeService): readonly string[] {
   return (service.ports ?? []).flatMap((port) => {
@@ -125,9 +136,24 @@ function checkPorts(service: ComposeService): readonly string[] {
 }
 
 function checkNetworkMode(service: ComposeService): readonly string[] {
-  return service.network_mode === 'host'
-    ? ['uses network_mode: host, which bypasses the port policy']
-    : [];
+  const mode = service.network_mode;
+  if (mode === HOST) {
+    return ['uses network_mode: host, which bypasses the port policy'];
+  }
+  if (mode?.startsWith(CONTAINER_NETWORK_MODE) === true) {
+    return [`uses network_mode: ${mode}, which joins a container outside the policy`];
+  }
+  return [];
+}
+
+/** Attaching to a network named `host`, or one with the host driver, is host networking too. */
+function checkHostNetworks(service: ComposeService, model: ComposeModel): readonly string[] {
+  return Object.keys(service.networks ?? {}).flatMap((key) => {
+    const network = model.networks?.[key];
+    return network?.name === HOST || network?.driver === HOST
+      ? [`attaches to network ${key}, which is the host network`]
+      : [];
+  });
 }
 
 function checkUser(service: ComposeService): readonly string[] {
@@ -235,6 +261,7 @@ function checkImageDigest(service: ComposeService): readonly string[] {
 const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
   ['published-port', checkPorts],
   ['host-network', checkNetworkMode],
+  ['host-network', checkHostNetworks],
   ['non-root', checkUser],
   ['read-only', checkReadOnly],
   ['cap-drop', checkCapDrop],
@@ -257,7 +284,11 @@ const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
 export function checkComposePolicy(model: ComposeModel): readonly ComposeViolation[] {
   return Object.entries(model.services).flatMap(([name, service]) =>
     CHECKS.flatMap(([rule, check]) =>
-      check(service).map((message) => ({ service: name, rule, message: `${name} ${message}` })),
+      check(service, model).map((message) => ({
+        service: name,
+        rule,
+        message: `${name} ${message}`,
+      })),
     ),
   );
 }

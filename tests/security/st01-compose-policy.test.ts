@@ -90,8 +90,33 @@ describe('ST01 compose policy', () => {
       expect(rulesBroken(modelWith({ user }))).toEqual([]);
     });
 
-    it('rejects host networking', () => {
-      expect(rulesBroken(modelWith({ network_mode: 'host' }))).toEqual(['host-network']);
+    it.each(['host', 'container:3f2a'])('rejects network_mode: %s', (mode) => {
+      expect(rulesBroken(modelWith({ network_mode: mode }))).toEqual(['host-network']);
+    });
+
+    it('accepts network_mode: service:<name>, since that service is checked itself', () => {
+      expect(rulesBroken(modelWith({ network_mode: 'service:gateway' }))).toEqual([]);
+    });
+
+    it.each([
+      ['an external network named host', { name: 'host' }],
+      ['a network with the host driver', { name: 'yoman_hostnet', driver: 'host' }],
+    ])('rejects a service attached to %s', (_name, network) => {
+      const model = {
+        ...modelWith({ networks: { hn: null } }),
+        networks: { hn: network },
+      };
+
+      expect(rulesBroken(model)).toEqual(['host-network']);
+    });
+
+    it('accepts a service on an internal bridge network', () => {
+      const model = {
+        ...modelWith({ networks: { internal: null } }),
+        networks: { internal: { name: 'yoman_internal', driver: 'bridge' } },
+      };
+
+      expect(rulesBroken(model)).toEqual([]);
     });
 
     it.each([
