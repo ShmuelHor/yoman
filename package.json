@@ -14,6 +14,7 @@
     "apps/*"
   ],
   "scripts": {
+    "setup": "tsx scripts/setup.ts",
     "check": "npm run lint && npm run typecheck && npm run check:language",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
