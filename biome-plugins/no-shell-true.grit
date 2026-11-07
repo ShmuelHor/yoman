@@ -1,5 +1,11 @@
 language js
 
-`shell: true` as $option where {
+// Any shell value other than the literal `false` runs through a shell: `true`,
+// a path such as '/bin/sh', or a variable (including the `{ shell }` shorthand)
+// that may hold either.
+or {
+  `shell: $value` where { $value <: not `false` },
+  JsShorthandPropertyObjectMember(name=`shell`)
+} as $option where {
   register_diagnostic(span=$option, message="Never spawn through a shell (SECURITY A7). Use execFile with an args array.")
 }
