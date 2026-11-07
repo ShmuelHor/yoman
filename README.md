@@ -7,10 +7,13 @@ readable daily journal. It tracks which apps you spend time in, how your battery
 system is choking and why, and gives you a focus mode that silences the apps you choose.
 Nothing ever leaves your computer.
 
-> **Status:** early development. The foundation (CI/CD and security gates) is being built first,
-> before any feature code. See the [roadmap](#roadmap).
+> **Status:** early development. Only the repository tooling exists so far: TypeScript, Biome with
+> custom security lint rules, commitlint, Vitest and a language check. The CI/CD and security gates
+> come next, before any feature code. Features and Architecture below describe the design being
+> built, not shipped behavior, and Security separates what is in place from what is planned. See
+> the [roadmap](#roadmap).
 
-## Features
+## Features (planned)
 
 | Area               | What it does                                                                                                                                                                                                                            |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -21,7 +24,7 @@ Nothing ever leaves your computer.
 | **Goals**          | Daily limits or targets per app or category, such as "at most one hour of YouTube".                                                                                                                                                     |
 | **Bilingual UI**   | Hebrew (RTL) and English (LTR), plus light, dark and system themes in a warm "paper and ink" design.                                                                                                                                    |
 
-## Architecture
+## Architecture (by design)
 
 ```mermaid
 flowchart LR
@@ -59,7 +62,25 @@ flowchart LR
 ## Security
 
 The data Yoman collects is as sensitive as browser history, so security is enforced by automation
-rather than good intentions:
+rather than good intentions. The full threat model is in [`docs/SECURITY.md`](docs/SECURITY.md).
+
+**In place today**
+
+- Lint rules (Biome plus custom GritQL rules) make `npm run check` fail on spawning through a
+  shell, on importing anything from `node:child_process` other than `execFile` and `spawn`, on interpolated
+  SQL in `query`/`execute` calls, and on `eval` and `dangerouslySetInnerHTML`.
+- npm install scripts are disabled (`ignore-scripts=true`), and every dependency is pinned to an
+  exact version.
+- `.env` files, local data and key material are git-ignored.
+
+**Planned (wave 0, before any feature code)**
+
+- gitleaks on every commit and in CI.
+- CI that blocks merges on CodeQL, Semgrep, Trivy, OSV-Scanner, npm audit, hadolint, actionlint,
+  zizmor and a suite of behavioral security tests.
+- Releases signed with cosign and shipped with an SBOM.
+
+**By design (built with the features)**
 
 - Only two ports are published, and both are bound to `127.0.0.1`. Everything else stays on an
   internal Docker network.
@@ -67,35 +88,42 @@ rather than good intentions:
   `SameSite=Strict` cookies and CSRF tokens.
 - Containers run as non-root with a read-only filesystem, all capabilities dropped and
   `no-new-privileges`.
-- Secrets are generated locally and never committed. gitleaks runs on every commit and in CI.
-- CI blocks merges on CodeQL, Semgrep, Trivy, OSV-Scanner, npm audit, hadolint, actionlint, zizmor
-  and a suite of behavioral security tests. Releases are signed with cosign and ship with an SBOM.
+- Secrets are generated locally and never committed.
 
 ## Tech stack
 
-**Backend:** Node.js 22, TypeScript (strict), Fastify, zod, pino, PostgreSQL 16
-**Frontend:** React, Vite, TanStack Query, react-i18next
-**Agent:** Node.js with D-Bus (GNOME Shell, Mutter, freedesktop notifications)
-**Quality:** Vitest, fast-check, Playwright, Biome (lint, format and custom GritQL security rules), commitlint
-**Delivery:** Docker Compose, GitHub Actions, cosign, Syft, Trivy
+**In place:** Node.js 22, TypeScript (strict), zod, Vitest, Biome (lint, format and custom GritQL
+security rules), commitlint
+
+**Planned:**
+
+- **Backend:** Fastify, pino, PostgreSQL 16
+- **Frontend:** React, Vite, TanStack Query, react-i18next
+- **Agent:** Node.js with D-Bus (GNOME Shell, Mutter, freedesktop notifications)
+- **Testing:** fast-check, Playwright
+- **Delivery:** Docker Compose, GitHub Actions, cosign, Syft, Trivy
 
 ## Repository layout
 
+Directories marked _(planned)_ do not exist yet. Each one is created by the task that first needs it.
+
 ```
-apps/
-  agent/      host process: collectors, notifier, muter, tray, CLI
-  gateway/    the only public API; auth and orchestration
-  web/        React UI
-services/     sessions · reports · goals · battery · system · focus
-packages/     shared contracts and the service kit
-scripts/      repo tooling
-tests/        cross-cutting security and end-to-end tests
-docs/         specification, design system, security model, task plan
+apps/                (planned)
+  agent/         host process: collectors, notifier, muter, tray, CLI
+  gateway/       the only public API; auth and orchestration
+  web/           React UI
+services/        sessions · reports · goals · battery · system · focus (planned)
+packages/        shared contracts and the service kit (planned)
+biome-plugins/   custom GritQL lint rules
+scripts/         repo tooling
+tests/           cross-cutting security and end-to-end tests (planned)
+docs/            specification, design system, security model, task plan
 ```
 
 ## Development
 
-Requirements: Node.js 22, Docker Engine with Compose v2, and GNOME on Wayland with the
+Today the repository only needs Node.js 22. Running the app will also need Docker Engine with
+Compose v2, and GNOME on Wayland with the
 [Window Calls](https://extensions.gnome.org/extension/4724/window-calls/) extension.
 
 ```bash
@@ -105,8 +133,8 @@ npm run check           # lint, typecheck, format and language checks
 npm test                # unit tests with coverage thresholds
 ```
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/) and are enforced by
-commitlint.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks them
+in the `commit-msg` hook today, and CI will check every commit in a pull request (planned).
 
 ## Roadmap
 
