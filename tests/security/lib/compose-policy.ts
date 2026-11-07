@@ -103,7 +103,13 @@ export const ALLOWED_BINDINGS: ReadonlySet<string> = new Set([
  * `00` or `+0` are rejected because runc parses them as uid 0.
  */
 const NON_ROOT_USER = /^[1-9]\d*(?::[1-9]\d*)?$/u;
-const NO_NEW_PRIVILEGES = 'no-new-privileges:true';
+const NO_NEW_PRIVILEGES = 'no-new-privileges';
+/** The spellings Docker reads as "on". Any other value, `false` included, is off. */
+const NO_NEW_PRIVILEGES_ON: ReadonlySet<string> = new Set([
+  NO_NEW_PRIVILEGES,
+  `${NO_NEW_PRIVILEGES}:true`,
+  `${NO_NEW_PRIVILEGES}=true`,
+]);
 /** Security profiles that switch off seccomp or AppArmor confinement. */
 const UNCONFINED_PROFILES: ReadonlySet<string> = new Set([
   'seccomp:unconfined',
@@ -198,9 +204,14 @@ function checkUnconfinedProfiles(service: ComposeService): readonly string[] {
 }
 
 function checkNoNewPrivileges(service: ComposeService): readonly string[] {
-  return (service.security_opt ?? []).includes(NO_NEW_PRIVILEGES)
-    ? []
-    : [`does not set security_opt ${NO_NEW_PRIVILEGES}`];
+  // Docker applies security_opt in order, so the last no-new-privileges entry wins.
+  const last = (service.security_opt ?? [])
+    .filter((option) => option.startsWith(NO_NEW_PRIVILEGES))
+    .at(-1);
+  if (last === undefined) {
+    return [`does not set security_opt ${NO_NEW_PRIVILEGES}:true`];
+  }
+  return NO_NEW_PRIVILEGES_ON.has(last) ? [] : [`turns no-new-privileges off with ${last}`];
 }
 
 function checkPrivileged(service: ComposeService): readonly string[] {

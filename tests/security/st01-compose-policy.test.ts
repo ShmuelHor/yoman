@@ -160,6 +160,27 @@ describe('ST01 compose policy', () => {
       ]);
     });
 
+    it.each(['no-new-privileges', 'no-new-privileges:true', 'no-new-privileges=true'])(
+      'accepts security_opt %s',
+      (option) => {
+        expect(rulesBroken(modelWith({ security_opt: [option] }))).toEqual([]);
+      },
+    );
+
+    it.each([
+      ['true then false', ['no-new-privileges:true', 'no-new-privileges:false']],
+      ['false', ['no-new-privileges=false']],
+      ['an unknown value', ['no-new-privileges:yes']],
+    ])('rejects no-new-privileges set to %s, since the last entry wins', (_name, options) => {
+      expect(rulesBroken(modelWith({ security_opt: options }))).toEqual(['no-new-privileges']);
+    });
+
+    it('accepts no-new-privileges when false is overridden by a later true', () => {
+      const options = ['no-new-privileges:false', 'no-new-privileges:true'];
+
+      expect(rulesBroken(modelWith({ security_opt: options }))).toEqual([]);
+    });
+
     it('rejects added capabilities, even after cap_drop ALL', () => {
       expect(rulesBroken(modelWith({ cap_add: ['SYS_ADMIN', 'NET_ADMIN'] }))).toEqual(['cap-add']);
     });
