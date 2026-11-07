@@ -1,0 +1,41 @@
+{
+  "name": "yoman",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Your computer's automatic diary: time, battery, load and focus. Local only.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "check": "npm run lint && npm run typecheck && npm run check:language",
+    "lint": "biome check --error-on-warnings .",
+    "format": "biome check --write .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsx scripts/run-workspaces.ts typecheck",
+    "check:language": "tsx scripts/check-language.ts",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "hooks:install": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "commit-msg": "npx --no -- commitlint --edit \"$1\""
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@commitlint/cli": "21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@types/node": "22.20.5",
+    "@vitest/coverage-v8": "5.1.0",
+    "simple-git-hooks": "2.14.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0",
+    "zod": "4.6.7"
+  }
+}
