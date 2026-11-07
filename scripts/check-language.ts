@@ -11,7 +11,13 @@ import { promisify } from 'node:util';
 
 import { z } from 'zod';
 
-import { findHebrew, formatViolation, shouldScan, type Violation } from './lib/language-policy.js';
+import {
+  findHebrew,
+  formatViolation,
+  isBinary,
+  shouldScan,
+  type Violation,
+} from './lib/language-policy.js';
 
 const run = promisify(execFile);
 
@@ -37,8 +43,11 @@ async function listRepoFiles(): Promise<string[]> {
 
 async function scan(path: string): Promise<ScanResult> {
   try {
-    const content = await readFile(path, 'utf8');
-    return { kind: 'scanned', violations: findHebrew(path, content) };
+    const content = await readFile(path);
+    if (isBinary(content)) {
+      return { kind: 'skipped' };
+    }
+    return { kind: 'scanned', violations: findHebrew(path, content.toString('utf8')) };
   } catch (error: unknown) {
     const { code, message } = FsError.parse(error);
     // A tracked file deleted in the working tree has nothing left to scan.

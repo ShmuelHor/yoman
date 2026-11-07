@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { findHebrew, formatViolation, shouldScan } from './language-policy.js';
+import { findHebrew, formatViolation, isBinary, shouldScan } from './language-policy.js';
 
 // Hebrew samples are written as escapes so this file passes its own check.
 const SHALOM = '\u05e9\u05dc\u05d5\u05dd';
 const EXCERPT_LIMIT = 80;
 const LONG_LINE_TAIL = 200;
+const BINARY_SNIFF_WINDOW = 8000;
+const ASCII_X = 0x78;
 
 describe('shouldScan', () => {
   it.each(['apps/web/src/app.tsx', 'README.md', 'docker-compose.yml', 'Dockerfile'])(
@@ -27,6 +29,27 @@ describe('shouldScan', () => {
 
   it('still scans English translation files', () => {
     expect(shouldScan('apps/web/src/i18n/en/today.json')).toBe(true);
+  });
+});
+
+describe('isBinary', () => {
+  it('treats text without NUL bytes as text', () => {
+    expect(isBinary(new TextEncoder().encode(`const a = "${SHALOM}";`))).toBe(false);
+  });
+
+  it('treats content with a NUL byte as binary, even if it would decode to Hebrew', () => {
+    expect(isBinary(new TextEncoder().encode(`PNG\0${SHALOM}`))).toBe(true);
+  });
+
+  it('only looks at the first 8000 bytes', () => {
+    const content = new Uint8Array(BINARY_SNIFF_WINDOW + 1).fill(ASCII_X);
+    content[BINARY_SNIFF_WINDOW] = 0;
+
+    expect(isBinary(content)).toBe(false);
+  });
+
+  it('treats empty content as text', () => {
+    expect(isBinary(new Uint8Array())).toBe(false);
   });
 });
 
