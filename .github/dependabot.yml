@@ -32,6 +32,19 @@ updates:
     commit-message:
       prefix: build(deps)
 
+  # Image lines in compose files are a separate ecosystem from Dockerfiles.
+  - package-ecosystem: docker-compose
+    directories: ["/", "/**/*"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      compose:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
