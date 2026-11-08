@@ -11,7 +11,7 @@
 #            through OIDC. The only job with `id-token: write`.
 # - release: GitHub Release with a generated changelog and every artifact.
 #
-# Manual runs (workflow_dispatch) and runs on a branch are dry runs: every stage runs except the
+# Manual runs (workflow_dispatch) are dry runs: every stage runs except the
 # release job, so the pipeline can be proven from a branch without publishing.
 #
 # Hardening: read-only default token, per-job permissions, SHA-pinned actions,
@@ -22,10 +22,6 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
-    # TEMPORARY (removed before merge): a workflow_dispatch can only target a
-    # workflow that already exists on the default branch, so the dry run of this
-    # PR is triggered by pushes to its branch. Branch pushes are dry runs.
-    branches: [t06-signed-releases]
   workflow_dispatch:
     inputs:
       version:
