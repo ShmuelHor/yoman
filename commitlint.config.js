@@ -3,10 +3,11 @@ const MAX_HEADER_LENGTH = 72;
 const MAX_BODY_LINE_LENGTH = 100;
 
 /**
- * Dependabot always writes "Bump <package> from <a> to <b>" and has no option to
- * lowercase it, so only that exact generated shape skips linting.
+ * Dependabot always writes "Bump <package> from <a> to <b>" (or "Bump the <group>
+ * group ..." for grouped updates) and has no option to lowercase it, so only those
+ * exact generated shapes skip linting.
  */
-const DEPENDABOT_SUBJECT = /^(build|ci)\(deps\): Bump \S+ from \S+ to \S+/;
+const DEPENDABOT_SUBJECT = /^(build|ci)\(deps\): Bump (\S+ from \S+ to \S+|the \S+ group )/;
 
 /** Conventional Commits, as described in CLAUDE.md. */
 export default {
