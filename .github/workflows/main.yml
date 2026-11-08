@@ -1,0 +1,110 @@
+# Post-merge pipeline for `main` (docs/TASKS.md T06): build every image and
+# scan it with Trivy (ST19), then smoke-test the running compose stack.
+#
+# No Dockerfile or compose file exists before wave 1, so today this workflow is
+# a clean no-op that says so in a notice. The first tracked
+# `docker/*/Dockerfile` or `services/*/Dockerfile` turns the scan on, and the
+# first `docker-compose.yml` turns the smoke run on, with no change here.
+#
+# Hardening: read-only token, SHA-pinned actions, no persisted git credentials,
+# a timeout on every job, and no secrets at all.
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Every push to main gets a complete run of its own.
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: Find images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      found: ${{ steps.find.outputs.found }}
+      matrix: ${{ steps.find.outputs.matrix }}
+      compose: ${{ steps.find.outputs.compose }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # An image is named after its directory: docker/<name>/Dockerfile and
+      # services/<name>/Dockerfile. The build context is the repository root,
+      # because the services share npm workspaces and packages/shared.
+      - name: List Dockerfiles and the compose file
+        id: find
+        run: |
+          mapfile -d '' dockerfiles < <(git ls-files -z -- ':(glob)docker/*/Dockerfile' ':(glob)services/*/Dockerfile')
+          if (( ${#dockerfiles[@]} == 0 )); then
+            echo "::notice title=images::No Dockerfiles in the repository yet, nothing to build or scan."
+            echo "found=false" >> "${GITHUB_OUTPUT}"
+            echo 'matrix={"include":[]}' >> "${GITHUB_OUTPUT}"
+          else
+            matrix="$(printf '%s\n' "${dockerfiles[@]}" | jq -R -s -c \
+              'split("\n") | map(select(length > 0)) | {include: map({dockerfile: ., name: (split("/")[-2])})}')"
+            echo "found=true" >> "${GITHUB_OUTPUT}"
+            echo "matrix=${matrix}" >> "${GITHUB_OUTPUT}"
+          fi
+          if git ls-files --error-unmatch docker-compose.yml > /dev/null 2>&1; then
+            echo "compose=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::notice title=compose smoke run::No docker-compose.yml yet, the smoke run is skipped."
+            echo "compose=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+  image-scan:
+    name: Build and Trivy (${{ matrix.name }})
+    needs: discover
+    if: ${{ needs.discover.outputs.found == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the image
+        env:
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          IMAGE_NAME: ${{ matrix.name }}
+        run: docker build --file "${DOCKERFILE}" --tag "yoman-${IMAGE_NAME}:ci" .
+      # ST19: only HIGH and CRITICAL with a released fix block.
+      - name: Scan the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: yoman-${{ matrix.name }}:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+
+  compose-smoke:
+    name: Compose smoke run
+    needs: discover
+    if: ${{ needs.discover.outputs.compose == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # PLACEHOLDER (T06): runs only once docker-compose.yml exists. The
+      # smoke and security tests against the running stack (tests/smoke and
+      # the compose-level ST tests) are wired in by the task that adds them.
+      - name: Start the stack
+        run: |
+          cp .env.example .env
+          docker compose up --detach --wait --wait-timeout 180
+      - name: Tear down
+        if: ${{ always() }}
+        run: docker compose down --volumes
