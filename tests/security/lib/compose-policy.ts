@@ -1,0 +1,392 @@
+import { basename, isAbsolute, posix, relative } from 'node:path';
+
+import { z } from 'zod';
+
+/**
+ * The parts of `docker compose config --format json` that the policy reads.
+ * Compose has already normalized the file at this point: ports are objects,
+ * volumes are long syntax and memory sizes are byte counts. Unknown fields are
+ * stripped rather than rejected, because Compose adds many we don't care about.
+ */
+const ComposePort = z.object({
+  host_ip: z.string().optional(),
+  published: z.union([z.string(), z.number()]).optional(),
+  target: z.number().int(),
+  protocol: z.string().optional(),
+});
+
+const ComposeVolume = z.object({
+  type: z.string(),
+  source: z.string().optional(),
+  target: z.string(),
+});
+
+/** Compose resolves a local build context to an absolute path; a remote one stays a URL. */
+const ComposeBuild = z.object({
+  context: z.string(),
+  dockerfile: z.string().optional(),
+  dockerfile_inline: z.string().optional(),
+  additional_contexts: z.record(z.string(), z.string()).optional(),
+});
+
+const ByteSize = z.union([z.string(), z.number()]);
+
+const ComposeService = z.object({
+  image: z.string().optional(),
+  build: ComposeBuild.optional(),
+  user: z.string().optional(),
+  read_only: z.boolean().optional(),
+  privileged: z.boolean().optional(),
+  network_mode: z.string().optional(),
+  networks: z.record(z.string(), z.unknown()).optional(),
+  cap_drop: z.array(z.string()).optional(),
+  cap_add: z.array(z.string()).optional(),
+  pid: z.string().optional(),
+  ipc: z.string().optional(),
+  userns_mode: z.string().optional(),
+  devices: z.array(z.unknown()).optional(),
+  security_opt: z.array(z.string()).optional(),
+  mem_limit: ByteSize.optional(),
+  deploy: z
+    .object({
+      resources: z
+        .object({ limits: z.object({ memory: ByteSize.optional() }).optional() })
+        .optional(),
+    })
+    .optional(),
+  ports: z.array(ComposePort).optional(),
+  volumes: z.array(ComposeVolume).optional(),
+});
+
+/** A named volume; the local driver can bind a host path through `driver_opts.device`. */
+const ComposeNamedVolume = z.object({
+  driver_opts: z.object({ device: z.string().optional() }).optional(),
+});
+
+const ComposeNetwork = z.object({
+  name: z.string().optional(),
+  driver: z.string().optional(),
+});
+
+/** A Compose project as printed by `docker compose config --format json`. */
+export const ComposeModel = z.object({
+  services: z.record(z.string(), ComposeService),
+  networks: z.record(z.string(), ComposeNetwork).optional(),
+  volumes: z.record(z.string(), ComposeNamedVolume).optional(),
+});
+export type ComposeModel = z.infer<typeof ComposeModel>;
+type ComposeService = z.infer<typeof ComposeService>;
+
+/** Stable identifiers for each rule, so tests can assert which rule failed. */
+export type ComposeRule =
+  | 'published-port'
+  | 'host-network'
+  | 'non-root'
+  | 'read-only'
+  | 'cap-drop'
+  | 'cap-add'
+  | 'host-namespace'
+  | 'devices'
+  | 'unconfined-profile'
+  | 'no-new-privileges'
+  | 'privileged'
+  | 'memory-limit'
+  | 'docker-socket'
+  | 'build-source'
+  | 'image-digest';
+
+/** One broken rule in one service. */
+export interface ComposeViolation {
+  readonly service: string;
+  readonly rule: ComposeRule;
+  readonly message: string;
+}
+
+const WEB_PORT = 4710;
+const GATEWAY_PORT = 4711;
+const LOOPBACK = '127.0.0.1';
+
+/** The only host bindings Yoman may publish (SECURITY A2). */
+export const ALLOWED_BINDINGS: ReadonlySet<string> = new Set([
+  `${LOOPBACK}:${String(WEB_PORT)}`,
+  `${LOOPBACK}:${String(GATEWAY_PORT)}`,
+]);
+
+/**
+ * A numeric, non-zero uid with an optional non-zero gid. Names are rejected
+ * because the image's /etc/passwd can map any name to uid 0, and forms like
+ * `00` or `+0` are rejected because runc parses them as uid 0.
+ */
+const NON_ROOT_USER = /^[1-9]\d*(?::[1-9]\d*)?$/u;
+const NO_NEW_PRIVILEGES = 'no-new-privileges';
+/** The spellings Docker reads as "on". Any other value, `false` included, is off. */
+const NO_NEW_PRIVILEGES_ON: ReadonlySet<string> = new Set([
+  NO_NEW_PRIVILEGES,
+  `${NO_NEW_PRIVILEGES}:true`,
+  `${NO_NEW_PRIVILEGES}=true`,
+]);
+/** Security profiles that switch off seccomp or AppArmor confinement. */
+const UNCONFINED_PROFILES: ReadonlySet<string> = new Set([
+  'seccomp:unconfined',
+  'seccomp=unconfined',
+  'apparmor:unconfined',
+  'apparmor=unconfined',
+]);
+const DIGEST_PINNED = /@sha256:[0-9a-f]{64}$/u;
+const DOCKER_SOCKET_NAME = 'docker.sock';
+/** Where the rootful socket lives; mounting any ancestor of these also exposes it. */
+const DOCKER_SOCKET_PATHS = ['/var/run/docker.sock', '/run/docker.sock'];
+/** Rootless Docker keeps its socket under the user's runtime directory. */
+const ROOTLESS_RUNTIME_DIR = '/run/user';
+
+/** What a rule may look at besides the service itself. */
+interface PolicyContext {
+  readonly model: ComposeModel;
+  /** Absolute path of the directory that holds the Compose project; builds must stay inside it. */
+  readonly projectRoot: string;
+}
+
+type ServiceCheck = (service: ComposeService, context: PolicyContext) => readonly string[];
+
+const HOST = 'host';
+/** `network_mode: container:<id>` joins a container that may live outside this project. */
+const CONTAINER_NETWORK_MODE = 'container:';
+
+function checkPorts(service: ComposeService): readonly string[] {
+  return (service.ports ?? []).flatMap((port) => {
+    const binding = `${port.host_ip ?? '0.0.0.0'}:${String(port.published ?? 'random')}`;
+    return ALLOWED_BINDINGS.has(binding)
+      ? []
+      : [
+          `publishes ${binding} (target ${String(port.target)}); only ${[...ALLOWED_BINDINGS].join(' and ')} are allowed`,
+        ];
+  });
+}
+
+function checkNetworkMode(service: ComposeService): readonly string[] {
+  const mode = service.network_mode;
+  if (mode === HOST) {
+    return ['uses network_mode: host, which bypasses the port policy'];
+  }
+  if (mode?.startsWith(CONTAINER_NETWORK_MODE) === true) {
+    return [`uses network_mode: ${mode}, which joins a container outside the policy`];
+  }
+  return [];
+}
+
+/** Attaching to a network named `host`, or one with the host driver, is host networking too. */
+function checkHostNetworks(service: ComposeService, { model }: PolicyContext): readonly string[] {
+  return Object.keys(service.networks ?? {}).flatMap((key) => {
+    const network = model.networks?.[key];
+    return network?.name === HOST || network?.driver === HOST
+      ? [`attaches to network ${key}, which is the host network`]
+      : [];
+  });
+}
+
+function checkUser(service: ComposeService): readonly string[] {
+  if (service.user === undefined) {
+    return ['has no user, so it runs as root'];
+  }
+  return NON_ROOT_USER.test(service.user)
+    ? []
+    : [`has user ${service.user}; it must be a numeric non-zero uid[:gid]`];
+}
+
+function checkReadOnly(service: ComposeService): readonly string[] {
+  return service.read_only === true ? [] : ['does not set read_only: true'];
+}
+
+function checkCapDrop(service: ComposeService): readonly string[] {
+  const dropsAll = (service.cap_drop ?? []).some((cap) => cap.toUpperCase() === 'ALL');
+  return dropsAll ? [] : ['does not drop ALL capabilities'];
+}
+
+/** Docker applies cap_add after cap_drop, so any added capability survives `cap_drop: [ALL]`. */
+function checkCapAdd(service: ComposeService): readonly string[] {
+  const added = service.cap_add ?? [];
+  return added.length === 0 ? [] : [`adds capabilities ${added.join(', ')}`];
+}
+
+function checkHostNamespaces(service: ComposeService): readonly string[] {
+  const namespaces = { pid: service.pid, ipc: service.ipc, userns_mode: service.userns_mode };
+  return Object.entries(namespaces).flatMap(([key, value]) =>
+    value === 'host' ? [`shares the host namespace (${key}: host)`] : [],
+  );
+}
+
+function checkDevices(service: ComposeService): readonly string[] {
+  return (service.devices ?? []).length === 0 ? [] : ['maps host devices into the container'];
+}
+
+function checkUnconfinedProfiles(service: ComposeService): readonly string[] {
+  return (service.security_opt ?? []).flatMap((option) =>
+    UNCONFINED_PROFILES.has(option) ? [`disables confinement with security_opt ${option}`] : [],
+  );
+}
+
+function checkNoNewPrivileges(service: ComposeService): readonly string[] {
+  // Docker applies security_opt in order, so the last no-new-privileges entry wins.
+  const last = (service.security_opt ?? [])
+    .filter((option) => option.startsWith(NO_NEW_PRIVILEGES))
+    .at(-1);
+  if (last === undefined) {
+    return [`does not set security_opt ${NO_NEW_PRIVILEGES}:true`];
+  }
+  return NO_NEW_PRIVILEGES_ON.has(last) ? [] : [`turns no-new-privileges off with ${last}`];
+}
+
+function checkPrivileged(service: ComposeService): readonly string[] {
+  return service.privileged === true ? ['runs privileged'] : [];
+}
+
+function isPositiveByteCount(size: string | number | undefined): boolean {
+  if (size === undefined) {
+    return false;
+  }
+  const bytes = Number(size);
+  return Number.isSafeInteger(bytes) && bytes > 0;
+}
+
+function checkMemoryLimit(service: ComposeService): readonly string[] {
+  const limited =
+    isPositiveByteCount(service.mem_limit) ||
+    isPositiveByteCount(service.deploy?.resources?.limits?.memory);
+  return limited ? [] : ['has no memory limit'];
+}
+
+function exposesDockerSocket(source: string): boolean {
+  const path = posix.normalize(source).replace(/\/+$/u, '') || '/';
+  if (basename(path) === DOCKER_SOCKET_NAME) {
+    return true;
+  }
+  if (path === ROOTLESS_RUNTIME_DIR || path.startsWith(`${ROOTLESS_RUNTIME_DIR}/`)) {
+    return true;
+  }
+  return DOCKER_SOCKET_PATHS.some((socket) => path === '/' || socket.startsWith(`${path}/`));
+}
+
+/** The host path a mount exposes: its source for a bind, its driver's device for a named volume. */
+function hostPathOf(
+  volume: z.infer<typeof ComposeVolume>,
+  model: ComposeModel,
+): string | undefined {
+  if (volume.source === undefined) {
+    return undefined;
+  }
+  if (volume.type === 'bind') {
+    return volume.source;
+  }
+  return volume.type === 'volume' ? model.volumes?.[volume.source]?.driver_opts?.device : undefined;
+}
+
+function checkDockerSocket(service: ComposeService, { model }: PolicyContext): readonly string[] {
+  return (service.volumes ?? []).flatMap((volume) => {
+    const hostPath = hostPathOf(volume, model);
+    return hostPath !== undefined && exposesDockerSocket(hostPath)
+      ? [`mounts ${hostPath}, which exposes the Docker socket`]
+      : [];
+  });
+}
+
+function isInside(root: string, path: string): boolean {
+  const fromRoot = relative(root, path);
+  return isAbsolute(path) && !fromRoot.startsWith('..') && !isAbsolute(fromRoot);
+}
+
+/**
+ * A build is exempt from the digest rule only because hadolint and Trivy check
+ * its Dockerfile in this repo. So the context, the Dockerfile and every
+ * additional context must be local paths inside the project, and the
+ * Dockerfile can't be inline, where those tools never see it.
+ */
+function checkBuildSource(
+  service: ComposeService,
+  { projectRoot }: PolicyContext,
+): readonly string[] {
+  const build = service.build;
+  if (build === undefined) {
+    return [];
+  }
+  const problems: string[] = [];
+  if (!isInside(projectRoot, build.context)) {
+    problems.push(`builds from ${build.context}, which is not a local path inside the project`);
+  }
+  if (
+    build.dockerfile !== undefined &&
+    isAbsolute(build.dockerfile) &&
+    !isInside(projectRoot, build.dockerfile)
+  ) {
+    problems.push(`builds with ${build.dockerfile}, which is outside the project`);
+  }
+  if (build.dockerfile_inline !== undefined) {
+    problems.push('uses dockerfile_inline, which hadolint and Trivy never see');
+  }
+  for (const [name, source] of Object.entries(build.additional_contexts ?? {})) {
+    if (!isInside(projectRoot, source)) {
+      problems.push(
+        `has additional context ${name} from ${source}, which is not inside the project`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Pulled images must be pinned by digest. A service built from this repo has
+ * nothing to pin unless it also names an image, which `docker compose pull`
+ * could fetch instead of building, so that image must be pinned too.
+ */
+function checkImageDigest(service: ComposeService): readonly string[] {
+  if (service.image === undefined) {
+    return service.build === undefined ? ['has neither image nor build'] : [];
+  }
+  return DIGEST_PINNED.test(service.image)
+    ? []
+    : [`uses image ${service.image}, which is not pinned by @sha256 digest`];
+}
+
+const CHECKS: ReadonlyArray<readonly [ComposeRule, ServiceCheck]> = [
+  ['published-port', checkPorts],
+  ['host-network', checkNetworkMode],
+  ['host-network', checkHostNetworks],
+  ['non-root', checkUser],
+  ['read-only', checkReadOnly],
+  ['cap-drop', checkCapDrop],
+  ['cap-add', checkCapAdd],
+  ['host-namespace', checkHostNamespaces],
+  ['devices', checkDevices],
+  ['no-new-privileges', checkNoNewPrivileges],
+  ['unconfined-profile', checkUnconfinedProfiles],
+  ['privileged', checkPrivileged],
+  ['memory-limit', checkMemoryLimit],
+  ['docker-socket', checkDockerSocket],
+  ['build-source', checkBuildSource],
+  ['image-digest', checkImageDigest],
+];
+
+/**
+ * Checks a normalized Compose model against the container policy in
+ * SECURITY.md (A2, A10, A13, A15). Returns every violation, so one run shows
+ * everything that needs fixing; an empty array means the model passes.
+ */
+export function checkComposePolicy(
+  model: ComposeModel,
+  projectRoot: string,
+): readonly ComposeViolation[] {
+  const context = { model, projectRoot };
+  return Object.entries(model.services).flatMap(([name, service]) =>
+    CHECKS.flatMap(([rule, check]) =>
+      check(service, context).map((message) => ({
+        service: name,
+        rule,
+        message: `${name} ${message}`,
+      })),
+    ),
+  );
+}
+
+/** One line per violation, for assertion messages. */
+export function formatComposeViolations(violations: readonly ComposeViolation[]): string {
+  return violations.map(({ rule, message }) => `[${rule}] ${message}`).join('\n');
+}

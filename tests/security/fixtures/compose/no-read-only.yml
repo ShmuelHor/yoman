@@ -1,0 +1,22 @@
+# valid.yml with read_only removed from the web service, which ST01 must reject.
+name: yoman-fixture
+services:
+  web:
+    image: nginx@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    tmpfs: [/tmp]
+    ports: ["127.0.0.1:4710:8080"]
+  gateway:
+    build: .
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    ports: ["127.0.0.1:4711:4711"]

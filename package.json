@@ -22,6 +22,8 @@
     "check:language": "tsx scripts/check-language.ts",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:security": "vitest run --config vitest.security.config.ts",
+    "security:todo": "tsx scripts/security-todo.ts",
     "hooks:install": "simple-git-hooks"
   },
   "simple-git-hooks": {
