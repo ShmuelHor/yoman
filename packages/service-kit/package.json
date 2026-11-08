@@ -1,0 +1,39 @@
+{
+  "name": "@yoman/service-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Fastify service runtime: logging with redaction, config, DB pool, migrations, validation.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/create-service.d.ts",
+      "default": "./dist/create-service.js"
+    },
+    "./route": {
+      "types": "./dist/route.d.ts",
+      "default": "./dist/route.js"
+    },
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "default": "./dist/errors.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "fastify": "5.12.8",
+    "node-pg-migrate": "7.6.1",
+    "pg": "8.23.1",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  },
+  "bin": {
+    "yoman-healthcheck": "./dist/healthcheck.js"
+  }
+}

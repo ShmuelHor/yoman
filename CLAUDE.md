@@ -54,6 +54,10 @@ Merge only when CI is green, the latest review says `Verdict: approved`, and eve
 - One full review per PR (plus a security review only for security-critical areas: gateway, agent muter and collectors, CD). Only `blocking:` findings are fixed before merge; suggestions go into a follow-up issue.
 - After fixes, a **lean re-review** of only the fix commits records the `Verdict: approved`. Use a cheaper model for reviews and routine tasks. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
 
+### Coordinator sessions
+- Coordinator sessions talk to the user in Hebrew. Everything in the repo stays English (see Language).
+- Each wave runs in a fresh coordinator session. When a wave's gate passes and the user approves the next wave, the coordinator starts a new session with a short brief (board state, open PRs, budget rules) and hands off instead of running the next wave itself.
+
 ## Security rules (blocking)
 - **Secrets:** never commit `.env`, tokens, passwords or real data. Only placeholders in `.env.example`. Never bypass or weaken gitleaks, CI security jobs or branch protection. No `continue-on-error`, and no new `.trivyignore` or `.semgrepignore` entries without a reason and an expiry date.
 - **Network:** only `127.0.0.1:4710` (web) and `127.0.0.1:4711` (gateway) are published. Internal services stay on the internal network. Don't touch the Host, Origin, CORS or CSP rules without updating SECURITY.md.
