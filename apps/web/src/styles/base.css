@@ -1,0 +1,14 @@
+/*
+ * Base styles only. Colors, fonts and spacing arrive as tokens in T26
+ * (theme/tokens.css), keyed off the data-theme attribute on <html>.
+ * Use logical properties only (SPEC §6).
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
