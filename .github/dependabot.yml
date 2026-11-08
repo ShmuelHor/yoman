@@ -15,6 +15,11 @@ updates:
     groups:
       npm:
         update-types: [minor, patch]
+    # The runtime is Node 22 (see .nvmrc and engines in package.json), so the
+    # Node type definitions must stay on the 22.x line.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: build(deps)
 
