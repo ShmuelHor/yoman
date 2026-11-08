@@ -1,0 +1,26 @@
+# The web container (T11). The only port it publishes is 127.0.0.1:4710
+# (SECURITY A2). The hardening matches x-service-defaults in the root
+# docker-compose.yml; YAML anchors do not cross included files, so it is repeated.
+services:
+  web:
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+    # nginx-unprivileged runs as nginx (uid and gid 101).
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # nginx writes its pid file and temp files under /tmp.
+    tmpfs: ["/tmp"]
+    mem_limit: 64m
+    cpus: 0.25
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4710:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
