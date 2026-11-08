@@ -15,9 +15,8 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { z } from 'zod';
-
 import { type ChildExit, toExitOutcome } from './lib/child-exit.js';
+import { parseSystemError } from './lib/system-error.js';
 import { RootManifest, resolveWorkspaces, type WorkspaceFileSystem } from './lib/workspaces.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -25,11 +24,8 @@ const EXIT_SUCCESS = 0;
 const EXIT_FAILURE = 1;
 const EXIT_USAGE = 2;
 
-/** The fields of a Node.js system error that we report. */
-const SystemError = z.object({ code: z.string().optional(), message: z.string() });
-
 function isMissing(error: unknown): boolean {
-  return SystemError.parse(error).code === 'ENOENT';
+  return parseSystemError(error).code === 'ENOENT';
 }
 
 const diskFileSystem: WorkspaceFileSystem = {
@@ -86,7 +82,7 @@ async function main(script: string): Promise<number> {
     exit = await runNpm(args);
   } catch (error: unknown) {
     // Spawning itself failed (npm not on PATH, for example), so npm printed nothing.
-    const { message } = SystemError.parse(error);
+    const { message } = parseSystemError(error);
     process.stderr.write(`Could not run npm: ${message}\n`);
     return EXIT_FAILURE;
   }
