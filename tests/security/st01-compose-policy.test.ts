@@ -3,12 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  COMPOSE_FILE_NAMES,
-  hasComposeProject,
-  loadComposeFile,
-  loadComposeProject,
-} from './lib/compose-config.js';
+import { loadComposeFile, loadComposeProject } from './lib/compose-config.js';
 import {
   type ComposeModel,
   type ComposeRule,
@@ -26,9 +21,6 @@ async function loadFixture(name: string): Promise<ComposeModel> {
   const file = fixture(name);
   return loadComposeFile(file, dirname(file));
 }
-
-/** Decided while collecting, so a missing project is an owned todo rather than a silent skip. */
-const repoHasComposeProject = await hasComposeProject(REPO_ROOT);
 
 /** Spawning the Compose CLI takes longer than Vitest's 5s default on a cold machine. */
 const COMPOSE_TIMEOUT_MS = 30_000;
@@ -402,16 +394,10 @@ describe('ST01 compose policy', () => {
       expect(rulesBroken(model, REPO_ROOT)).toEqual(['published-port', 'privileged']);
     });
 
-    if (repoHasComposeProject) {
-      it('the repo Compose project follows the policy', async () => {
-        const model = await loadComposeProject(REPO_ROOT);
+    it('the repo Compose project follows the policy', async () => {
+      const model = await loadComposeProject(REPO_ROOT);
 
-        expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
-      });
-    } else {
-      it.todo(
-        `[T10] the repo Compose project (${COMPOSE_FILE_NAMES.join(', ')}) follows the policy`,
-      );
-    }
+      expect(formatComposeViolations(checkComposePolicy(model, REPO_ROOT))).toBe('');
+    });
   });
 });
