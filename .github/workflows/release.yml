@@ -223,31 +223,36 @@ jobs:
             scan dir:/repo \
             --source-name "${PROJECT}" --source-version "${VERSION}" \
             --output "spdx-json=/out/${PROJECT}-${VERSION}.spdx.json"
+      # cosign 3 writes one Sigstore bundle (signature, certificate and
+      # transparency log entry). The loose .sig and .pem files are extracted
+      # from it for tools that cannot read bundles.
       - name: Sign the SBOM and the source archive
         run: |
           for file in "dist/${PROJECT}-${VERSION}.spdx.json" "dist/${PROJECT}-${VERSION}-source.tar.gz"; do
-            cosign sign-blob --yes \
-              --bundle "${file}.sigstore.json" \
-              --output-signature "${file}.sig" \
-              --output-certificate "${file}.pem" \
-              "${file}"
+            cosign sign-blob --yes --bundle "${file}.sigstore.json" "${file}"
+            jq -r '.messageSignature.messageSignature' "${file}.sigstore.json" > "${file}.sig"
+            {
+              echo "-----BEGIN CERTIFICATE-----"
+              jq -r '.verificationMaterial.certificate.rawBytes // .verificationMaterial.x509CertificateChain.certificates[0].rawBytes' "${file}.sigstore.json" | fold -w 64
+              echo "-----END CERTIFICATE-----"
+            } > "${file}.pem"
           done
       # The signing identity is this workflow at the ref that ran it, so a
-      # signature from any other workflow or fork fails verification.
+      # signature from any other workflow or fork fails verification. The
+      # bundle is verified with cosign, then the extracted files are checked
+      # against the same blob so a bad extraction cannot ship.
       - name: Verify the signatures
         run: |
           for file in "dist/${PROJECT}-${VERSION}.spdx.json" "dist/${PROJECT}-${VERSION}-source.tar.gz"; do
             cosign verify-blob \
               --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-              --signature "${file}.sig" \
-              --certificate "${file}.pem" \
-              "${file}"
-            cosign verify-blob \
-              --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
-              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               --bundle "${file}.sigstore.json" \
               "${file}"
+            openssl x509 -in "${file}.pem" -noout -subject -ext subjectAltName
+            openssl x509 -in "${file}.pem" -pubkey -noout > "${RUNNER_TEMP}/pub.pem"
+            base64 -d "${file}.sig" > "${RUNNER_TEMP}/sig.bin"
+            openssl dgst -sha256 -verify "${RUNNER_TEMP}/pub.pem" -signature "${RUNNER_TEMP}/sig.bin" "${file}"
           done
       # PLACEHOLDER (T06): image signing and the provenance attestation join
       # here once the images job produces digests.txt.
