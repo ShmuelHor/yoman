@@ -1,0 +1,28 @@
+# Yoman stack. Only 127.0.0.1:4710 (web) and 127.0.0.1:4711 (gateway) may ever be
+# published (SECURITY A2); each service's own compose file adds its container.
+include:
+  - services/sessions/compose.yml
+  - services/reports/compose.yml
+  - services/goals/compose.yml
+  - services/battery/compose.yml
+  - services/system/compose.yml
+  - services/focus/compose.yml
+
+# Hardening every container gets (SECURITY A10). Services merge it with
+# `<<: *service-defaults` and set their own `user` only when the image needs one.
+x-service-defaults: &service-defaults
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp"]
+  mem_limit: 256m
+  cpus: 0.5
+  restart: unless-stopped
+
+networks:
+  # No route out of the host and none in: services and the database live here.
+  core:
+    internal: true
+  # For the gateway and web only, which must be reachable on loopback.
+  edge: {}
