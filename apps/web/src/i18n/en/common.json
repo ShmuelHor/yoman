@@ -1,0 +1,7 @@
+{
+  "appName": "Yoman",
+  "nav": { "label": "Main navigation" },
+  "language": { "label": "Language", "he": "Hebrew", "en": "English" },
+  "theme": { "label": "Color theme", "system": "System", "light": "Light", "dark": "Dark" },
+  "error": { "title": "Something went wrong", "notFound": "Page not found" }
+}
