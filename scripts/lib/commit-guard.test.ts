@@ -25,6 +25,9 @@ describe('isForbiddenEnvFile', () => {
     'docs/.environment.md',
     '.ENV.EXAMPLE',
     '.Env.example',
+    '.env/prod',
+    'config/.env.d/db.conf',
+    '.env.example/secret',
   ])('blocks %s', (path) => {
     expect(isForbiddenEnvFile(path)).toBe(true);
   });

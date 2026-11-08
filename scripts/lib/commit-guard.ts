@@ -4,15 +4,21 @@ const ENV_PREFIX = '.env';
 const ENV_EXAMPLE = '.env.example';
 
 /**
- * Whether a staged path is an env file that must never be committed: any basename
- * starting with `.env`, in any directory, except exactly `.env.example`. The match
- * is deliberately broad, so editor backups (`.env~`), copies (`.env.bak`, `.env-prod`)
- * and tool files (`.envrc`) are caught too. It is case-insensitive, so `.ENV`
- * cannot slip through on any file system.
+ * Whether a staged path is an env file that must never be committed: any path
+ * segment starting with `.env`, in any directory, except a final `.env.example`.
+ * Checking every segment also catches files inside a `.env` directory
+ * (`.env/prod`), matching `.gitignore`'s `.env*`. The match is deliberately broad,
+ * so editor backups (`.env~`), copies (`.env.bak`, `.env-prod`) and tool files
+ * (`.envrc`) are caught too. It is case-insensitive, so `.ENV` cannot slip through
+ * on any file system.
  */
 export function isForbiddenEnvFile(path: string): boolean {
-  const name = posix.basename(path);
-  return name.toLowerCase().startsWith(ENV_PREFIX) && name !== ENV_EXAMPLE;
+  const segments = path.split(posix.sep);
+  return segments.some(
+    (segment, index) =>
+      segment.toLowerCase().startsWith(ENV_PREFIX) &&
+      !(segment === ENV_EXAMPLE && index === segments.length - 1),
+  );
 }
 
 /** The staged paths that {@link isForbiddenEnvFile} rejects, in their original order. */
