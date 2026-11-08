@@ -66,12 +66,41 @@ jobs:
             --exit-code 1 \
             --report-format sarif \
             --report-path /repo/gitleaks.sarif
-      - name: Upload SARIF
+      # git log -p shows no diff for merge commits, so a secret added only while
+      # resolving a merge conflict never appears in the history scan. Scanning
+      # the tracked files of HEAD (via git archive: no .git, no ignored files)
+      # catches it.
+      - name: Scan the tracked files
+        if: ${{ !cancelled() }}
+        env:
+          GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        run: |
+          tree_dir="${RUNNER_TEMP}/gitleaks-tree"
+          mkdir -p "${tree_dir}"
+          git archive HEAD | tar -x -C "${tree_dir}"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --volume "${tree_dir}:/tree:ro" \
+            --volume "${GITHUB_WORKSPACE}:/repo" \
+            "${GITLEAKS_IMAGE}" \
+            dir /tree \
+            --redact \
+            --verbose \
+            --exit-code 1 \
+            --report-format sarif \
+            --report-path /repo/gitleaks-tree.sarif
+      - name: Upload history SARIF
         if: ${{ !cancelled() && hashFiles('gitleaks.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
+      - name: Upload tracked files SARIF
+        if: ${{ !cancelled() && hashFiles('gitleaks-tree.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: gitleaks-tree.sarif
+          category: gitleaks-tree
 
   npm-audit:
     name: npm audit
