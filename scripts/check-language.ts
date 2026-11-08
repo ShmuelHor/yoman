@@ -9,8 +9,6 @@ import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
-import { z } from 'zod';
-
 import {
   findHebrew,
   formatViolation,
@@ -18,11 +16,9 @@ import {
   shouldScan,
   type Violation,
 } from './lib/language-policy.js';
+import { parseSystemError } from './lib/system-error.js';
 
 const run = promisify(execFile);
-
-/** The fields of a Node.js file system error that we report. */
-const FsError = z.object({ code: z.string().optional(), message: z.string() });
 
 /** Result of scanning one file: its violations, or why it could not be read. */
 type ScanResult =
@@ -49,7 +45,7 @@ async function scan(path: string): Promise<ScanResult> {
     }
     return { kind: 'scanned', violations: findHebrew(path, content.toString('utf8')) };
   } catch (error: unknown) {
-    const { code, message } = FsError.parse(error);
+    const { code, message } = parseSystemError(error);
     // A tracked file deleted in the working tree has nothing left to scan.
     if (code === 'ENOENT') {
       return { kind: 'skipped' };
