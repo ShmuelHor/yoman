@@ -15,11 +15,17 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ENV_FILE_MODE, ensureEnvFile, generateSecret, UnsafeEnvFileError } from './env-file.js';
+import { ensureEnvFile, generateSecret, UnsafeEnvFileError } from './env-file.js';
 import { InvalidEnvFileError, parseEnv, SECRETS } from './env-secrets.js';
 
 const PERMISSION_BITS = 0o777;
+/**
+ * SECURITY §5, written as a literal on purpose: comparing with the module's own
+ * constant would let a regression in that constant pass.
+ */
+const OWNER_ONLY = 0o600;
 const WIDE_MODE = 0o644;
+const PERMISSIVE_UMASK = 0o000;
 const NO_PERMISSIONS = 0o000;
 const SECRET_BYTES = 32;
 const HEX_LENGTH = SECRET_BYTES * 2;
@@ -60,8 +66,19 @@ describe('ensureEnvFile', () => {
       added: SECRETS.map(({ key }) => key),
       fixedMode: false,
     });
-    expect(await modeOf(envPath)).toBe(ENV_FILE_MODE);
+    expect(await modeOf(envPath)).toBe(OWNER_ONLY);
     expect(parseEnv(await readFile(envPath, 'utf8'))).toHaveLength(SECRETS.length);
+  });
+
+  it('creates .env with mode 0600 even under a permissive umask', async () => {
+    const previous = process.umask(PERMISSIVE_UMASK);
+    try {
+      await ensureEnvFile(envPath);
+    } finally {
+      process.umask(previous);
+    }
+
+    expect(await modeOf(envPath)).toBe(OWNER_ONLY);
   });
 
   it('changes nothing on a second run', async () => {
@@ -88,7 +105,7 @@ describe('ensureEnvFile', () => {
       key: 'AGENT_TOKEN',
       value: token,
     });
-    expect(await modeOf(envPath)).toBe(ENV_FILE_MODE);
+    expect(await modeOf(envPath)).toBe(OWNER_ONLY);
   });
 
   it('tightens the mode of a complete .env without touching its content', async () => {
@@ -99,13 +116,13 @@ describe('ensureEnvFile', () => {
     const result = await ensureEnvFile(envPath);
 
     expect(result).toEqual({ created: false, added: [], fixedMode: true });
-    expect(await modeOf(envPath)).toBe(ENV_FILE_MODE);
+    expect(await modeOf(envPath)).toBe(OWNER_ONLY);
     expect(await readFile(envPath, 'utf8')).toBe(before);
   });
 
   it('leaves an invalid .env untouched and leaves no temporary file behind', async () => {
     const content = 'POSTGRES_PASSWORD=change-me\n';
-    await writeFile(envPath, content, { mode: ENV_FILE_MODE });
+    await writeFile(envPath, content, { mode: OWNER_ONLY });
 
     await expect(ensureEnvFile(envPath)).rejects.toBeInstanceOf(InvalidEnvFileError);
     expect(await readFile(envPath, 'utf8')).toBe(content);
@@ -121,7 +138,7 @@ describe('ensureEnvFile', () => {
 
   it('refuses a symlinked .env without following or replacing it', async () => {
     const target = join(dir, 'elsewhere');
-    await writeFile(target, '', { mode: ENV_FILE_MODE });
+    await writeFile(target, '', { mode: OWNER_ONLY });
     await symlink(target, envPath);
 
     await expect(ensureEnvFile(envPath)).rejects.toBeInstanceOf(UnsafeEnvFileError);
