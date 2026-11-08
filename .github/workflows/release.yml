@@ -11,7 +11,7 @@
 #            through OIDC. The only job with `id-token: write`.
 # - release: GitHub Release with a generated changelog and every artifact.
 #
-# Manual runs (workflow_dispatch) are dry runs: every stage runs except the
+# Manual runs (workflow_dispatch) and runs on a branch are dry runs: every stage runs except the
 # release job, so the pipeline can be proven from a branch without publishing.
 #
 # Hardening: read-only default token, per-job permissions, SHA-pinned actions,
@@ -22,6 +22,10 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+    # TEMPORARY (removed before merge): a workflow_dispatch can only target a
+    # workflow that already exists on the default branch, so the dry run of this
+    # PR is triggered by pushes to its branch. Branch pushes are dry runs.
+    branches: [t06-signed-releases]
   workflow_dispatch:
     inputs:
       version:
@@ -62,11 +66,11 @@ jobs:
         env:
           REF_NAME: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.version }}
-          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           version="${REF_NAME}"
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            version="${INPUT_VERSION}"
+          if [[ "${REF_TYPE}" != "tag" ]]; then
+            version="${INPUT_VERSION:-v0.0.0-dryrun}"
           fi
           if [[ ! "${version}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::'${version}' is not a version like v1.2.3."
@@ -134,7 +138,7 @@ jobs:
           echo "found=true" >> "${GITHUB_OUTPUT}"
       # Pushing is real publishing, so a dry run builds locally and stops there.
       - name: Log in to GHCR
-        if: ${{ steps.find.outputs.found == 'true' && github.event_name == 'push' }}
+        if: ${{ steps.find.outputs.found == 'true' && github.ref_type == 'tag' }}
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
@@ -148,7 +152,7 @@ jobs:
         env:
           VERSION: ${{ needs.gate.outputs.version }}
           OWNER: ${{ github.repository_owner }}
-          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           owner="${OWNER,,}"
           : > digests.txt
@@ -156,7 +160,7 @@ jobs:
             name="$(basename "$(dirname "${dockerfile}")")"
             ref="ghcr.io/${owner}/${PROJECT}-${name}"
             docker build --file "${dockerfile}" --tag "${ref}:${VERSION}" .
-            if [[ "${EVENT_NAME}" == "push" ]]; then
+            if [[ "${REF_TYPE}" == "tag" ]]; then
               docker push "${ref}:${VERSION}"
               digest="$(docker inspect --format '{{index .RepoDigests 0}}' "${ref}:${VERSION}")"
               echo "${name} ${digest}" >> digests.txt
@@ -165,7 +169,7 @@ jobs:
       # PLACEHOLDER (T06): skipped until docker-compose.yml exists. Rewrites
       # every `image: ghcr.io/<owner>/yoman-<name>[:tag]` to the pushed digest.
       - name: Pin the compose file to digests
-        if: ${{ steps.find.outputs.found == 'true' && github.event_name == 'push' && hashFiles('docker-compose.yml') != '' }}
+        if: ${{ steps.find.outputs.found == 'true' && github.ref_type == 'tag' && hashFiles('docker-compose.yml') != '' }}
         env:
           OWNER: ${{ github.repository_owner }}
         run: |
@@ -257,8 +261,8 @@ jobs:
   release:
     name: GitHub Release
     needs: [gate, images, sign]
-    # Dry runs (workflow_dispatch) stop before publishing.
-    if: ${{ github.event_name == 'push' }}
+    # Dry runs (anything but a tag) stop before publishing.
+    if: ${{ github.ref_type == 'tag' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
