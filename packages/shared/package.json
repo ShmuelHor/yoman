@@ -1,0 +1,23 @@
+{
+  "name": "@yoman/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod contracts, route map, fixtures and MSW handlers shared by every Yoman package.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --root ../.. packages/shared"
+  },
+  "dependencies": {
+    "msw": "3.0.3",
+    "zod": "4.6.7"
+  }
+}
