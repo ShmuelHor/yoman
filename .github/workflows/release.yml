@@ -239,8 +239,8 @@ jobs:
           done
       # The signing identity is this workflow at the ref that ran it, so a
       # signature from any other workflow or fork fails verification. The
-      # bundle is verified with cosign, then the extracted files are checked
-      # against the same blob so a bad extraction cannot ship.
+      # bundle is verified, then the extracted .sig and .pem against the same
+      # blob so a bad extraction cannot ship.
       - name: Verify the signatures
         run: |
           for file in "dist/${PROJECT}-${VERSION}.spdx.json" "dist/${PROJECT}-${VERSION}-source.tar.gz"; do
@@ -249,10 +249,12 @@ jobs:
               --certificate-oidc-issuer https://token.actions.githubusercontent.com \
               --bundle "${file}.sigstore.json" \
               "${file}"
-            openssl x509 -in "${file}.pem" -noout -subject -ext subjectAltName
-            openssl x509 -in "${file}.pem" -pubkey -noout > "${RUNNER_TEMP}/pub.pem"
-            base64 -d "${file}.sig" > "${RUNNER_TEMP}/sig.bin"
-            openssl dgst -sha256 -verify "${RUNNER_TEMP}/pub.pem" -signature "${RUNNER_TEMP}/sig.bin" "${file}"
+            cosign verify-blob \
+              --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --signature "${file}.sig" \
+              --certificate "${file}.pem" \
+              "${file}"
           done
       # PLACEHOLDER (T06): image signing and the provenance attestation join
       # here once the images job produces digests.txt.
