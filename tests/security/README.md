@@ -32,15 +32,15 @@ skip it at runtime.
 It runs the suite with Vitest's JSON reporter and reads the status of every test, so it sees every
 way a test can be switched off, not just the ones a text search would find.
 
-| Finding | Without `--strict` | With `--strict` |
-|---|---|---|
-| Owned todo | listed, exit 0 | exit 1 |
-| Skipped test (`.skip` in any form, `skipIf`, `runIf`, a context `skip()`) | listed, exit 0 | exit 1 |
-| Test declared with `.fails` | listed, exit 0 | exit 1 |
-| Failing test, or a file that fails to load | exit 1 | exit 1 |
-| `.only` (the config sets `allowOnly: false`, so it fails the run) | exit 1 | exit 1 |
-| Todo without a `[Txx]` owner | exit 1 | exit 1 |
-| A test file not named `stNN-<slug>.test.ts` directly here, or an ST ID with no file or two | exit 1 | exit 1 |
+| Finding                                                                                    | Without `--strict` | With `--strict` |
+| ------------------------------------------------------------------------------------------ | ------------------ | --------------- |
+| Owned todo                                                                                 | listed, exit 0     | exit 1          |
+| Skipped test (`.skip` in any form, `skipIf`, `runIf`, a context `skip()`)                  | listed, exit 0     | exit 1          |
+| Test declared with `.fails`                                                                | listed, exit 0     | exit 1          |
+| Failing test, or a file that fails to load                                                 | exit 1             | exit 1          |
+| `.only` (the config sets `allowOnly: false`, so it fails the run)                          | exit 1             | exit 1          |
+| Todo without a `[Txx]` owner                                                               | exit 1             | exit 1          |
+| A test file not named `stNN-<slug>.test.ts` directly here, or an ST ID with no file or two | exit 1             | exit 1          |
 
 Vitest's JSON report shows a `.fails` test as passed, so `lib/record-modifiers.ts`, a setup file,
 marks it in the test's meta for the gate to read. `npm run security:todo --strict` (without `--`)
