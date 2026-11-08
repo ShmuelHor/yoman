@@ -26,3 +26,37 @@ networks:
     internal: true
   # For the gateway and web only, which must be reachable on loopback.
   edge: {}
+
+volumes:
+  pgdata: {}
+
+services:
+  postgres:
+    <<: *service-defaults
+    # postgres:16-alpine. Alpine's postgres user is uid/gid 70.
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    user: "70:70"
+    # Deviation from the defaults, both justified: Postgres needs a writable
+    # unix-socket dir (tmpfs) and data dir (the named volume). Root stays read-only.
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql:uid=70,gid=70,mode=0700
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run npm run setup}
+      SESSIONS_DB_PASSWORD: ${SESSIONS_DB_PASSWORD:?run npm run setup}
+      REPORTS_DB_PASSWORD: ${REPORTS_DB_PASSWORD:?run npm run setup}
+      GOALS_DB_PASSWORD: ${GOALS_DB_PASSWORD:?run npm run setup}
+      BATTERY_DB_PASSWORD: ${BATTERY_DB_PASSWORD:?run npm run setup}
+      SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:?run npm run setup}
+      FOCUS_DB_PASSWORD: ${FOCUS_DB_PASSWORD:?run npm run setup}
+      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?run npm run setup}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [core]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
