@@ -3,16 +3,20 @@ const MAX_HEADER_LENGTH = 72;
 const MAX_BODY_LINE_LENGTH = 100;
 
 /**
- * Dependabot always writes "Bump <package> from <a> to <b>" (or "Bump the <group>
- * group ..." for grouped updates) and has no option to lowercase it, so only those
- * exact generated shapes skip linting.
+ * Dependabot always capitalizes "Bump" and has no option to lowercase it, and it
+ * shortens long subjects unpredictably, so its commits are recognized by the
+ * subject prefix plus its sign-off trailer rather than by the full subject.
  */
-const DEPENDABOT_SUBJECT = /^(build|ci)\(deps\): Bump (\S+ from \S+ to \S+|the \S+ group )/;
+const DEPENDABOT_SUBJECT = /^(build|ci)\(deps\): Bump \S/;
+const DEPENDABOT_SIGN_OFF = /^Signed-off-by: dependabot\[bot\] <support@github\.com>$/m;
+
+const isDependabotCommit = (message) =>
+  DEPENDABOT_SUBJECT.test(message) && DEPENDABOT_SIGN_OFF.test(message);
 
 /** Conventional Commits, as described in CLAUDE.md. */
 export default {
   extends: ['@commitlint/config-conventional'],
-  ignores: [(message) => DEPENDABOT_SUBJECT.test(message)],
+  ignores: [isDependabotCommit],
   rules: {
     'type-enum': [
       2,
