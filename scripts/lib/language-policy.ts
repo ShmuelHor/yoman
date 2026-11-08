@@ -4,14 +4,10 @@ import { extname } from 'node:path';
 const HEBREW = /[\u0590-\u05FF\uFB1D-\uFB4F]/u;
 
 /**
- * Paths where Hebrew is expected: translation files and planning docs.
- * Everything else (code, comments, config, README) must be English.
+ * Paths where Hebrew is expected: UI translation files only.
+ * Everything else (code, comments, config, docs, README) must be English.
  */
-const ALLOWED_PATHS: readonly RegExp[] = [
-  /^docs\//u,
-  /^CLAUDE\.md$/u,
-  /(^|\/)i18n\/he(\/|\.json$)/u,
-];
+const ALLOWED_PATHS: readonly RegExp[] = [/(^|\/)i18n\/he(\/|\.json$)/u];
 
 /**
  * Extensions skipped without reading the file. This is only a fast path:

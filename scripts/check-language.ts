@@ -1,5 +1,5 @@
 /**
- * Fails when Hebrew appears outside translation files and planning docs.
+ * Fails when Hebrew appears outside UI translation files.
  * Runs as part of `npm run check` and in CI.
  *
  * The check fails closed: a file that cannot be read is reported and fails
