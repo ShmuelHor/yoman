@@ -1,0 +1,13 @@
+# gitleaks configuration, read by the pre-commit hook and by CI.
+# Uses gitleaks' default rules unchanged; nothing is disabled.
+title = "Yoman"
+
+[extend]
+useDefault = true
+
+# Exactly one allowlisted value: the placeholder that .env.example uses for every
+# secret, and that `npm run setup` rejects if it ever ends up in .env. Paths are not
+# allowlisted, so a real secret pasted into .env.example is still caught.
+[allowlist]
+description = ".env.example placeholder"
+regexes = ['''^change-me-run-npm-run-setup$''']
