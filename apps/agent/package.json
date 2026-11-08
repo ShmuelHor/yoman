@@ -1,0 +1,18 @@
+{
+  "name": "@yoman/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Yoman host agent: collectors, actuators and the local sample buffer.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --root ../.. apps/agent"
+  },
+  "dependencies": {
+    "@yoman/shared": "0.0.0",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  }
+}
