@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CENSOR, createLogger, REDACTED_KEYS } from './logger.js';
+import { CENSOR, createLogger, REDACTED_KEYS } from '../../src/core/logger.js';
 
 function capture(): { lines: string[]; write: (line: string) => void } {
   const lines: string[] = [];

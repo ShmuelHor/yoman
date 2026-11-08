@@ -4,16 +4,16 @@ import { join } from 'node:path';
 import type { Sample } from '@yoman/shared/ingest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createLogger } from './logger.js';
-import type { Actuator, Collector, CollectorContext } from './plugin.js';
+import { createLogger } from '../../src/core/logger.js';
+import type { Actuator, Collector, CollectorContext } from '../../src/core/plugin.js';
 import {
   loadRegistry,
   runActuator,
   scheduleCollectors,
   startPlugins,
   stopPlugins,
-} from './registry.js';
-import { createScheduler } from './scheduler.js';
+} from '../../src/core/registry.js';
+import { createScheduler } from '../../src/core/scheduler.js';
 
 const INTERVAL_MS = 5_000;
 const SAMPLE: Sample = {

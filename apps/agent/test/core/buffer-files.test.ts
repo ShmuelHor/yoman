@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { hourFileName, isBufferFileName, selectEvictions, splitLines } from './buffer-files.js';
+import {
+  hourFileName,
+  isBufferFileName,
+  selectEvictions,
+  splitLines,
+} from '../../src/core/buffer-files.js';
 
 describe('hourFileName', () => {
   it('names a file after the UTC hour', () => {

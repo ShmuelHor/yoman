@@ -1,17 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createScheduler, type Scheduler } from './scheduler.js';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import {
+  createScheduler,
+  type Scheduler,
+  type SchedulerOptions,
+} from '../../src/core/scheduler.js';
 
 const FIVE_SECONDS = 5_000;
 const ONE_MINUTE = 60_000;
 const SLOW_TASK_MS = 12_000;
 
 describe('createScheduler', () => {
-  let onError: ReturnType<typeof vi.fn>;
+  let onError: Mock<SchedulerOptions['onError']>;
   let scheduler: Scheduler;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    onError = vi.fn();
+    onError = vi.fn<SchedulerOptions['onError']>();
     scheduler = createScheduler({
       onError,
       timers: { setTimeout, clearTimeout: (h) => clearTimeout(h as NodeJS.Timeout) },

@@ -10,7 +10,7 @@ import {
   PRIVATE_DIR_MODE,
   PRIVATE_FILE_MODE,
   writePrivateFileAtomic,
-} from './private-fs.js';
+} from '../../src/core/private-fs.js';
 
 const OPEN_MODE = 0o755;
 const OPEN_FILE_MODE = 0o644;

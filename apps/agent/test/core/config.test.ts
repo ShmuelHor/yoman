@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ConfigError, loadAgentConfig, parseAgentConfig } from './config.js';
+import { ConfigError, loadAgentConfig, parseAgentConfig } from '../../src/core/config.js';
 
 const DEFAULTS = { gatewayUrl: 'http://127.0.0.1:4711', logLevel: 'info' };
 

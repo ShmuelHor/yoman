@@ -2,9 +2,10 @@ import { appendFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Sample } from '@yoman/shared/ingest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createBuffer, type SampleBuffer } from './buffer.js';
-import { modeOf, PRIVATE_DIR_MODE, PRIVATE_FILE_MODE } from './private-fs.js';
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { createBuffer, type SampleBuffer } from '../../src/core/buffer.js';
+import type { AgentLogger } from '../../src/core/logger.js';
+import { modeOf, PRIVATE_DIR_MODE, PRIVATE_FILE_MODE } from '../../src/core/private-fs.js';
 
 const HOUR_ONE = new Date('2026-11-08T09:15:00Z');
 const HOUR_TWO = new Date('2026-11-08T10:15:00Z');
@@ -40,7 +41,7 @@ describe('createBuffer', () => {
   let stateDir: string;
   let bufferDir: string;
   let clock: Date;
-  let warn: ReturnType<typeof vi.fn>;
+  let warn: Mock<AgentLogger['warn']>;
 
   async function open(maxBytes?: number): Promise<SampleBuffer> {
     return createBuffer({
@@ -57,7 +58,7 @@ describe('createBuffer', () => {
     stateDir = join(root, 'state', 'yoman');
     bufferDir = join(stateDir, 'buffer');
     clock = HOUR_ONE;
-    warn = vi.fn();
+    warn = vi.fn<AgentLogger['warn']>();
   });
 
   afterEach(async () => {

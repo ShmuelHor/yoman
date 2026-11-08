@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAgentPaths } from './paths.js';
+import { resolveAgentPaths } from '../../src/core/paths.js';
 
 describe('resolveAgentPaths', () => {
   it('uses the SPEC locations under HOME by default', () => {
