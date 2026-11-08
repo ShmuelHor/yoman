@@ -4,9 +4,9 @@ dist/
 coverage/
 *.tsbuildinfo
 
-# Secrets: only .env.example is ever committed
-.env
-.env.*
+# Secrets: only .env.example is ever committed. Matches what the pre-commit hook
+# blocks, so editor backups such as .env~ are ignored too.
+.env*
 !.env.example
 
 # Local data never leaves this machine. Anchored to the root so that source

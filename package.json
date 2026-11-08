@@ -14,6 +14,7 @@
     "apps/*"
   ],
   "scripts": {
+    "setup": "tsx scripts/setup.ts",
     "check": "npm run lint && npm run typecheck && npm run check:language",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
@@ -24,6 +25,7 @@
     "hooks:install": "simple-git-hooks"
   },
   "simple-git-hooks": {
+    "pre-commit": "npx --no -- tsx scripts/pre-commit.ts",
     "commit-msg": "npx --no -- commitlint --edit \"$1\""
   },
   "devDependencies": {
