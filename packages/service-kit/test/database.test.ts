@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { pingDatabase } from './database.js';
+import { pingDatabase } from '../src/database.js';
 
 describe('pingDatabase', () => {
   it('is true when the query succeeds', async () => {

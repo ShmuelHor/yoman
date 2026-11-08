@@ -3,7 +3,7 @@ import pg from 'pg';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 
-import { buildLoggerOptions, CENSOR, serializeError, serializeRequest } from './redaction.js';
+import { buildLoggerOptions, CENSOR, serializeError, serializeRequest } from '../src/redaction.js';
 
 function capture(): { lines: string[]; stream: Writable } {
   const lines: string[] = [];

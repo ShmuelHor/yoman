@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { assertServiceName, dbPasswordVariable, loadConfig } from './config.js';
+import { assertServiceName, dbPasswordVariable, loadConfig } from '../src/config.js';
 
 const SECRET = 'not-a-real-secret-4f9a';
 

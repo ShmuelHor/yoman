@@ -5,8 +5,8 @@ import { Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createService } from './create-service.js';
-import { defineRoute } from './route.js';
+import { createService } from '../src/create-service.js';
+import { defineRoute } from '../src/route.js';
 
 /** Port 1 on loopback refuses at once, so nothing waits for a timeout. */
 const env = {

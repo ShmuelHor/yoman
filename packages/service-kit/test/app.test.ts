@@ -3,10 +3,10 @@ import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { buildApp } from './app.js';
-import type { Pingable } from './database.js';
-import { ConflictError } from './errors.js';
-import { defineRoute, HTTP_NO_CONTENT, type Route } from './route.js';
+import { buildApp } from '../src/app.js';
+import type { Pingable } from '../src/database.js';
+import { ConflictError } from '../src/errors.js';
+import { defineRoute, HTTP_NO_CONTENT, type Route } from '../src/route.js';
 
 const STATUS = {
   OK: 200,
