@@ -1,0 +1,29 @@
+# Every image builds from the repository root (see each Dockerfile), so this file
+# keeps the context small and keeps secrets and local data out of it. Dockerfiles
+# COPY explicit paths, so nothing below is ever needed inside an image.
+
+# Version control and agent tooling
+.git
+.github
+.claude
+
+# Secrets: no .env file ever enters a build context (SECURITY A1)
+.env*
+
+# Local data and key material (SECURITY A16)
+data
+backups
+**/*.dump
+**/*.pem
+**/*.key
+**/*.p12
+
+# Dependencies and build output: images install and build their own
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.vite
+**/playwright-report
+**/test-results
+**/*.log
