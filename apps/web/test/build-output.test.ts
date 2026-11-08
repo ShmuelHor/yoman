@@ -42,13 +42,13 @@ describe('production build', { timeout: BUILD_TIMEOUT_MS }, () => {
   });
 
   it('has no inline script: every <script> loads a same-origin file', () => {
-    const tags = html.match(/<script\b[^>]*>/gu) ?? [];
+    const tags = html.match(/<script\b[^>]*>/giu) ?? [];
 
     expect(tags.length).toBeGreaterThan(0);
     for (const tag of tags) {
-      expect(tag).toMatch(/\ssrc="\/assets\/[^"]+\.js"/u);
+      expect(tag).toMatch(/\ssrc="\/assets\/[^"]+\.js"/iu);
     }
-    expect(html).not.toMatch(/<script\b[^>]*>[^<\s]/u);
+    expect(html).not.toMatch(/<script\b[^>]*>[^<\s]/iu);
   });
 
   it('has no inline styles, event handlers or data: URLs', () => {
