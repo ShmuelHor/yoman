@@ -46,8 +46,13 @@ Nobody commits to `main` directly. Every change, including docs and CI, goes thr
 5. Re-review only what changed since the last round, until there are no blocking comments left.
 
 ### Coordinator (merge)
-Merge only when CI is green, the latest review says `Verdict: approved`, and every review thread is resolved:
-`gh pr merge <n> --rebase --delete-branch`. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
+Merge only when CI is green, the latest review says `Verdict: approved`, and every review thread is resolved.
+- **Rebase merge** (`gh pr merge <n> --rebase --delete-branch`) when every commit on the branch is clean.
+- **Squash merge** with a proper Conventional Commit message and `Closes #N` when the branch carries commits that must not reach `main`: deliberately red probes, fixtures a secret scanner flags, or merge commits from updating the branch. The PR keeps the full history.
+
+### Review budget
+- One full review per PR (plus a security review only for security-critical areas: gateway, agent muter and collectors, CD). Only `blocking:` findings are fixed before merge; suggestions go into a follow-up issue.
+- After fixes, a **lean re-review** of only the fix commits records the `Verdict: approved`. Use a cheaper model for reviews and routine tasks. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
 
 ## Security rules (blocking)
 - **Secrets:** never commit `.env`, tokens, passwords or real data. Only placeholders in `.env.example`. Never bypass or weaken gitleaks, CI security jobs or branch protection. No `continue-on-error`, and no new `.trivyignore` or `.semgrepignore` entries without a reason and an expiry date.
