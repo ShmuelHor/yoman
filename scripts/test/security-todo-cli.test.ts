@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SECURITY_TEST_COUNT, type VitestJsonReport } from './security-todo.js';
-import { isStrict, runSecurityTodo, type SecurityTodoIo } from './security-todo-cli.js';
+import { SECURITY_TEST_COUNT, type VitestJsonReport } from '../lib/security-todo.js';
+import { isStrict, runSecurityTodo, type SecurityTodoIo } from '../lib/security-todo-cli.js';
 
 const SUITE = '/repo/tests/security';
 

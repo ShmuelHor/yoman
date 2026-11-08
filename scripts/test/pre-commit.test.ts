@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ChildExit } from './child-exit.js';
-import type { GitleaksSyntax } from './commit-guard.js';
-import { GITLEAKS_MISSING_WARNING, type PreCommitDeps, runPreCommit } from './pre-commit.js';
+import type { ChildExit } from '../lib/child-exit.js';
+import type { GitleaksSyntax } from '../lib/commit-guard.js';
+import { GITLEAKS_MISSING_WARNING, type PreCommitDeps, runPreCommit } from '../lib/pre-commit.js';
 
 const LEAK_FOUND = 1;
 const CUSTOM_EXIT = 3;

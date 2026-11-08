@@ -9,7 +9,7 @@ import {
   type SecurityTodoScan,
   scanSecurityReport,
   type VitestJsonReport,
-} from './security-todo.js';
+} from '../lib/security-todo.js';
 
 const SUITE = '/repo/tests/security';
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toExitOutcome } from './child-exit.js';
+import { toExitOutcome } from '../lib/child-exit.js';
 
 describe('toExitOutcome', () => {
   it('succeeds when the child exits with 0', () => {

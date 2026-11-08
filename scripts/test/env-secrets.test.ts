@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
-import { InvalidEnvFileError, parseEnv, planEnv, SECRETS } from './env-secrets.js';
+import { InvalidEnvFileError, parseEnv, planEnv, SECRETS } from '../lib/env-secrets.js';
 
 /** Lengths of a 32-byte secret in each accepted encoding. */
 const BASE64URL_LENGTH = 43;

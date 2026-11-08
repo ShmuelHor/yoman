@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSystemError } from './system-error.js';
+import { parseSystemError } from '../lib/system-error.js';
 
 describe('parseSystemError', () => {
   it('reads code and message from a Node.js system error', () => {

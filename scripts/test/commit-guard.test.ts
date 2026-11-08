@@ -5,7 +5,7 @@ import {
   findForbiddenEnvFiles,
   gitleaksArgs,
   isForbiddenEnvFile,
-} from './commit-guard.js';
+} from '../lib/commit-guard.js';
 
 describe('isForbiddenEnvFile', () => {
   it.each([

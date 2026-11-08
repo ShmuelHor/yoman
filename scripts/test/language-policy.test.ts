@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findHebrew, formatViolation, isBinary, shouldScan } from './language-policy.js';
+import { findHebrew, formatViolation, isBinary, shouldScan } from '../lib/language-policy.js';
 
 // Hebrew samples are written as escapes so this file passes its own check.
 const SHALOM = '\u05e9\u05dc\u05d5\u05dd';

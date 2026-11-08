@@ -15,8 +15,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ensureEnvFile, generateSecret, UnsafeEnvFileError } from './env-file.js';
-import { InvalidEnvFileError, parseEnv, SECRETS } from './env-secrets.js';
+import { ensureEnvFile, generateSecret, UnsafeEnvFileError } from '../lib/env-file.js';
+import { InvalidEnvFileError, parseEnv, SECRETS } from '../lib/env-secrets.js';
 
 const PERMISSION_BITS = 0o777;
 /**

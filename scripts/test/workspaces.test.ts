@@ -5,7 +5,7 @@ import {
   resolveWorkspaces,
   UnsupportedWorkspaceGlobError,
   type WorkspaceFileSystem,
-} from './workspaces.js';
+} from '../lib/workspaces.js';
 
 /** An in-memory file system built from a list of file paths. */
 function fakeFileSystem(files: readonly string[]): WorkspaceFileSystem {

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listStagedFiles } from './staged-files.js';
+import { listStagedFiles } from '../lib/staged-files.js';
 
 const run = promisify(execFile);
 
