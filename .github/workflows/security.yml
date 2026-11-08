@@ -125,6 +125,9 @@ jobs:
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: moderate
+          # The default scope is runtime only, and every dependency here is a
+          # devDependency today, so without this the gate could never fail.
+          fail-on-scopes: runtime, development, unknown
           # Copyleft licenses that would bind the whole project (SECURITY.md §4).
           deny-licenses: >-
             GPL-1.0-only, GPL-1.0-or-later, GPL-2.0-only, GPL-2.0-or-later,
