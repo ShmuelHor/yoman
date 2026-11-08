@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildResources } from './resources.js';
+import { buildResources } from '../../src/i18n/resources.js';
 
 const json = (value: object): { default: object } => ({ default: value });
 

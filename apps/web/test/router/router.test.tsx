@@ -5,13 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { createMemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { App } from '../app/app.js';
-import { createQueryClient } from '../app/query-client.js';
-import { bundledResources } from '../i18n/bundled.js';
-import { createI18n } from '../i18n/i18n.js';
-import type { PageRoute } from './page-route.js';
-import { pageRoutes } from './pages.js';
-import { buildRoutes } from './router.js';
+import { App } from '../../src/app/app.js';
+import { createQueryClient } from '../../src/app/query-client.js';
+import { bundledResources } from '../../src/i18n/bundled.js';
+import { createI18n } from '../../src/i18n/i18n.js';
+import type { PageRoute } from '../../src/router/page-route.js';
+import { pageRoutes } from '../../src/router/pages.js';
+import { buildRoutes } from '../../src/router/router.js';
 
 function Week(): React.JSX.Element {
   const { t } = useTranslation('welcome');

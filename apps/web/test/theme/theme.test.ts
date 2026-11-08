@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 
-import { applyTheme, resolveTheme, type ThemePreference } from './theme.js';
+import { applyTheme, resolveTheme, type ThemePreference } from '../../src/theme/theme.js';
 
 describe('resolveTheme', () => {
   it.each<[ThemePreference, boolean, string]>([

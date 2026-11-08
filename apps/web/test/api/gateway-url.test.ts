@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { gatewayUrl } from './gateway-url.js';
+import { gatewayUrl } from '../../src/api/gateway-url.js';
 
 describe('gatewayUrl', () => {
   it.each([

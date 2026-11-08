@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectPageRoutes, hrefOf, type PageRoute } from './page-route.js';
+import { collectPageRoutes, hrefOf, type PageRoute } from '../../src/router/page-route.js';
 
 const Page = (): null => null;
 const FRACTIONAL = 1.5;

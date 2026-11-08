@@ -4,7 +4,7 @@ import { type RouteName, routes } from '@yoman/shared/routes';
 import { setupServer } from 'msw/node';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { createGatewayClient } from './gateway.js';
+import { createGatewayClient } from '../../src/api/gateway.js';
 
 const location = { protocol: 'http:', hostname: '127.0.0.1' };
 // The handlers answer 400 to any request that breaks its contract.

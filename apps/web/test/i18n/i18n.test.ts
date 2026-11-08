@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 
-import { createI18n } from './i18n.js';
-import type { Resources } from './resources.js';
+import { createI18n } from '../../src/i18n/i18n.js';
+import type { Resources } from '../../src/i18n/resources.js';
 
 const resources: Resources = {
   he: { common: { greeting: 'shalom' } },

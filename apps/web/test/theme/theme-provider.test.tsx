@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ThemeProvider, useTheme } from './theme-provider.js';
+import { ThemeProvider, useTheme } from '../../src/theme/theme-provider.js';
 
 /** A controllable `prefers-color-scheme: dark` media query. */
 function fakeSystemTheme(initiallyDark: boolean): { setDark: (dark: boolean) => void } {

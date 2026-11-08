@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { ApiError, createApiClient, type RouteMap } from './client.js';
+import { ApiError, createApiClient, type RouteMap } from '../../src/api/client.js';
 
 const BASE = 'http://127.0.0.1:4711';
 const OK = 200;
