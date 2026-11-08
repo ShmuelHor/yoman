@@ -1,57 +1,70 @@
 /**
  * Lists the security tests (SECURITY.md section 3) that are still `it.todo`,
- * grouped by the task that owns them.
+ * grouped by the task that owns them, plus any test that is skipped, failing
+ * or declared with `.fails`.
  *
  * Usage: npm run security:todo [-- --strict]
  *
- * Without --strict it exits 0 while tests are open, so it can be read during
- * development. With --strict any open test fails the run, which is how a
- * release proves nothing was forgotten. A malformed test file always fails.
+ * It runs the suite with Vitest's JSON reporter and reads the result. Without
+ * --strict it exits 0 while tests are only todo, so it can be read during
+ * development. With --strict, the release gate, any todo, skipped or `.fails`
+ * test fails the run. A failing test or an untrustworthy suite always fails.
  */
-import { readdir, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { z } from 'zod';
+import { runSecurityTodo } from './lib/security-todo-cli.js';
 
-import { formatReport, type SecurityTestSource, scanSecurityTests } from './lib/security-todo.js';
-
-const TESTS_DIR = fileURLToPath(new URL('../tests/security', import.meta.url));
-const TEST_FILE = /\.test\.ts$/u;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const SUITE_DIR = join(ROOT, 'tests', 'security');
+const VITEST_CLI = join(ROOT, 'node_modules', 'vitest', 'vitest.mjs');
+/** 16 MiB of console output from the suite is far more than it prints. */
+const MAX_OUTPUT_BYTES = 16_777_216;
 
 /**
- * `npm run security:todo --strict` (without `--`) hands the flag to npm, which
- * exposes it as npm_config_strict instead of passing it on, so read both.
+ * Runs the suite and returns the parsed report. Vitest exits non-zero when a
+ * test fails, which is reported from the JSON itself, so only a missing
+ * report is an error here.
  */
-const NpmEnv = z.object({ npm_config_strict: z.string().optional() });
-const strict =
-  process.argv.slice(2).includes('--strict') ||
-  NpmEnv.parse(process.env).npm_config_strict === 'true';
-
-async function readTestFiles(): Promise<readonly SecurityTestSource[]> {
-  const entries = await readdir(TESTS_DIR, { withFileTypes: true });
-  const names = entries
-    .filter((entry) => entry.isFile() && TEST_FILE.test(entry.name))
-    .map((entry) => entry.name)
-    .sort();
-  return Promise.all(
-    names.map(async (fileName) => ({
-      fileName,
-      source: await readFile(join(TESTS_DIR, fileName), 'utf8'),
-    })),
-  );
+async function runSuite(): Promise<unknown> {
+  const dir = await mkdtemp(join(tmpdir(), 'yoman-security-'));
+  const outputFile = join(dir, 'report.json');
+  try {
+    const stderr = await new Promise<string>((resolve) => {
+      execFile(
+        process.execPath,
+        [
+          VITEST_CLI,
+          'run',
+          '--config',
+          'vitest.security.config.ts',
+          '--reporter=json',
+          `--outputFile=${outputFile}`,
+        ],
+        { cwd: ROOT, maxBuffer: MAX_OUTPUT_BYTES },
+        (_error, _stdout, output) => {
+          resolve(output);
+        },
+      );
+    });
+    const text = await readFile(outputFile, 'utf8').catch((error: unknown) => {
+      throw new Error(`Vitest wrote no JSON report.\n${stderr}`, { cause: error });
+    });
+    const report: unknown = JSON.parse(text);
+    return report;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
-const { open, errors } = scanSecurityTests(await readTestFiles());
-
-process.stdout.write(formatReport(open));
-
-if (errors.length > 0) {
-  process.stderr.write(
-    `\nThe security tests cannot be counted reliably:\n${errors.map((error) => `  ${error}`).join('\n')}\n`,
-  );
-  process.exitCode = 1;
-} else if (strict && open.length > 0) {
-  process.stderr.write('\n--strict: every security test must be active.\n');
-  process.exitCode = 1;
-}
+process.exitCode = await runSecurityTodo({
+  argv: process.argv.slice(2),
+  env: process.env,
+  suiteDir: SUITE_DIR,
+  runSuite,
+  stdout: (text) => process.stdout.write(text),
+  stderr: (text) => process.stderr.write(text),
+});

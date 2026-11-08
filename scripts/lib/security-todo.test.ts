@@ -1,93 +1,135 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  exitCodeFor,
   formatReport,
   groupByOwner,
   type OpenSecurityTest,
   SECURITY_TEST_COUNT,
-  type SecurityTestSource,
-  scanSecurityTests,
+  type SecurityTodoScan,
+  scanSecurityReport,
+  type VitestJsonReport,
 } from './security-todo.js';
 
-const ACTIVE = "describe('ST00 x', () => { it('works', () => {}); });";
+const SUITE = '/repo/tests/security';
 
-/** A full set of ST01 to ST19 files, all active, with the given files swapped in. */
-function suite(overrides: Readonly<Record<string, string>> = {}): SecurityTestSource[] {
-  return Array.from({ length: SECURITY_TEST_COUNT }, (_, index) => {
-    const fileName = `st${String(index + 1).padStart(2, '0')}-check.test.ts`;
-    return { fileName, source: overrides[fileName] ?? ACTIVE };
-  });
+type FileResult = VitestJsonReport['testResults'][number];
+type Assertion = FileResult['assertionResults'][number];
+
+function assertion(
+  title: string,
+  status: Assertion['status'],
+  meta: Assertion['meta'] = {},
+): Assertion {
+  return { title, fullName: `ST x ${title}`, status, meta };
 }
 
-describe('scanSecurityTests', () => {
-  it('reports nothing for a complete suite of active tests', () => {
-    expect(scanSecurityTests(suite())).toEqual({ open: [], errors: [] });
+function file(
+  name: string,
+  assertions: readonly Assertion[],
+  status: FileResult['status'] = 'passed',
+): FileResult {
+  return { name: `${SUITE}/${name}`, status, message: '', assertionResults: [...assertions] };
+}
+
+/** A report of ST01 to ST19, each with one passing test, with the given files swapped in. */
+function report(overrides: Readonly<Record<string, FileResult>> = {}): VitestJsonReport {
+  const testResults = Array.from({ length: SECURITY_TEST_COUNT }, (_, index) => {
+    const name = `st${String(index + 1).padStart(2, '0')}-check.test.ts`;
+    return overrides[name] ?? file(name, [assertion('works', 'passed')]);
+  });
+  return { testResults };
+}
+
+describe('scanSecurityReport', () => {
+  it('reports nothing for a complete suite of passing tests', () => {
+    expect(scanSecurityReport(report(), SUITE)).toEqual({ open: [], inactive: [], errors: [] });
   });
 
   it('reads the owner and name of each todo', () => {
-    const files = suite({
-      'st03-check.test.ts':
-        "it.todo('[T19] returns 401 without a token');\nit.todo(\"[T02] it's 0600\");",
-      'st12-check.test.ts': "it.todo(\n  '[T13] rejects \\'quoted\\' payloads',\n);",
-    });
+    const scan = scanSecurityReport(
+      report({
+        'st03-check.test.ts': file('st03-check.test.ts', [
+          assertion('[T19] returns 401 without a token', 'todo'),
+          assertion("[T02] it's 0600", 'todo'),
+        ]),
+      }),
+      SUITE,
+    );
 
-    expect(scanSecurityTests(files)).toEqual({
-      open: [
-        { id: 'ST03', owner: 'T19', name: 'returns 401 without a token' },
-        { id: 'ST03', owner: 'T02', name: "it's 0600" },
-        { id: 'ST12', owner: 'T13', name: "rejects 'quoted' payloads" },
-      ],
-      errors: [],
-    });
+    expect(scan.open).toEqual([
+      { id: 'ST03', owner: 'T19', name: 'returns 401 without a token' },
+      { id: 'ST03', owner: 'T02', name: "it's 0600" },
+    ]);
+    expect(scan.errors).toEqual([]);
   });
 
   it('rejects a todo without an owner', () => {
-    const { errors } = scanSecurityTests(
-      suite({ 'st04-check.test.ts': "it.todo('returns 421');" }),
+    const scan = scanSecurityReport(
+      report({
+        'st04-check.test.ts': file('st04-check.test.ts', [assertion('returns 421', 'todo')]),
+      }),
+      SUITE,
     );
 
-    expect(errors).toEqual(['st04-check.test.ts has a todo without a [Txx] owner: returns 421']);
-  });
-
-  it.each([
-    ['test.todo', "test.todo('[T19] x');"],
-    ['describe.todo', "describe.todo('[T19] x');"],
-    ['a todo with a template literal', 'it.todo(`[T19] x`);'],
-  ])('rejects %s, which it could not count', (_name, source) => {
-    const { errors } = scanSecurityTests(suite({ 'st05-check.test.ts': source }));
-
-    expect(errors).toEqual([
-      "st05-check.test.ts has a todo that is not it.todo('[Txx] ...') with a string literal",
+    expect(scan.errors).toEqual([
+      'st04-check.test.ts has a todo without a [Txx] owner: returns 421',
     ]);
   });
 
-  it.each(["it.skip('x', () => {});", "describe.skip('x', () => {});", 'it.skipIf(true)'])(
-    'rejects a skipped test: %s',
-    (source) => {
-      const { errors } = scanSecurityTests(suite({ 'st06-check.test.ts': source }));
+  it.each([
+    ['skipped', 'skipped'],
+    ['pending', 'skipped'],
+    ['disabled', 'skipped'],
+    ['failed', 'failed'],
+  ] as const)('reports a %s test as %s', (status, reason) => {
+    const scan = scanSecurityReport(
+      report({
+        'st05-check.test.ts': file('st05-check.test.ts', [assertion('x', status)], 'failed'),
+      }),
+      SUITE,
+    );
 
-      expect(errors).toEqual([
-        "st06-check.test.ts skips a test; use it.todo('[Txx] ...') with an owner instead",
-      ]);
-    },
-  );
+    expect(scan.inactive).toEqual([{ id: 'ST05', name: 'ST x x', reason }]);
+  });
 
-  it('allows a runtime skip through the test context', () => {
-    const source = "it('x', ({ skip }) => { return skip('not there yet'); });";
+  it('reports a passing test declared with .fails', () => {
+    const scan = scanSecurityReport(
+      report({
+        'st06-check.test.ts': file('st06-check.test.ts', [
+          assertion('x', 'passed', { failsByDesign: true }),
+        ]),
+      }),
+      SUITE,
+    );
 
-    expect(scanSecurityTests(suite({ 'st01-check.test.ts': source })).errors).toEqual([]);
+    expect(scan.inactive).toEqual([{ id: 'ST06', name: 'ST x x', reason: 'fails-by-design' }]);
+  });
+
+  it('reports a file that failed without a failing test, such as an import error', () => {
+    const broken = { ...file('st07-check.test.ts', [], 'failed'), message: 'Cannot find module' };
+
+    const scan = scanSecurityReport(report({ 'st07-check.test.ts': broken }), SUITE);
+
+    expect(scan.errors).toEqual(['st07-check.test.ts failed to run: Cannot find module']);
   });
 
   it('reports each ST test that has no file', () => {
-    const files = suite().filter(({ fileName }) => !fileName.startsWith('st07'));
+    const partial = {
+      testResults: report().testResults.filter(({ name }) => !name.includes('st07')),
+    };
 
-    expect(scanSecurityTests(files).errors).toEqual(['ST07 has no test file']);
+    expect(scanSecurityReport(partial, SUITE).errors).toEqual(['ST07 has no test file']);
   });
 
   it('reports an ST test with two files', () => {
-    const files = [...suite(), { fileName: 'st08-other.test.ts', source: ACTIVE }];
+    const doubled = report();
+    const scan = scanSecurityReport(
+      { testResults: [...doubled.testResults, file('st08-other.test.ts', [])] },
+      SUITE,
+    );
 
-    expect(scanSecurityTests(files).errors).toEqual(['ST08 has more than one file']);
+    expect(scan.errors).toEqual(['ST08 has more than one file']);
   });
 
   it.each([
@@ -96,11 +138,15 @@ describe('scanSecurityTests', () => {
     'auth.test.ts',
     'st1-short.test.ts',
     'st03_Auth.test.ts',
-  ])('rejects the file name %s', (fileName) => {
-    const files = [...suite(), { fileName, source: ACTIVE }];
+    'lib/st03-nested.test.ts',
+  ])('rejects the file %s', (name) => {
+    const scan = scanSecurityReport(
+      { testResults: [...report().testResults, file(name, [])] },
+      SUITE,
+    );
 
-    expect(scanSecurityTests(files).errors).toEqual([
-      `${fileName} is not named st01- to st19-<slug>.test.ts`,
+    expect(scan.errors).toEqual([
+      `${name} is not named st01- to st19-<slug>.test.ts directly in the suite`,
     ]);
   });
 });
@@ -111,6 +157,44 @@ const OPEN: readonly OpenSecurityTest[] = [
   { id: 'ST03', owner: 'T19', name: 'auth' },
   { id: 'ST11', owner: 'T09', name: 'service logs' },
 ];
+
+const CLEAN: SecurityTodoScan = { open: [], inactive: [], errors: [] };
+
+describe('exitCodeFor', () => {
+  it.each([
+    ['a clean suite', CLEAN, false, 0],
+    ['a clean suite', CLEAN, true, 0],
+    ['open todos', { ...CLEAN, open: OPEN }, false, 0],
+    ['open todos', { ...CLEAN, open: OPEN }, true, 1],
+    [
+      'a skipped test',
+      { ...CLEAN, inactive: [{ id: 'ST01', name: 'x', reason: 'skipped' }] },
+      false,
+      0,
+    ],
+    [
+      'a skipped test',
+      { ...CLEAN, inactive: [{ id: 'ST01', name: 'x', reason: 'skipped' }] },
+      true,
+      1,
+    ],
+    [
+      'a .fails test',
+      { ...CLEAN, inactive: [{ id: 'ST01', name: 'x', reason: 'fails-by-design' }] },
+      true,
+      1,
+    ],
+    [
+      'a failing test',
+      { ...CLEAN, inactive: [{ id: 'ST01', name: 'x', reason: 'failed' }] },
+      false,
+      1,
+    ],
+    ['an error', { ...CLEAN, errors: ['ST07 has no test file'] }, false, 1],
+  ] as const)('with %s and strict=%s exits %i', (_name, scan, strict, code) => {
+    expect(exitCodeFor(scan, strict)).toBe(code);
+  });
+});
 
 describe('groupByOwner', () => {
   it('groups by task in numeric order, tests in ID order', () => {
@@ -123,7 +207,7 @@ describe('groupByOwner', () => {
 
 describe('formatReport', () => {
   it('lists open tests under their owning task', () => {
-    expect(formatReport(OPEN)).toBe(
+    expect(formatReport({ ...CLEAN, open: OPEN })).toBe(
       [
         '4 security test(s) still todo:',
         '',
@@ -141,7 +225,18 @@ describe('formatReport', () => {
     );
   });
 
+  it('lists tests that are not proving anything', () => {
+    const scan = {
+      ...CLEAN,
+      inactive: [{ id: 'ST01', name: 'repo check', reason: 'skipped' as const }],
+    };
+
+    expect(formatReport(scan)).toBe(
+      'No security test is still todo.\n\n1 security test(s) not proving anything:\n  ST01  skipped  repo check\n',
+    );
+  });
+
   it('says so when nothing is open', () => {
-    expect(formatReport([])).toBe('All security tests are active.\n');
+    expect(formatReport(CLEAN)).toBe('No security test is still todo.\n');
   });
 });

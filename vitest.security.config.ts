@@ -8,6 +8,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/security/**/*.test.ts'],
+    setupFiles: ['tests/security/lib/record-modifiers.ts'],
+    // A focused test silently skips the rest of its file, so `.only` fails the run everywhere.
+    allowOnly: false,
     restoreMocks: true,
   },
 });
