@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LIMITS } from './limits.js';
-import { DayReport, WeekQuery, WeekReport } from './reports.js';
+import { LIMITS } from '../src/limits.js';
+import { DayReport, WeekQuery, WeekReport } from '../src/reports.js';
 
 const day = {
   date: '2026-11-08',

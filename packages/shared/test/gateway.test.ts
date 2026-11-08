@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DashboardToday, ExportQuery, WebSession } from './gateway.js';
-import { LIMITS } from './limits.js';
+import { DashboardToday, ExportQuery, WebSession } from '../src/gateway.js';
+import { LIMITS } from '../src/limits.js';
 
 describe('gateway composites', () => {
   it('accepts a session, a degraded dashboard and an export query', () => {

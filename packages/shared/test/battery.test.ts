@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BatteryNow, HealthTrend, HealthTrendQuery, PowerByApp } from './battery.js';
+import { BatteryNow, HealthTrend, HealthTrendQuery, PowerByApp } from '../src/battery.js';
 
 const now = {
   ts: '2026-11-08T10:00:00Z',

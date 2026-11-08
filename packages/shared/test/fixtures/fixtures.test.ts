@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { type RouteContract, type RouteName, routes } from '../routes.js';
-import { requestFixtures } from './requests.js';
-import { responseFixtures } from './responses.js';
+import { requestFixtures } from '../../src/fixtures/requests.js';
+import { responseFixtures } from '../../src/fixtures/responses.js';
+import { type RouteContract, type RouteName, routes } from '../../src/routes.js';
 
 const all = Object.entries(routes) as [RouteName, RouteContract][];
 

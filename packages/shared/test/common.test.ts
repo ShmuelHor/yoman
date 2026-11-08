@@ -11,8 +11,8 @@ import {
   Label,
   TimeRangeQuery,
   withDegraded,
-} from './common.js';
-import { LIMITS } from './limits.js';
+} from '../src/common.js';
+import { LIMITS } from '../src/limits.js';
 
 describe('AppId', () => {
   it.each([

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AlertType } from './alerts.js';
-import { alertFixture } from './fixtures/data.js';
-import { notificationKeys, notificationMessages } from './notifications.js';
+import { AlertType } from '../src/alerts.js';
+import { alertFixture } from '../src/fixtures/data.js';
+import { notificationKeys, notificationMessages } from '../src/notifications.js';
 
 describe('notification messages', () => {
   it('has a message for every alert type', () => {

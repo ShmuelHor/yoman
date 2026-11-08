@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Alert, AlertParams, QueuedAlert } from './alerts.js';
-import { LIMITS } from './limits.js';
+import { Alert, AlertParams, QueuedAlert } from '../src/alerts.js';
+import { LIMITS } from '../src/limits.js';
 
 const alert = {
   alertKey: 'battery:low',

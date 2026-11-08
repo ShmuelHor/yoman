@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { type RouteContract, routes } from './routes.js';
+import { type RouteContract, routes } from '../src/routes.js';
 
 const all: [string, RouteContract][] = Object.entries(routes);
 const paths = all.map(([, r]) => r.path);

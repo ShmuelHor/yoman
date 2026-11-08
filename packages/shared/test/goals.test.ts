@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Goal, GoalInput, GoalList, GoalProgress } from './goals.js';
-import { LIMITS } from './limits.js';
+import { Goal, GoalInput, GoalList, GoalProgress } from '../src/goals.js';
+import { LIMITS } from '../src/limits.js';
 
 const id = '0b7f8c3e-2c55-4b8e-9f3e-1d2a3b4c5d6e';
 const input = {

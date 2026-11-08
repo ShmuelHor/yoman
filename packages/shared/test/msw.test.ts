@@ -1,9 +1,9 @@
 import { getResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { requestFixtures } from './fixtures/requests.js';
-import { responseFixtures } from './fixtures/responses.js';
-import { createHandlers, invalidRequestBody } from './msw.js';
-import { type RouteContract, type RouteName, routes } from './routes.js';
+import { requestFixtures } from '../src/fixtures/requests.js';
+import { responseFixtures } from '../src/fixtures/responses.js';
+import { createHandlers, invalidRequestBody } from '../src/msw.js';
+import { type RouteContract, type RouteName, routes } from '../src/routes.js';
 
 const BASE = 'http://127.0.0.1:4711';
 const BAD_REQUEST = 400;

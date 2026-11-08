@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { IngestBatch, IngestResult, Sample } from './ingest.js';
-import { LIMITS } from './limits.js';
+import { IngestBatch, IngestResult, Sample } from '../src/ingest.js';
+import { LIMITS } from '../src/limits.js';
 
 const ts = '2026-11-08T10:00:00Z';
 const window = { kind: 'window', ts, wmClass: 'firefox', pid: 4242, idleMs: 0, locked: false };

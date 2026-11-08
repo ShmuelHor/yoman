@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LIMITS } from './limits.js';
-import { App, AppList, AppUpdate, Rule, RuleInput, RuleList, Session } from './sessions.js';
+import { LIMITS } from '../src/limits.js';
+import { App, AppList, AppUpdate, Rule, RuleInput, RuleList, Session } from '../src/sessions.js';
 
 const id = '0b7f8c3e-2c55-4b8e-9f3e-1d2a3b4c5d6e';
 const app = { id: 'firefox', name: 'Firefox', icon: 'firefox', category: 'browsing' };

@@ -9,7 +9,7 @@ import {
   KnownAppsResult,
   Profile,
   ProfileInput,
-} from './focus.js';
+} from '../src/focus.js';
 
 const id = '0b7f8c3e-2c55-4b8e-9f3e-1d2a3b4c5d6e';
 const profile = {

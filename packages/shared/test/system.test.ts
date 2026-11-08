@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { LIMITS } from './limits.js';
-import { CulpritList, CulpritsQuery, Incident, IncidentList, SystemTimeline } from './system.js';
+import { LIMITS } from '../src/limits.js';
+import {
+  CulpritList,
+  CulpritsQuery,
+  Incident,
+  IncidentList,
+  SystemTimeline,
+} from '../src/system.js';
 
 const incident = {
   id: '0b7f8c3e-2c55-4b8e-9f3e-1d2a3b4c5d6e',
