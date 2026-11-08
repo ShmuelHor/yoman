@@ -1,5 +1,7 @@
 # Weekly dependency updates. Minor and patch bumps are grouped per ecosystem so
 # they arrive as one PR; majors stay separate because they need a closer look.
+# Group names stay short so the generated commit titles fit commitlint's
+# 72-character header limit.
 # The cooldown skips releases younger than a few days, which is when a
 # compromised package version is most likely to be caught and pulled.
 version: 2
@@ -11,7 +13,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      npm-minor-and-patch:
+      npm:
         update-types: [minor, patch]
     commit-message:
       prefix: build(deps)
@@ -25,7 +27,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      docker-minor-and-patch:
+      docker:
         update-types: [minor, patch]
     commit-message:
       prefix: build(deps)
@@ -37,7 +39,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      actions-minor-and-patch:
+      actions:
         update-types: [minor, patch]
     commit-message:
       prefix: ci(deps)
