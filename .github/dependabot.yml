@@ -1,0 +1,58 @@
+# Weekly dependency updates. Minor and patch bumps are grouped per ecosystem so
+# they arrive as one PR; majors stay separate because they need a closer look.
+# Group names stay short so the generated commit titles fit commitlint's
+# 72-character header limit.
+# The cooldown skips releases younger than a few days, which is when a
+# compromised package version is most likely to be caught and pulled.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  # No Dockerfile or compose file exists yet. Dependabot finds them as they
+  # land under any directory.
+  - package-ecosystem: docker
+    directories: ["/", "/**/*"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      docker:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  # Image lines in compose files are a separate ecosystem from Dockerfiles.
+  - package-ecosystem: docker-compose
+    directories: ["/", "/**/*"]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      compose:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci(deps)

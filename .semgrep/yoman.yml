@@ -1,0 +1,80 @@
+# Repository rules for the Semgrep gate in .github/workflows/security.yml.
+#
+# They encode the execution, SQL and agent rules of CLAUDE.md and SECURITY.md.
+# Biome's GritQL plugins catch some of the same patterns at lint time; Semgrep
+# repeats them as an independent gate that also covers code Biome skips.
+rules:
+  - id: yoman-child-process-exec
+    message: >-
+      exec and execSync run their argument through a shell. Use execFile or spawn
+      with an args array instead (SECURITY.md A7).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    patterns:
+      - pattern-either:
+          - pattern: import { exec } from "$MODULE"
+          - pattern: import { execSync } from "$MODULE"
+          - pattern: require("$MODULE").exec
+          - pattern: require("$MODULE").execSync
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      import * as $CP from "$MODULE"
+                      ...
+                  - pattern-inside: |
+                      import $CP from "$MODULE"
+                      ...
+                  - pattern-inside: |
+                      $CP = require("$MODULE")
+                      ...
+              - pattern-either:
+                  - pattern: $CP.exec
+                  - pattern: $CP.execSync
+      - metavariable-regex:
+          metavariable: $MODULE
+          regex: ^(node:)?child_process$
+
+  - id: yoman-shell-true
+    message: >-
+      `shell: true` hands the command line to a shell. Pass an args array to
+      execFile or spawn without a shell (SECURITY.md A7).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    pattern-either:
+      - pattern: "{..., shell: true, ...}"
+      - pattern: '{..., shell: "$SHELL", ...}'
+
+  - id: yoman-interpolated-sql
+    message: >-
+      SQL built from a template literal or string concatenation. Use a
+      parameterized query ($1, $2 …) and pass the values separately.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.$METHOD(`...${$VALUE}...`, ...)
+          - pattern: $DB.$METHOD("..." + $VALUE, ...)
+          - pattern: $DB.$METHOD($VALUE + "...", ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(query|execute|unsafe)$
+
+  - id: yoman-proc-cmdline
+    message: >-
+      The agent may read and send the process `comm` only, never its
+      `cmdline`, which can contain secrets and personal data (SECURITY.md).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: security
+      cwe: "CWE-359: Exposure of Private Personal Information"
+    pattern-regex: /proc/[^\s'"`]*/cmdline
