@@ -1,0 +1,22 @@
+{
+  "name": "@yoman/goals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Daily usage goals: checks totals against them and raises one alert per goal per day.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. services/goals"
+  },
+  "dependencies": {
+    "@yoman/service-kit": "0.0.0",
+    "@yoman/shared": "0.0.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
