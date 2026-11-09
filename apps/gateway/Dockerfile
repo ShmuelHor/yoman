@@ -26,7 +26,10 @@ RUN find packages apps \( -name node_modules -o -name dist \) -prune -exec rm -r
 FROM ${NODE_IMAGE} AS runtime
 
 # npm, corepack and yarn are build tools: removing them leaves less to exploit.
-RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
+# The digest pins the base, but upstream rebuilds lag Alpine's security fixes
+# (ST19 blocks fixed HIGH/CRITICAL CVEs), so the runtime takes them at build time.
+RUN apk upgrade --no-cache \
+  && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx \
   /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 ENV NODE_ENV=production \
