@@ -1,15 +1,23 @@
 import type { Sample } from '@yoman/shared/ingest';
 import { z } from 'zod';
 import type { AgentLogger } from './logger.js';
+import type { Presence, PresenceUpdate } from './presence.js';
+import type { SessionBus } from './session-bus.js';
 
 /** What the core hands every collector and actuator. */
 export interface PluginContext {
   readonly logger: AgentLogger;
+  /** The one shared session-bus connection; it connects on first use. */
+  readonly sessionBus: SessionBus;
 }
 
 export interface CollectorContext extends PluginContext {
   /** For event-driven collectors: buffers samples outside the polling schedule. */
   readonly emit: (samples: readonly Sample[]) => Promise<void>;
+  /** The latest idle time and lock state. */
+  readonly presence: Presence;
+  /** For the idle and lock collectors only. Locking pauses every polling collector. */
+  readonly reportPresence: (update: PresenceUpdate) => void;
 }
 
 /**

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@yoman/shared": "0.0.0",
+    "dbus-next": "0.10.2",
     "pino": "10.4.0",
     "zod": "4.6.7"
   }

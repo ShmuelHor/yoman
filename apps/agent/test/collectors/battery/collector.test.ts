@@ -10,6 +10,7 @@ import {
 } from '../../../src/collectors/battery/collector.js';
 import { createLogger } from '../../../src/core/logger.js';
 import type { Collector, CollectorContext } from '../../../src/core/plugin.js';
+import { recordedPresence, unreachableSessionBus } from '../../support/collector-context.js';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures');
 const NOW = new Date('2026-11-09T08:00:00.000Z');
@@ -28,6 +29,8 @@ function context(): CollectorContext & { logs: unknown[] } {
   return {
     logs,
     logger: createLogger({ level: 'info', destination }),
+    sessionBus: unreachableSessionBus(),
+    ...recordedPresence(),
     emit: (): Promise<void> => Promise.resolve(),
   };
 }
