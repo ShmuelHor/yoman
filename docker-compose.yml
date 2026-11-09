@@ -57,7 +57,16 @@ services:
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     networks: [core]
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      # Healthy only once init has finished and succeeded. During init the image
+      # runs a socket-only server, hence the TCP probe. A failed init still leaves
+      # an initialized data dir, so the restarted server would answer with no
+      # roles; hence the check for the `gateway` schema, which init creates last.
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -h 127.0.0.1 -U postgres -d postgres
+          && psql -U postgres -d postgres -tAc
+          "SELECT 1 FROM pg_namespace WHERE nspname = 'gateway'" | grep -qx 1
       interval: 5s
       timeout: 3s
       retries: 10
