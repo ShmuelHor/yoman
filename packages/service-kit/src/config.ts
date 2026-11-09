@@ -10,7 +10,8 @@ const baseSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DB_HOST: z.string().min(1).default('postgres'),
   DB_PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_DB_PORT),
-  DB_NAME: z.string().min(1).default('yoman'),
+  // infra/postgres/init creates every role and schema in the `postgres` database.
+  DB_NAME: z.string().min(1).default('postgres'),
 });
 
 export interface DatabaseConfig {

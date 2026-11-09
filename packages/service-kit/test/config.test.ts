@@ -15,7 +15,7 @@ describe('loadConfig', () => {
       db: {
         host: 'postgres',
         port: 5432,
-        database: 'yoman',
+        database: 'postgres',
         user: 'sessions',
         schema: 'sessions',
         password: SECRET,
