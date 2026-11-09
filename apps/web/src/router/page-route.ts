@@ -12,6 +12,11 @@ export interface PageRoute {
   readonly namespace: string;
   /** Position in the navigation, lowest first. */
   readonly order: number;
+  /**
+   * A developer tool such as `/dev/components`: served by `vite dev` only, and
+   * never linked from the navigation.
+   */
+  readonly devOnly?: boolean;
   readonly Component: ComponentType;
 }
 
@@ -19,6 +24,7 @@ const PageRouteSchema = z.object({
   path: z.string().regex(/^(\/|[a-z0-9-]+(\/[a-z0-9-]+)*)$/u),
   namespace: z.string().regex(/^[a-z][a-z0-9-]*$/u),
   order: z.number().int(),
+  devOnly: z.boolean().default(false),
   Component: z.custom<ComponentType>((value) => typeof value === 'function'),
 });
 
@@ -59,4 +65,17 @@ function assertUnique(
 /** The `to` of a nav link for a page. */
 export function hrefOf(route: PageRoute): string {
   return route.path === '/' ? '/' : `/${route.path}`;
+}
+
+/**
+ * The pages a build serves. Production builds drop dev-only pages, so their
+ * routes do not exist there at all.
+ */
+export function servedPages(pages: readonly PageRoute[], dev: boolean): PageRoute[] {
+  return pages.filter((page) => dev || page.devOnly !== true);
+}
+
+/** The pages linked from the main navigation. Dev-only pages are reached by URL. */
+export function navPages(pages: readonly PageRoute[]): PageRoute[] {
+  return pages.filter((page) => page.devOnly !== true);
 }

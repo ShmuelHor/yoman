@@ -1,0 +1,31 @@
+{
+  "title": "רכיבים",
+  "intro": "כל רכיבי מערכת העיצוב, בשתי ערכות הצבעים ובשני כיווני הכתיבה.",
+  "panel": "{{language}} · {{theme}}",
+  "section": {
+    "buttons": "כפתורים",
+    "input": "שדה קלט",
+    "switch": "מתג",
+    "tags": "תגיות",
+    "navTabs": "לשוניות ניווט",
+    "cards": "כרטיסים",
+    "alert": "כרטיס התראה",
+    "focusBanner": "פס מצב ריכוז"
+  },
+  "button": { "primary": "התחלת ריכוז", "secondary": "ביטול", "disabled": "לא זמין" },
+  "input": { "label": "שם האפליקציה", "placeholder": "למשל, Firefox" },
+  "switch": { "on": "מצב ריכוז", "off": "שעות שקטות" },
+  "tag": { "default": "עבודה", "anomaly": "חריג" },
+  "navTab": { "current": "רכיבים", "other": "בית" },
+  "card": {
+    "heroLabel": "זמן מסך היום",
+    "heroContext": "{{minutes}} דק׳ יותר מאתמול",
+    "secondaryLabel": "סוללה",
+    "secondaryContext": "בפריקה"
+  },
+  "alert": {
+    "title": "צריכת סוללה חריגה",
+    "body": "Firefox צרך {{share}} מהסוללה בשעה האחרונה."
+  },
+  "focusBanner": "מצב ריכוז · נותרו {{minutes}} דק׳"
+}

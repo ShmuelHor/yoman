@@ -9,7 +9,7 @@ import { App } from '../../src/app/app.js';
 import { createQueryClient } from '../../src/app/query-client.js';
 import { bundledResources } from '../../src/i18n/bundled.js';
 import { createI18n } from '../../src/i18n/i18n.js';
-import type { PageRoute } from '../../src/router/page-route.js';
+import { navPages, type PageRoute } from '../../src/router/page-route.js';
 import { pageRoutes } from '../../src/router/pages.js';
 import { buildRoutes } from '../../src/router/router.js';
 
@@ -18,10 +18,22 @@ function Week(): React.JSX.Element {
   return <p>week page: {t('title')}</p>;
 }
 
+function DevTool(): React.JSX.Element {
+  return <p>dev tool</p>;
+}
+
 const WEEK_ORDER = 1;
+const DEV_TOOL_ORDER = 2;
 const pages: readonly PageRoute[] = [
   ...pageRoutes,
   { path: 'week', namespace: 'welcome', order: WEEK_ORDER, Component: Week },
+  {
+    path: 'dev/tool',
+    namespace: 'welcome',
+    order: DEV_TOOL_ORDER,
+    devOnly: true,
+    Component: DevTool,
+  },
 ];
 
 const root = document.documentElement;
@@ -46,7 +58,7 @@ describe('app router', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       instance.t('title', { ns: 'welcome', lng: 'he' }),
     );
-    expect(screen.getAllByRole('link')).toHaveLength(pages.length);
+    expect(screen.getAllByRole('link')).toHaveLength(navPages(pages).length);
     expect([root.lang, root.dir]).toEqual(['he', 'rtl']);
   });
 
@@ -83,6 +95,14 @@ describe('app router', () => {
     renderApp('/week');
 
     expect(screen.getByText(/^week page:/u)).toBeDefined();
+  });
+
+  it('serves a dev-only page by URL without linking it from the navigation', () => {
+    renderApp('/dev/tool');
+
+    expect(screen.getByText('dev tool')).toBeDefined();
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(hrefs).not.toContain('/dev/tool');
   });
 
   it('shows the not-found message for an unknown path', () => {

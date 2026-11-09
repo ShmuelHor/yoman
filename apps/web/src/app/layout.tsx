@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 
 import { Language } from '../i18n/languages.js';
-import { hrefOf, type PageRoute } from '../router/page-route.js';
+import { hrefOf, navPages, type PageRoute } from '../router/page-route.js';
 import { ThemePreference } from '../theme/theme.js';
 import { useTheme } from '../theme/theme-provider.js';
 
@@ -61,7 +61,7 @@ function ThemePicker(): React.JSX.Element {
   );
 }
 
-/** The app shell: navigation built from the registered pages, and the current page. */
+/** The app shell: navigation built from the registered pages (dev-only ones excluded), and the current page. */
 export function Layout({ pages }: LayoutProps): React.JSX.Element {
   const { t } = useTranslation();
   return (
@@ -70,7 +70,7 @@ export function Layout({ pages }: LayoutProps): React.JSX.Element {
         <span>{t('appName')}</span>
         <nav aria-label={t('nav.label')}>
           <ul>
-            {pages.map((page) => (
+            {navPages(pages).map((page) => (
               <NavItem key={page.path} page={page} />
             ))}
           </ul>
