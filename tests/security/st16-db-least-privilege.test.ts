@@ -87,6 +87,8 @@ describe.skipIf(!available)('ST16 database least privilege', () => {
     envDir = await mkdtemp(join(tmpdir(), 'yoman-st16-'));
     envFile = join(envDir, 'env');
     const lines = [
+      // Compose interpolates the whole model, so the gateway's required token must exist.
+      `AGENT_TOKEN=${randomBytes(PASSWORD_BYTES * 2).toString('base64url')}`,
       `POSTGRES_PASSWORD=${passwords['postgres'] ?? ''}`,
       ...SERVICES.map((name) => `${name.toUpperCase()}_DB_PASSWORD=${passwords[name] ?? ''}`),
     ];
