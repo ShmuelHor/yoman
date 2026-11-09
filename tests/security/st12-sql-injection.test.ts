@@ -1,9 +1,12 @@
 import { createServer } from 'node:net';
 import { Writable } from 'node:stream';
 
+import { DayReport, WeeklySummary, WeekReport } from '@yoman/shared/reports';
 import { App, AppList, Rule, RuleList } from '@yoman/shared/sessions';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { SessionBatchResult, TopAppList } from '../../services/reports/src/contracts.js';
+import { createReportsService } from '../../services/reports/src/service.js';
 import { SampleResult, SessionList } from '../../services/sessions/src/contracts.js';
 import { createSessionsService } from '../../services/sessions/src/service.js';
 import {
@@ -19,6 +22,8 @@ const HTTP_BAD_REQUEST = 400;
 const HTTP_INTERNAL = 500;
 const PID = 4242;
 const MINUTE_MS = 60_000;
+const MS_PER_SECOND = 1_000;
+const UUID_NODE_LENGTH = 12;
 /** The default rules the sessions migrations seed; none may be lost. */
 const SEEDED_RULES = 14;
 
@@ -242,9 +247,132 @@ describe('ST12 SQL injection', () => {
     });
   });
 
-  it.todo(
-    '[T14] reports-service: SQL injection payloads in every parameter cause no DB error and no leak',
-  );
+  describe('reports-service', { skip: !available }, () => {
+    let postgres: DisposablePostgres | undefined;
+    let service: ReturnType<typeof createReportsService> | undefined;
+    const logs = captureLogs();
+
+    beforeAll(async () => {
+      postgres = await startPostgres();
+      service = createReportsService({
+        env: {
+          HOST: '127.0.0.1',
+          PORT: String(await freePort()),
+          DB_HOST: postgres.host,
+          DB_PORT: String(postgres.port),
+          REPORTS_DB_PASSWORD: postgres.passwords.reports,
+          TZ: 'Asia/Jerusalem',
+          LOG_LEVEL: 'info',
+        },
+        logStream: logs.stream,
+        handleSignals: false,
+      });
+      // The real migrations, run as the service's own least-privilege role.
+      await service.start();
+    }, STARTUP_TIMEOUT_MS);
+
+    afterAll(async () => {
+      try {
+        await service?.stop();
+      } finally {
+        await postgres?.stop();
+      }
+    }, STARTUP_TIMEOUT_MS);
+
+    /** Every answer, accepted or rejected, is below 500 and carries no DB detail. */
+    async function send(
+      method: 'GET' | 'POST',
+      url: string,
+      payload?: object,
+    ): Promise<{ status: number; json: unknown }> {
+      if (service === undefined) {
+        throw new Error('The service did not start');
+      }
+      const response = await service.app.inject({
+        method,
+        url,
+        ...(payload === undefined ? {} : { payload }),
+      });
+      expect(response.statusCode, `${method} ${url}`).toBeLessThan(HTTP_INTERNAL);
+      expect(response.body).not.toMatch(LEAK);
+      return { status: response.statusCode, json: JSON.parse(response.body) };
+    }
+
+    /** One closed session per minute from 09:00, each with its own id. */
+    function closed(minute: number, overrides: Record<string, unknown> = {}): object {
+      const start = Date.parse('2026-11-08T09:00:00.000Z') + minute * MINUTE_MS;
+      return {
+        session: {
+          id: `00000000-0000-4000-8000-${String(minute).padStart(UUID_NODE_LENGTH, '0')}`,
+          appId: 'code',
+          start: new Date(start).toISOString(),
+          end: new Date(start + MINUTE_MS).toISOString(),
+          ...overrides,
+        },
+        category: minute % 2 === 0 ? 'work' : null,
+      };
+    }
+
+    it('counts injected titles as plain sessions and rejects injection in every other field', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const [minute, payload] of PAYLOADS.entries()) {
+        const batch = { sessions: [closed(minute, { title: payload })] };
+        const result = SessionBatchResult.parse((await send('POST', '/sessions', batch)).json);
+        expect(result).toEqual({ counted: 1, duplicates: 0 });
+
+        for (const field of ['id', 'appId', 'start', 'end']) {
+          const bad = { sessions: [closed(minute, { [field]: payload })] };
+          expect((await send('POST', '/sessions', bad)).status).toBe(HTTP_BAD_REQUEST);
+        }
+        const badCategory = { sessions: [{ ...closed(minute), category: payload }] };
+        expect((await send('POST', '/sessions', badCategory)).status).toBe(HTTP_BAD_REQUEST);
+      }
+      // A retry of the whole run is recognized, uncategorized rows included.
+      const retry = { sessions: PAYLOADS.map((_payload, minute) => closed(minute)) };
+      const result = SessionBatchResult.parse((await send('POST', '/sessions', retry)).json);
+      expect(result).toEqual({ counted: 0, duplicates: PAYLOADS.length });
+    });
+
+    it('rejects injection in the week and the top-apps range', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const payload of PAYLOADS) {
+        const value = encodeURIComponent(payload);
+        expect((await send('GET', `/week?start=${value}`)).status).toBe(HTTP_BAD_REQUEST);
+        expect((await send('GET', `/top-apps?from=${value}&to=2026-11-09`)).status).toBe(
+          HTTP_BAD_REQUEST,
+        );
+        expect((await send('GET', `/top-apps?from=2026-11-08&to=${value}`)).status).toBe(
+          HTTP_BAD_REQUEST,
+        );
+      }
+    });
+
+    it('still reports every counted minute and logs no database error', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const week = WeekReport.parse((await send('GET', '/week?start=2026-11-08')).json);
+      const top = await send('GET', '/top-apps?from=2026-11-08&to=2026-11-09');
+      DayReport.parse((await send('GET', '/today')).json);
+      WeeklySummary.parse((await send('GET', '/weekly-summary')).json);
+
+      const countedSeconds = (PAYLOADS.length * MINUTE_MS) / MS_PER_SECOND;
+      expect(week.days[0]?.totalSeconds).toBe(countedSeconds);
+      // Work and uncategorized minutes alternate, and a one-minute interruption does not end a
+      // streak, so the batches joined into one streak from the first work minute to the last.
+      const workMinutes = PAYLOADS.flatMap((_payload, minute) =>
+        minute % 2 === 0 ? [minute] : [],
+      );
+      const streakMs = (Math.max(...workMinutes) + 1) * MINUTE_MS;
+      expect(week.days[0]?.longestFocusStreakSeconds).toBe(streakMs / MS_PER_SECOND);
+      expect(TopAppList.parse(top.json).items).toEqual([
+        { appId: 'code', seconds: countedSeconds },
+      ]);
+      expect(logs.output()).not.toContain('DatabaseError');
+      expect(logs.output()).not.toContain('Request failed');
+    });
+  });
   it.todo(
     '[T15] goals-service: SQL injection payloads in every parameter cause no DB error and no leak',
   );
