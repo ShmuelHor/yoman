@@ -20,8 +20,6 @@ services:
     restart: unless-stopped
     environment:
       DB_HOST: postgres
-      # infra/postgres/init creates every schema in the default database.
-      DB_NAME: postgres
       SESSIONS_DB_PASSWORD: ${SESSIONS_DB_PASSWORD:?run npm run setup}
     networks: [core]
     depends_on:

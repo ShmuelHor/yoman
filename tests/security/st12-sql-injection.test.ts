@@ -108,8 +108,6 @@ describe('ST12 SQL injection', () => {
           PORT: String(await freePort()),
           DB_HOST: postgres.host,
           DB_PORT: String(postgres.port),
-          // The init script creates every schema in the default database.
-          DB_NAME: 'postgres',
           SESSIONS_DB_PASSWORD: postgres.passwords.sessions,
           LOG_LEVEL: 'info',
         },
