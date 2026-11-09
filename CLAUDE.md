@@ -55,8 +55,9 @@ Merge only when CI is green, the latest review says `Verdict: approved`, and eve
 - After fixes, a **lean re-review** of only the fix commits records the `Verdict: approved`. Use a cheaper model for reviews and routine tasks. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
 
 ### Coordinator sessions
-- Coordinator sessions talk to the user in Hebrew. Everything in the repo stays English (see Language).
+- Coordinators and every agent talk to the user only in Hebrew. Everything in the repo stays English (see Language).
 - Each wave runs in a fresh coordinator session. When a wave's gate passes and the user approves the next wave, the coordinator starts a new session with a short brief (board state, open PRs, budget rules) and hands off instead of running the next wave itself.
+- Check plan usage (`get_usage`) before starting any agent, review or task. At 80% or more of the plan usage limit (the 5-hour or weekly window, not a session's context window), start nothing new: let running agents finish, then stop and tell the user the usage, the reset time and exactly where to resume.
 
 ## Security rules (blocking)
 - **Secrets:** never commit `.env`, tokens, passwords or real data. Only placeholders in `.env.example`. Never bypass or weaken gitleaks, CI security jobs or branch protection. No `continue-on-error`, and no new `.trivyignore` or `.semgrepignore` entries without a reason and an expiry date.
