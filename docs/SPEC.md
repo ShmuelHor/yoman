@@ -135,7 +135,7 @@ All of them: Fastify + TypeScript, `GET /health`, JSON logging (pino), config va
 - **Entities:** `battery_samples`, `battery_daily` (health %, cycles, average W)
 - **Logic:** health = energy_full / energy_full_design. Time remaining is based on average consumption over the last 30 minutes. **Per-app power attribution:** average `power_now` while each app is in focus; the gateway supplies the session timeline
 - **Alerts:** below 15% (important), below 8% (critical), plugged in at 100% for more than 4 hours (normal)
-- **API:** `POST /samples`, `GET /health-trend?days`, `GET /now`, `GET /power-by-app?from&to`
+- **API:** `POST /samples`, `GET /health-trend?days`, `GET /now`, `POST /power-by-app` (`from`, `to` and the session timeline in the body)
 
 ### system
 - **Entities:** `pressure_samples` (kept for 7 days), `incidents` (type, start, end, peak, culprits jsonb), `process_snapshots`

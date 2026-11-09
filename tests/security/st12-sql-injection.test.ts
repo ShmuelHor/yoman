@@ -1,11 +1,14 @@
 import { createServer } from 'node:net';
 import { Writable } from 'node:stream';
 
+import { BatteryNow, HealthTrend, PowerByApp } from '@yoman/shared/battery';
 import { Goal, GoalList, GoalProgress } from '@yoman/shared/goals';
 import { DayReport, WeeklySummary, WeekReport } from '@yoman/shared/reports';
 import { App, AppList, Rule, RuleList } from '@yoman/shared/sessions';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { SampleResult as BatterySampleResult } from '../../services/battery/src/contracts.js';
+import { createBatteryService } from '../../services/battery/src/service.js';
 import { EvaluateResult } from '../../services/goals/src/contracts.js';
 import { createGoalsService } from '../../services/goals/src/service.js';
 import { SessionBatchResult, TopAppList } from '../../services/reports/src/contracts.js';
@@ -514,9 +517,125 @@ describe('ST12 SQL injection', () => {
     });
   });
 
-  it.todo(
-    '[T16] battery-service: SQL injection payloads in every parameter cause no DB error and no leak',
-  );
+  // `describe(name, { skip })` rather than `describe.skipIf`, so Biome scopes the hooks per suite.
+  describe('battery-service', { skip: !available }, () => {
+    const sample = {
+      kind: 'battery',
+      ts: '2026-11-08T09:00:00.000Z',
+      energyFullWh: 54,
+      energyFullDesignWh: 60,
+      cycleCount: 312,
+      powerW: 10,
+      capacityPct: 50,
+      status: 'discharging',
+    };
+    const range = { from: '2026-11-08T09:00:00.000Z', to: '2026-11-08T10:00:00.000Z' };
+    const session = {
+      appId: 'code',
+      start: '2026-11-08T08:30:00.000Z',
+      end: '2026-11-08T09:30:00.000Z',
+    };
+    let postgres: DisposablePostgres | undefined;
+    let service: ReturnType<typeof createBatteryService> | undefined;
+    const logs = captureLogs();
+
+    beforeAll(async () => {
+      postgres = await startPostgres();
+      service = createBatteryService({
+        env: {
+          HOST: '127.0.0.1',
+          PORT: String(await freePort()),
+          DB_HOST: postgres.host,
+          DB_PORT: String(postgres.port),
+          BATTERY_DB_PASSWORD: postgres.passwords.battery,
+          LOG_LEVEL: 'info',
+        },
+        logStream: logs.stream,
+        handleSignals: false,
+      });
+      // The real migrations, run as the service's own least-privilege role.
+      await service.start();
+    }, STARTUP_TIMEOUT_MS);
+
+    afterAll(async () => {
+      try {
+        await service?.stop();
+      } finally {
+        await postgres?.stop();
+      }
+    }, STARTUP_TIMEOUT_MS);
+
+    /** Every answer, accepted or rejected, is below 500 and carries no DB detail. */
+    async function send(
+      method: 'GET' | 'POST',
+      url: string,
+      payload?: object,
+    ): Promise<{ status: number; json: unknown }> {
+      if (service === undefined) {
+        throw new Error('The service did not start');
+      }
+      const response = await service.app.inject({
+        method,
+        url,
+        ...(payload === undefined ? {} : { payload }),
+      });
+      expect(response.statusCode, `${method} ${url}`).toBeLessThan(HTTP_INTERNAL);
+      expect(response.body).not.toMatch(LEAK);
+      const json: unknown = response.body === '' ? undefined : JSON.parse(response.body);
+      return { status: response.statusCode, json };
+    }
+
+    it('rejects injection in every sample field', { timeout: REQUEST_TIMEOUT_MS }, async () => {
+      for (const payload of PAYLOADS) {
+        for (const field of Object.keys(sample)) {
+          const bad = { samples: [{ ...sample, [field]: payload }] };
+          expect((await send('POST', '/samples', bad)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+    });
+
+    it('rejects injection in the trend length and in every power-by-app field', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const payload of PAYLOADS) {
+        const days = `/health-trend?days=${encodeURIComponent(payload)}`;
+        expect((await send('GET', days)).status).toBe(HTTP_BAD_REQUEST);
+
+        const bad = [
+          { ...range, from: payload, sessions: [session] },
+          { ...range, to: payload, sessions: [session] },
+          { ...range, sessions: payload },
+          ...Object.keys(session).map((field) => ({
+            ...range,
+            sessions: [{ ...session, [field]: payload }],
+          })),
+        ];
+        for (const body of bad) {
+          expect((await send('POST', '/power-by-app', body)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+    });
+
+    it('still stores samples and answers every route, and logs no database error', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const stored = BatterySampleResult.parse(
+        (await send('POST', '/samples', { samples: [sample] })).json,
+      );
+      const now = BatteryNow.parse((await send('GET', '/now')).json);
+      // The fixture day falls out of any window once it is a year old, so only the shape is checked.
+      HealthTrend.parse((await send('GET', '/health-trend?days=365')).json);
+      const power = PowerByApp.parse(
+        (await send('POST', '/power-by-app', { ...range, sessions: [session] })).json,
+      );
+
+      expect(stored.accepted).toBe(1);
+      expect(now.ts).toBe(sample.ts);
+      expect(power.items.map((item) => item.appId)).toEqual(['code']);
+      expect(logs.output()).not.toContain('DatabaseError');
+      expect(logs.output()).not.toContain('Request failed');
+    });
+  });
   it.todo(
     '[T17] system-service: SQL injection payloads in every parameter cause no DB error and no leak',
   );
