@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createLogger } from '../../src/core/logger.js';
 import type { Actuator, Collector, CollectorContext } from '../../src/core/plugin.js';
+import { createPresenceTracker, type PresenceTracker } from '../../src/core/presence.js';
 import {
   loadRegistry,
   runActuator,
@@ -13,9 +14,12 @@ import {
   startPlugins,
   stopPlugins,
 } from '../../src/core/registry.js';
-import { createScheduler } from '../../src/core/scheduler.js';
+import { createScheduler, type Scheduler } from '../../src/core/scheduler.js';
+import { recordedPresence, unreachableSessionBus } from '../support/collector-context.js';
 
 const INTERVAL_MS = 5_000;
+/** Long enough for several ticks to come due. */
+const LOCKED_FOR_MS = 15_000;
 const SAMPLE: Sample = {
   kind: 'thermal',
   ts: '2026-11-08T09:00:00Z',
@@ -28,15 +32,20 @@ const POLLING = `export const plugin = {
   collect: async () => [],
 };\n`;
 
-function context(): CollectorContext & { emitted: Sample[] } {
+function context(
+  overrides: Partial<CollectorContext> = {},
+): CollectorContext & { emitted: Sample[] } {
   const emitted: Sample[] = [];
   return {
     emitted,
     logger: createLogger({ level: 'silent' }),
+    sessionBus: unreachableSessionBus(),
+    ...recordedPresence(),
     emit: (samples): Promise<void> => {
       emitted.push(...samples);
       return Promise.resolve();
     },
+    ...overrides,
   };
 }
 
@@ -155,6 +164,84 @@ describe('scheduleCollectors', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('while the screen is locked', () => {
+    let scheduler: Scheduler;
+    let tracker: PresenceTracker;
+
+    function schedule(collect: Collector['collect']): CollectorContext & { emitted: Sample[] } {
+      const ctx = context({ presence: tracker.presence, reportPresence: tracker.report });
+      const polling: Collector = {
+        kind: 'collector',
+        name: 'thermal',
+        intervalMs: INTERVAL_MS,
+        ...(collect === undefined ? {} : { collect }),
+      };
+      scheduleCollectors(scheduler, new Map([['thermal', polling]]), ctx);
+      return ctx;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      scheduler = createScheduler({ onError: vi.fn() });
+      tracker = createPresenceTracker(scheduler);
+    });
+
+    afterEach(() => {
+      scheduler.stop();
+      vi.useRealTimers();
+    });
+
+    it('collects nothing until the screen is unlocked', async () => {
+      // Arrange
+      const collect = vi.fn(() => Promise.resolve([SAMPLE]));
+      const ctx = schedule(collect);
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Act
+      tracker.report({ locked: true });
+      await vi.advanceTimersByTimeAsync(LOCKED_FOR_MS);
+      const whileLocked = collect.mock.calls.length;
+      tracker.report({ locked: false });
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Assert
+      expect(whileLocked).toBe(1);
+      expect(ctx.emitted).toEqual([SAMPLE, SAMPLE]);
+    });
+
+    it('collects nothing when the screen locked before the scheduler started', async () => {
+      // Arrange
+      const collect = vi.fn(() => Promise.resolve([SAMPLE]));
+      const ctx = schedule(collect);
+      tracker.report({ locked: true });
+
+      // Act
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(LOCKED_FOR_MS);
+
+      // Assert
+      expect(collect).not.toHaveBeenCalled();
+      expect(ctx.emitted).toEqual([]);
+      expect(scheduler.state).toBe('paused');
+    });
+
+    it('drops samples read while the screen was locking', async () => {
+      // Arrange
+      const ctx = schedule(() => {
+        tracker.report({ locked: true });
+        return Promise.resolve([SAMPLE]);
+      });
+
+      // Act
+      scheduler.start();
+      await vi.advanceTimersByTimeAsync(INTERVAL_MS);
+
+      // Assert
+      expect(ctx.emitted).toEqual([]);
+    });
   });
 });
 

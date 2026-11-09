@@ -88,7 +88,13 @@ export async function loadRegistry<K extends PluginKind>(
   return registry;
 }
 
-/** Schedules every polling collector; each tick's samples go to `context.emit`. */
+/**
+ * Schedules every polling collector; each tick's samples go to `context.emit`.
+ * Nothing is collected or buffered while the screen is locked (SPEC §4.1):
+ * a tick that finds it locked pauses the scheduler, which covers a lock
+ * reported before the scheduler started, and samples read just before a lock
+ * are dropped.
+ */
 export function scheduleCollectors(
   scheduler: Scheduler,
   collectors: Registry<'collector'>,
@@ -98,7 +104,14 @@ export function scheduleCollectors(
     const { intervalMs, collect } = collector;
     if (intervalMs !== undefined && collect !== undefined) {
       scheduler.every(collector.name, intervalMs, async () => {
-        await context.emit(await collect.call(collector, context));
+        if (context.presence.locked) {
+          scheduler.pause();
+          return;
+        }
+        const samples = await collect.call(collector, context);
+        if (!context.presence.locked) {
+          await context.emit(samples);
+        }
       });
     }
   }
