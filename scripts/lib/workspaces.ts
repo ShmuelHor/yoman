@@ -48,12 +48,16 @@ async function candidateDirectories(glob: string, fs: WorkspaceFileSystem): Prom
   }
   const parent = glob.slice(0, -WILDCARD_SUFFIX.length);
   const children = await fs.listSubdirectories(parent);
-  return children.map((child) => posix.join(parent, child));
+  return children.map((child) => posix.join(parent, child)).sort();
 }
 
 /**
- * Expands the `workspaces` globs against the files on disk and returns, sorted,
- * every matching directory that contains a `package.json`.
+ * Expands the `workspaces` globs against the files on disk and returns every
+ * matching directory that contains a `package.json`.
+ *
+ * Directories come in the order of their globs, sorted within each glob. That
+ * order is the build order, so listing `packages/*` first builds the shared
+ * packages before the services and apps that import their `dist/`.
  *
  * This reads the working tree rather than npm's installed tree, so a package
  * added since the last `npm install` is still found.
@@ -69,5 +73,5 @@ export async function resolveWorkspaces(
   const withManifest = await Promise.all(
     unique.map(async (dir) => ((await fs.isFile(posix.join(dir, MANIFEST_FILE))) ? [dir] : [])),
   );
-  return withManifest.flat().sort();
+  return withManifest.flat();
 }
