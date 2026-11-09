@@ -9,9 +9,13 @@ WORKDIR /repo
 COPY package.json package-lock.json .npmrc ./
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --workspace @yoman/web --include-workspace-root=false
+# @yoman/shared is selected too, so its build toolchain (devDependencies) is installed.
+RUN npm ci --workspace @yoman/web --workspace @yoman/shared --include-workspace-root=false
 COPY tsconfig.base.json ./
+COPY packages/shared/tsconfig.build.json packages/shared/
 COPY packages/shared/src/ packages/shared/src/
+# The web resolves @yoman/shared from its dist/, like every other consumer.
+RUN npm run build --workspace @yoman/shared
 COPY apps/web/index.html apps/web/vite.config.ts apps/web/tsconfig.json apps/web/
 COPY apps/web/src/ apps/web/src/
 RUN npm run build --workspace @yoman/web
