@@ -1,2 +1,27 @@
-# Stub from T10. The goals service task adds its service here.
-services: {}
+# The goals service (T15). Internal only: it publishes no port and sits on the
+# internal `core` network, where only the gateway reaches it (SECURITY A2).
+# The hardening matches x-service-defaults in the root docker-compose.yml; YAML
+# anchors do not cross included files, so it is repeated.
+services:
+  goals:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: goals
+    # The node user of the base image (see docker/Dockerfile.service).
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    mem_limit: 128m
+    cpus: 0.5
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      GOALS_DB_PASSWORD: ${GOALS_DB_PASSWORD:?run npm run setup}
+    networks: [core]
+    depends_on:
+      postgres:
+        condition: service_healthy
