@@ -5,14 +5,14 @@ Internal only: the gateway is its one caller, on the `core` network.
 
 ## Layout
 
-| Path | Role |
-| --- | --- |
-| `src/domain/` | Pure logic: merging samples, matching rules. No IO, fully unit-tested |
-| `src/use-cases/` | One function per operation. Runs domain logic inside one transaction of the `SessionsStore` port |
-| `src/adapters/` | The Postgres `SessionsStore`. Parameterized SQL only, every row parsed with Zod |
-| `src/routes/` | Thin: the schema for each part, a use case call, nothing else |
-| `src/contracts.ts` | Gateway-to-service contracts with no public counterpart, built from `@yoman/shared` schemas |
-| `migrations/` | SQL migrations, applied by service-kit on start |
+| Path               | Role                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `src/domain/`      | Pure logic: merging samples, matching rules. No IO, fully unit-tested                            |
+| `src/use-cases/`   | One function per operation. Runs domain logic inside one transaction of the `SessionsStore` port |
+| `src/adapters/`    | The Postgres `SessionsStore`. Parameterized SQL only, every row parsed with Zod                  |
+| `src/routes/`      | Thin: the schema for each part, a use case call, nothing else                                    |
+| `src/contracts.ts` | Gateway-to-service contracts with no public counterpart, built from `@yoman/shared` schemas      |
+| `migrations/`      | SQL migrations, applied by service-kit on start                                                  |
 
 ## Merge rules
 
@@ -42,16 +42,16 @@ seeds default rules at priority 0, so any rule the user adds wins.
 
 ## API
 
-| Route | Request | Reply |
-| --- | --- | --- |
-| `POST /samples` | `SampleBatch` | `SampleResult`: the sessions the batch closed, with their category |
+| Route                   | Request          | Reply                                                                   |
+| ----------------------- | ---------------- | ----------------------------------------------------------------------- |
+| `POST /samples`         | `SampleBatch`    | `SampleResult`: the sessions the batch closed, with their category      |
 | `GET /sessions?from&to` | `TimeRangeQuery` | `SessionList`: sessions overlapping `[from, to)`, the open one included |
-| `GET /apps` | | `AppList` |
-| `PUT /apps/:id` | `AppUpdate` | `App`, or 404 |
-| `GET /rules` | | `RuleList` |
-| `POST /rules` | `RuleInput` | `Rule` (201), or 409 at 500 rules |
-| `PUT /rules/:id` | `RuleInput` | `Rule`, or 404 |
-| `DELETE /rules/:id` | | 204, or 404 |
+| `GET /apps`             |                  | `AppList`                                                               |
+| `PUT /apps/:id`         | `AppUpdate`      | `App`, or 404                                                           |
+| `GET /rules`            |                  | `RuleList`                                                              |
+| `POST /rules`           | `RuleInput`      | `Rule` (201), or 409 at 500 rules                                       |
+| `PUT /rules/:id`        | `RuleInput`      | `Rule`, or 404                                                          |
+| `DELETE /rules/:id`     |                  | 204, or 404                                                             |
 
 Postgres `text` cannot hold U+0000, so free text (titles, app names, rule patterns) is stored with
 U+FFFD in its place rather than failing the request.
