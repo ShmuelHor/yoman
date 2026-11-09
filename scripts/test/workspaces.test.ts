@@ -28,7 +28,7 @@ describe('resolveWorkspaces', () => {
     await expect(resolveWorkspaces(['apps/*', 'services/*'], fs)).resolves.toEqual([]);
   });
 
-  it('finds directories with a package.json, sorted', async () => {
+  it('finds directories with a package.json, sorted within each glob', async () => {
     const fs = fakeFileSystem([
       'services/sessions/package.json',
       'apps/web/package.json',
@@ -39,6 +39,22 @@ describe('resolveWorkspaces', () => {
       'apps/agent',
       'apps/web',
       'services/sessions',
+    ]);
+  });
+
+  it('keeps the order of the globs, so earlier globs build first', async () => {
+    const fs = fakeFileSystem([
+      'apps/agent/package.json',
+      'packages/shared/package.json',
+      'packages/service-kit/package.json',
+      'services/sessions/package.json',
+    ]);
+
+    await expect(resolveWorkspaces(['packages/*', 'services/*', 'apps/*'], fs)).resolves.toEqual([
+      'packages/service-kit',
+      'packages/shared',
+      'services/sessions',
+      'apps/agent',
     ]);
   });
 
