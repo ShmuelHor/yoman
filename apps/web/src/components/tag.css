@@ -1,0 +1,18 @@
+.tag {
+  display: inline-block;
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius);
+  font-size: var(--font-size-label);
+}
+
+.tag--default {
+  border: var(--border);
+  color: var(--muted);
+}
+
+.tag--anomaly {
+  border: var(--border-accent);
+  background-color: var(--accent-bg);
+  color: var(--accent);
+}

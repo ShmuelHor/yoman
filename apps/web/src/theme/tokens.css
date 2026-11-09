@@ -29,6 +29,8 @@
   --radius: 10px;
   --radius-sm: 3px;
   --border: 1px solid var(--line);
+  --border-accent: 1px solid var(--accent);
+  --focus-ring: 2px solid var(--text);
 
   --space-1: 4px;
   --space-2: 8px;
