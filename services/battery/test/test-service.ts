@@ -5,6 +5,7 @@ import { buildRoutes } from '../src/service.js';
 import { createMemoryStore, type MemoryStore } from './memory-store.js';
 
 export const NOW = new Date('2026-11-08T10:00:00.000Z');
+export const TIME_ZONE = 'Asia/Jerusalem';
 
 /** Never connected to: the routes run on the memory store. Port 1 refuses at once. */
 const ENV = { BATTERY_DB_PASSWORD: 'not-a-real-secret', DB_HOST: '127.0.0.1', DB_PORT: '1' };
@@ -28,7 +29,7 @@ export function createTestService(store: MemoryStore = createMemoryStore()): Tes
     env: ENV,
     logStream: discard,
     handleSignals: false,
-    routes: buildRoutes({ store, now: () => NOW }),
+    routes: buildRoutes({ store, now: () => NOW, timeZone: TIME_ZONE }),
   });
   return { service, store };
 }

@@ -21,6 +21,8 @@ services:
     environment:
       DB_HOST: postgres
       BATTERY_DB_PASSWORD: ${BATTERY_DB_PASSWORD:?run npm run setup}
+      # The zone local days are counted in, for example Asia/Jerusalem.
+      TZ: ${TZ:-UTC}
     networks: [core]
     depends_on:
       postgres:

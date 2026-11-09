@@ -4,4 +4,6 @@ import type { BatteryStore } from '../use-cases/store.js';
 export interface RouteDeps {
   readonly store: BatteryStore;
   readonly now: () => Date;
+  /** The IANA zone local days are counted in (`TZ`). */
+  readonly timeZone: string;
 }

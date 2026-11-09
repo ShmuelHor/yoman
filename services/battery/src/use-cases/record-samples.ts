@@ -4,14 +4,15 @@ import type { SampleResult } from '../contracts.js';
 import { advanceAlerts } from '../domain/battery-alerts.js';
 import { summarizeDay } from '../domain/daily.js';
 import { healthPct } from '../domain/health.js';
-import { sampleDate } from '../domain/sample-date.js';
+import { localDateOf } from '../domain/local-time.js';
 import type { BatteryStore, StoredSample } from './store.js';
 
-function toStored(sample: BatterySample): StoredSample {
+function toStored(sample: BatterySample, timeZone: string): StoredSample {
+  const tsMs = Date.parse(sample.ts);
   return {
     ts: sample.ts,
-    tsMs: Date.parse(sample.ts),
-    date: sampleDate(sample.ts),
+    tsMs,
+    date: localDateOf(tsMs, timeZone),
     energyFullWh: sample.energyFullWh,
     energyFullDesignWh: sample.energyFullDesignWh,
     cycleCount: sample.cycleCount,
@@ -26,12 +27,14 @@ function toStored(sample: BatterySample): StoredSample {
  * Stores a batch in one transaction: the new samples, the summaries of every
  * day they touch, and the alert rules' state. Returns the alerts the batch
  * raised. Samples already stored are dropped, so a retried batch is harmless.
+ * Days are local days in `timeZone`.
  */
 export function recordSamples(
   store: BatteryStore,
   samples: readonly BatterySample[],
+  timeZone: string,
 ): Promise<SampleResult> {
-  const stored = samples.map(toStored);
+  const stored = samples.map((sample) => toStored(sample, timeZone));
   return store.transaction(async (tx) => {
     await tx.lockSamples();
     const accepted = await tx.insertSamples(stored);

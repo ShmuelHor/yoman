@@ -3,11 +3,11 @@ import type { BatterySample } from '@yoman/shared/ingest';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { healthPct } from '../../src/domain/health.js';
-import { sampleDate } from '../../src/domain/sample-date.js';
+import { localDateOf } from '../../src/domain/local-time.js';
 import type { StoredSample } from '../../src/use-cases/store.js';
 import { batterySample } from '../fixtures.js';
 import { createMemoryStore } from '../memory-store.js';
-import { createTestService, type TestService } from '../test-service.js';
+import { createTestService, type TestService, TIME_ZONE } from '../test-service.js';
 
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
@@ -25,7 +25,7 @@ function stored(clock: string, overrides: Partial<BatterySample> = {}): StoredSa
   return {
     ...sample,
     tsMs: Date.parse(sample.ts),
-    date: sampleDate(sample.ts),
+    date: localDateOf(Date.parse(sample.ts), TIME_ZONE),
     healthPct: healthPct(sample.energyFullWh, sample.energyFullDesignWh),
   };
 }

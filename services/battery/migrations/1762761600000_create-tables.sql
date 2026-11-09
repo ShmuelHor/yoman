@@ -4,7 +4,7 @@
 CREATE TABLE battery_samples (
   -- One sample per instant: a retried batch is dropped on this key.
   ts timestamptz PRIMARY KEY,
-  -- The calendar date in the offset the sample's timestamp carried; battery_daily groups by it.
+  -- The local calendar date in the service's TZ; battery_daily groups by it.
   local_date date NOT NULL,
   energy_full_wh double precision NOT NULL CHECK (energy_full_wh BETWEEN 0 AND 1000),
   energy_full_design_wh double precision NOT NULL

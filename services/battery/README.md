@@ -30,8 +30,10 @@ the `core` network.
 - **`battery_daily`** holds, per date, the health of the day's last sample, the most cycles seen and
   the average discharging draw (0 for a day on the charger). It is recomputed from all of a day's
   samples whenever a batch touches that day, so it never depends on how samples were batched.
-- A sample's date is the one in the offset its timestamp carries. The service applies no time zone
-  of its own; `/health-trend` counts its window back from today's UTC date.
+- Days are local days in the zone `TZ` names (an IANA zone such as `Asia/Jerusalem`, default
+  `UTC`), the same variable and calculation the reports service uses, so both agree on where a day
+  ends. `/health-trend` counts its window back from today in that zone; the route names today, so
+  the domain never reads a clock.
 
 ## Alerts
 
