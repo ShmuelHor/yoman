@@ -92,7 +92,7 @@ This repo is a portfolio piece. Code should read like it was written by a strong
 - **Functions:** small and single-purpose, with early returns and no deep nesting. No magic numbers: name constants.
 - **Comments:** explain *why*, not *what*. TSDoc on exported APIs. No commented-out code, and no `TODO` without a task ID (`// TODO(T45): …`).
 - **No `console.*`:** use the pino logger. Log structured fields, not string interpolation.
-- **Tests:** Arrange/Act/Assert, descriptive names (`it('closes the session after a 15s gap')`), no sleeps (use fake timers), and no network. Test behavior, not implementation.
+- **Tests:** Arrange/Act/Assert, descriptive names (`it('closes the session after a 15s gap')`), no sleeps (use fake timers), and no network. Test behavior, not implementation. Tests live in `<package>/test/`, mirroring `src/` (`src/core/buffer.ts` → `test/core/buffer.test.ts`), and never next to the code (`scripts/lib/` tests live in `scripts/test/`); repo-level suites stay in `tests/` (`tests/security/`, `tests/e2e/`).
 - **Consistency beats cleverness:** follow the existing patterns in the repo. If a pattern is wrong, fix it everywhere in its own PR.
 
 ## Product rules
