@@ -370,6 +370,24 @@ describe('buildGateway', () => {
     }
   });
 
+  it('does not count a rejected ingest against the agent', async () => {
+    app = await testGateway();
+    const ingest = {
+      method: 'POST' as const,
+      url: '/v1/ingest',
+      payload: JSON.stringify(requestFixtures.ingest.body),
+    };
+
+    const anonymous = await app.inject({
+      ...ingest,
+      headers: { host: GATEWAY_HOST, ...JSON_HEADERS },
+    });
+    const agent = await app.inject({ ...ingest, headers: { ...agentHeaders, ...JSON_HEADERS } });
+
+    expect(anonymous.statusCode).toBe(STATUS.UNAUTHORIZED);
+    expect(agent.statusCode).toBe(STATUS.NOT_IMPLEMENTED);
+  });
+
   it('answers a CORS preflight from the web origin', async () => {
     app = await testGateway();
 

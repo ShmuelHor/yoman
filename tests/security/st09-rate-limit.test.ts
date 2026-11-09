@@ -6,6 +6,7 @@ import { INGEST_RATE_LIMIT } from '../../apps/gateway/src/core/contract-routes.j
 import {
   agentHeaders,
   contractRoutes,
+  GATEWAY_HOST,
   STATUS,
   securityGateway,
   validRequest,
@@ -59,6 +60,28 @@ describe('ST09 rate limit', () => {
 
     vi.setSystemTime(START + GLOBAL_RATE_LIMIT.timeWindow);
     expect((await send(0)).statusCode).not.toBe(STATUS.TOO_MANY_REQUESTS);
+  });
+
+  it('unauthenticated ingest requests do not use up the agent quota', async () => {
+    vi.useFakeTimers({ now: START, toFake: ['Date'] });
+    const gateway = await securityGateway();
+    app = gateway;
+    const ingest = route('ingest');
+    const anonymous = validRequest(ingest, { host: GATEWAY_HOST });
+    const wrongToken = validRequest(ingest, {
+      host: GATEWAY_HOST,
+      authorization: 'Bearer wrong-token',
+    });
+
+    const rejected = [await gateway.inject(anonymous), await gateway.inject(wrongToken)];
+    const agent = await gateway.inject(validRequest(ingest, agentHeaders));
+
+    expect(rejected.map((response) => response.statusCode)).toEqual([
+      STATUS.UNAUTHORIZED,
+      STATUS.UNAUTHORIZED,
+    ]);
+    expect(agent.statusCode).not.toBe(STATUS.TOO_MANY_REQUESTS);
+    expect(agent.statusCode).not.toBe(STATUS.UNAUTHORIZED);
   });
 
   it('ingest accepts one batch per 10 s and answers 429 to the next', async () => {

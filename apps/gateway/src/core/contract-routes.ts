@@ -1,3 +1,4 @@
+import type { RateLimitOptions } from '@fastify/rate-limit';
 import { type RouteContract, type RouteName, routes } from '@yoman/shared/routes';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -29,7 +30,7 @@ export interface ContractRouteDeps {
   readonly auth: Authenticator;
   readonly services: ServiceClient;
   readonly handlers: HandlerMap;
-  /** Per-route rate limits on top of the global one. */
+  /** Per-route limits on top of the global one, counted per principal once authenticated. */
   readonly routeRateLimits?: Partial<Record<RouteName, RateLimit>>;
 }
 
@@ -149,6 +150,21 @@ function contractHandler(
 }
 
 /**
+ * A per-route limit counts authenticated requests only, keyed on the
+ * principal. Run in `onRequest` and keyed on the IP, every caller on the
+ * host shares one counter, so an unauthenticated request (a 401) could use
+ * up the agent's single ingest slot and get its next real batch a 429.
+ */
+function afterAuthentication(limit: RateLimit): RateLimitOptions {
+  return {
+    ...limit,
+    // After `preParsing`, where `authenticate` rejects anyone without a credential.
+    hook: 'preValidation',
+    keyGenerator: (request) => principalOf(request).kind,
+  };
+}
+
+/**
  * Registers every route of the contract route map, implemented or not, so a
  * route is authenticated and validated from the moment it exists in the
  * contract (ST03, ST08). Routes without a handler answer 501.
@@ -160,7 +176,7 @@ export function registerContractRoutes(app: FastifyInstance, deps: ContractRoute
     app.route({
       method: contract.method,
       url: contract.path,
-      ...(rateLimit === undefined ? {} : { config: { rateLimit } }),
+      ...(rateLimit === undefined ? {} : { config: { rateLimit: afterAuthentication(rateLimit) } }),
       // Before the body is read, so an unauthenticated client cannot make the gateway parse 1 MB.
       preParsing: async (request, _reply, payload) => {
         principals.set(request, authenticate(deps.auth, contract.auth, credentialsOf(request)));
