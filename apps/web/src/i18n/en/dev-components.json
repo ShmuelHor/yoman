@@ -1,0 +1,31 @@
+{
+  "title": "Components",
+  "intro": "Every design system component, in both color themes and both directions.",
+  "panel": "{{language}} · {{theme}}",
+  "section": {
+    "buttons": "Buttons",
+    "input": "Input",
+    "switch": "Switch",
+    "tags": "Tags",
+    "navTabs": "Navigation tabs",
+    "cards": "Cards",
+    "alert": "Alert card",
+    "focusBanner": "Focus banner"
+  },
+  "button": { "primary": "Start focus", "secondary": "Cancel", "disabled": "Unavailable" },
+  "input": { "label": "App name", "placeholder": "For example, Firefox" },
+  "switch": { "on": "Focus mode", "off": "Quiet hours" },
+  "tag": { "default": "Work", "anomaly": "Unusual" },
+  "navTab": { "current": "Components", "other": "Home" },
+  "card": {
+    "heroLabel": "Screen time today",
+    "heroContext": "{{minutes}} min more than yesterday",
+    "secondaryLabel": "Battery",
+    "secondaryContext": "Discharging"
+  },
+  "alert": {
+    "title": "Unusual battery drain",
+    "body": "Firefox used {{share}} of the battery in the last hour."
+  },
+  "focusBanner": "Focus mode · {{minutes}} min left"
+}
