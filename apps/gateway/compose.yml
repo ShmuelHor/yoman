@@ -1,0 +1,33 @@
+# The gateway container (T19), the only API on the host: 127.0.0.1:4711
+# (SECURITY A2). It sits on `edge` to be published and on `core` to reach the
+# services, which are never published. The hardening matches x-service-defaults
+# in the root docker-compose.yml; YAML anchors do not cross included files.
+services:
+  gateway:
+    build:
+      context: ../..
+      dockerfile: apps/gateway/Dockerfile
+    # The `node` user of the Node base image.
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    mem_limit: 128m
+    cpus: 0.5
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+      LOG_LEVEL: info
+      AGENT_TOKEN: ${AGENT_TOKEN:?run npm run setup}
+    ports:
+      - "127.0.0.1:4711:8080"
+    networks: [edge, core]
+    healthcheck:
+      # Sends `Host: 127.0.0.1:4711`: any other host gets 421 (SECURITY A4).
+      test: ["CMD", "node", "/app/apps/gateway/dist/core/healthcheck.js"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
