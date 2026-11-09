@@ -1,10 +1,10 @@
 # Post-merge pipeline for `main` (docs/TASKS.md T06): build every image and
 # scan it with Trivy (ST19), then smoke-test the running compose stack.
 #
-# No Dockerfile or compose file exists before wave 1, so today this workflow is
-# a clean no-op that says so in a notice. The first tracked
-# `docker/*/Dockerfile` or `services/*/Dockerfile` turns the scan on, and the
-# first `docker-compose.yml` turns the smoke run on, with no change here.
+# Every tracked `docker/*/Dockerfile`, `apps/*/Dockerfile` and
+# `services/*/Dockerfile` gets a scan job, and a tracked `docker-compose.yml`
+# turns the smoke run on. With neither, the workflow is a clean no-op that says
+# so in a notice.
 #
 # Hardening: read-only token, SHA-pinned actions, no persisted git credentials,
 # a timeout on every job, and no secrets at all.
@@ -35,13 +35,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # An image is named after its directory: docker/<name>/Dockerfile and
-      # services/<name>/Dockerfile. The build context is the repository root,
+      # An image is named after its directory: docker/<name>/Dockerfile,
+      # apps/<name>/Dockerfile and services/<name>/Dockerfile. The build context is the repository root,
       # because the services share npm workspaces and packages/shared.
       - name: List Dockerfiles and the compose file
         id: find
         run: |
-          mapfile -d '' dockerfiles < <(git ls-files -z -- ':(glob)docker/*/Dockerfile' ':(glob)services/*/Dockerfile')
+          mapfile -d '' dockerfiles < <(git ls-files -z -- ':(glob)docker/*/Dockerfile' ':(glob)apps/*/Dockerfile' ':(glob)services/*/Dockerfile')
           if (( ${#dockerfiles[@]} == 0 )); then
             echo "::notice title=images::No Dockerfiles in the repository yet, nothing to build or scan."
             echo "found=false" >> "${GITHUB_OUTPUT}"

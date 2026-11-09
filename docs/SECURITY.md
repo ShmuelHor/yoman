@@ -38,6 +38,25 @@ Yoman collects highly sensitive data: what you were doing on your computer at ev
 | A18 | **Unexpected input crashes a service** | zod at every boundary. Fuzzing for every route | T19 | ST08 |
 | A19 | **The CI/CD itself is compromised** | `contents: read` permissions by default, no `pull_request_target`, zizmor and actionlint, keyless signing with OIDC and no stored keys | T03–T06 | CI |
 
+### Content Security Policy (web)
+The web container (`apps/web/nginx/security-headers.conf`) sends this policy on every response, errors included. ST07 checks it.
+
+```
+default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';
+connect-src 'self' http://127.0.0.1:4711 http://localhost:4711;
+object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+```
+
+| Directive | Why |
+|---|---|
+| `default-src`, `script-src`, `style-src`, `img-src`, `font-src` `'self'` | Same-origin files only. No inline script or style and no `eval`, so an injected title cannot run (A6) |
+| `connect-src 'self' http://127.0.0.1:4711 http://localhost:4711` | The page talks only to the gateway on loopback, under the two host names the gateway's `Host` allowlist accepts (A4) |
+| `object-src 'none'`, `base-uri 'none'` | No plugins, and no `<base>` tag that could redirect relative URLs |
+| `form-action 'self'` | Forms submit only to the web origin |
+| `frame-ancestors 'none'` | No framing, so no clickjacking (with `X-Frame-Options: DENY` for older browsers) |
+
+The other web headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` and a `Permissions-Policy` that turns off camera, microphone, geolocation, payment and USB. Any change to the policy updates this section in the same PR.
+
 ## 3. Automated security tests (`tests/security/`)
 
 Task T05 creates every test as `it.todo` with the ID of the responsible task.
