@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appliesOn,
+  breachesOn,
   type DayUsage,
   EMPTY_USAGE,
   goalStatus,
@@ -118,6 +119,32 @@ describe('progressOn', () => {
 
     expect(progress).toEqual([
       { goalId: goal().id, minutesUsed: 0, targetMinutes: TARGET, status: 'breached' },
+    ]);
+  });
+});
+
+describe('breachesOn', () => {
+  const overMax = goal();
+  const underMin = goal({
+    id: '00000000-0000-4000-8000-000000000002',
+    type: 'min',
+    target: { kind: 'app', appId: 'code' },
+  });
+  const notToday = goal({ id: '00000000-0000-4000-8000-000000000003', days: WORKDAYS });
+  const day = usage({ code: MINUTE }, { social: (TARGET + 1) * MINUTE });
+
+  it('breaches a max goal while the day runs, but not a min goal yet', () => {
+    const breaches = breachesOn([overMax, underMin, notToday], SUNDAY, day, false);
+
+    expect(breaches).toEqual([{ goal: overMax, date: SUNDAY, minutesUsed: TARGET + 1 }]);
+  });
+
+  it('breaches an unmet min goal once the day is over', () => {
+    const breaches = breachesOn([overMax, underMin, notToday], SUNDAY, day, true);
+
+    expect(breaches).toEqual([
+      { goal: overMax, date: SUNDAY, minutesUsed: TARGET + 1 },
+      { goal: underMin, date: SUNDAY, minutesUsed: 1 },
     ]);
   });
 });

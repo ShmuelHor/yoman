@@ -1,6 +1,8 @@
 import type { Goal, GoalProgressItem, GoalStatus, GoalTarget } from '@yoman/shared/goals';
 import { LIMITS } from '@yoman/shared/limits';
 
+import type { Breach } from './breach-alert.js';
+
 const SECONDS_PER_MINUTE = 60;
 
 /** A day's usage in seconds, by app id and by category. */
@@ -68,4 +70,17 @@ export function progressOn(
         status: goalStatus(goal, used, dayOver),
       };
     });
+}
+
+/** The goals that apply on `date` and are breached by its usage. */
+export function breachesOn(
+  goals: readonly Goal[],
+  date: string,
+  usage: DayUsage,
+  dayOver: boolean,
+): Breach[] {
+  return goals
+    .filter((goal) => appliesOn(goal, date))
+    .map((goal) => ({ goal, date, minutesUsed: minutesUsed(goal.target, usage) }))
+    .filter((breach) => goalStatus(breach.goal, breach.minutesUsed, dayOver) === 'breached');
 }
