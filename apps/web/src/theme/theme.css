@@ -1,0 +1,27 @@
+/*
+ * Applies the tokens to the page. Only the two weights DESIGN.md allows (400,
+ * 500) and only the Hebrew and Latin subsets of each typeface are bundled.
+ */
+@import "@fontsource/heebo/hebrew-400.css";
+@import "@fontsource/heebo/hebrew-500.css";
+@import "@fontsource/heebo/latin-400.css";
+@import "@fontsource/heebo/latin-500.css";
+@import "@fontsource/frank-ruhl-libre/hebrew-400.css";
+@import "@fontsource/frank-ruhl-libre/hebrew-500.css";
+@import "@fontsource/frank-ruhl-libre/latin-400.css";
+@import "@fontsource/frank-ruhl-libre/latin-500.css";
+@import "./tokens.css";
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: var(--font-weight-medium);
+}

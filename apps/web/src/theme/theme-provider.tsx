@@ -16,6 +16,8 @@ import {
   resolveTheme,
   type ThemePreference,
 } from './theme.js';
+// The provider owns the look, so the tokens and fonts load wherever it is used.
+import './theme.css';
 
 interface ThemeState {
   readonly preference: ThemePreference;
