@@ -1,0 +1,19 @@
+{
+  "name": "@yoman/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Yoman gateway: the only API on 127.0.0.1:4711, for the web and the agent.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run --root ../.. apps/gateway"
+  },
+  "dependencies": {
+    "@yoman/shared": "0.0.0",
+    "fastify": "5.12.8",
+    "pino": "10.4.0",
+    "zod": "4.6.7"
+  }
+}
