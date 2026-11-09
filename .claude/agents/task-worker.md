@@ -36,6 +36,7 @@ If anything is unclear or contradicts the spec, stop and report the question. Do
 
 - Touch **only** the paths listed under "Owns" in the issue. If you need anything else, especially `packages/shared`, stop and report.
 - Write tests first where the logic is pure. Domain code goes in `domain/` with no IO.
+- Tests go in the package's `test/` folder, mirroring `src/` (`src/domain/merge.ts` → `test/domain/merge.test.ts`). Never put a `*.test.ts` inside `src/`.
 - Turn every ST test the issue lists from `it.todo` into a real, passing test.
 - Commit in small logical steps (usually 3–8), each building and passing tests, as Conventional Commits in English. Every message ends with a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never use `--no-verify`.
 
