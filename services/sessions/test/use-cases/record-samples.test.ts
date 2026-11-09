@@ -104,4 +104,23 @@ describe('recordSamples', () => {
 
     expect(result).toEqual({ accepted: 0, late: 1, closed: [] });
   });
+
+  it('records nothing twice when a closing batch is sent again', async () => {
+    const store = createMemoryStore();
+    const batch = [
+      window('09:00:00', 'code'),
+      window('09:00:05', 'code'),
+      window('09:00:10', 'firefox'),
+    ];
+    await recordSamples(store, batch);
+    const before = store.state().sessions;
+
+    const retry = await recordSamples(store, [window('09:00:20', 'firefox', 'x'), ...batch]);
+    const again = await recordSamples(store, batch);
+
+    expect(retry).toMatchObject({ accepted: 1, late: batch.length, closed: [] });
+    expect(again).toEqual({ accepted: 0, late: batch.length, closed: [] });
+    expect(store.state().sessions).toHaveLength(before.length);
+    expect(store.state().sessions.filter((session) => session.appId === 'code')).toHaveLength(1);
+  });
 });

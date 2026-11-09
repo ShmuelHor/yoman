@@ -22,8 +22,9 @@ Internal only: the gateway is its one caller, on the `core` network.
   `ts - idleMs`, so away time is never counted.
 - On a switch to another app, the previous session ends at the new app's first sample, unless there
   was a gap.
-- A batch continues the one stored open session. Samples at or before its end are already recorded
-  and are counted as `late`, not applied.
+- A batch continues the one stored open session. Samples at or before the newest sample any batch
+  applied (`sample_watermark`) are already recorded and are counted as `late`, not applied, so a
+  retried or overlapping batch never duplicates a session, even one that has since closed.
 - Samples are sorted first, so a batch may arrive in any order. Of two samples with the same
   timestamp, the first one sent wins.
 - A session keeps the latest title it saw. Titles are stored only when the agent sends them.

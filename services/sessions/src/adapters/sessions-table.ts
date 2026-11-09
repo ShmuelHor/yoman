@@ -24,6 +24,7 @@ const SubjectRow = z.object({
 });
 
 const IdRow = z.object({ id: z.string() });
+const WatermarkRow = z.object({ recorded_until: z.date() });
 
 function toSession(row: SessionRow): Session {
   return {
@@ -57,6 +58,19 @@ export async function lockOpenSession(db: Queryable): Promise<Span | null> {
     title: row.title,
     closed: false,
   };
+}
+
+export async function recordedUntil(db: Queryable): Promise<number | null> {
+  const row = await selectRow(db, WatermarkRow, 'SELECT recorded_until FROM sample_watermark');
+  return row === null ? null : row.recorded_until.getTime();
+}
+
+export async function setRecordedUntil(db: Queryable, tsMs: number): Promise<void> {
+  await db.query(
+    `INSERT INTO sample_watermark (recorded_until) VALUES ($1)
+     ON CONFLICT (id) DO UPDATE SET recorded_until = EXCLUDED.recorded_until`,
+    [new Date(tsMs)],
+  );
 }
 
 async function insertSpan(db: Queryable, span: CategorizedSpan): Promise<string> {

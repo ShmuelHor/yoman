@@ -40,7 +40,14 @@ export function recordSamples(
 ): Promise<SampleResult> {
   return store.transaction(async (tx) => {
     const stored = await tx.lockOpenSession();
-    const { spans, accepted, late } = mergeSamples(stored, samples.map(toActivity));
+    const { spans, accepted, late, recordedUntilMs } = mergeSamples(
+      stored,
+      samples.map(toActivity),
+      await tx.recordedUntil(),
+    );
+    if (accepted > 0 && recordedUntilMs !== null) {
+      await tx.setRecordedUntil(recordedUntilMs);
+    }
     if (spans.length === 0) {
       return { accepted, late, closed: [] };
     }

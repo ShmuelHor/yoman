@@ -24,6 +24,9 @@ export interface SessionsTransaction {
    * transaction ends, so two batches can never continue the same session.
    */
   readonly lockOpenSession: () => Promise<Span | null>;
+  /** The newest sample any batch applied, or `null` before the first one. */
+  readonly recordedUntil: () => Promise<number | null>;
+  readonly setRecordedUntil: (tsMs: number) => Promise<void>;
   /** Inserts spans without an id and updates the others, in order. */
   readonly saveSpans: (spans: readonly CategorizedSpan[]) => Promise<StoredSpan[]>;
   readonly listSessions: (range: TimeRangeQuery, limit: number) => Promise<Session[]>;

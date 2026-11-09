@@ -47,7 +47,7 @@ function span(start: string, end: string, extra: Partial<Span> = {}): Span {
 
 describe('mergeSamples', () => {
   it('merges a continuous run of one app into one open session', () => {
-    const result = mergeSamples(null, run('09:00:00', '09:01:00'));
+    const result = mergeSamples(null, run('09:00:00', '09:01:00'), null);
 
     expect(result.spans).toEqual([span('09:00:00', '09:01:00')]);
     expect(result.accepted).toBe(RUN_LENGTH);
@@ -59,7 +59,7 @@ describe('mergeSamples', () => {
       ...run('09:00:25', '09:00:40', 'firefox'),
     ];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([
       span('09:00:00', '09:00:25', { closed: true }),
@@ -71,7 +71,7 @@ describe('mergeSamples', () => {
     const first = sample('09:00:00');
     const second = { ...first, tsMs: first.tsMs + MAX_GAP_MS };
 
-    const { spans } = mergeSamples(null, [first, second]);
+    const { spans } = mergeSamples(null, [first, second], null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:15')]);
   });
@@ -79,7 +79,7 @@ describe('mergeSamples', () => {
   it('closes the session at its last sample after a gap of more than 15s', () => {
     const samples = [sample('09:00:00'), sample('09:00:10'), sample('09:00:26')];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([
       span('09:00:00', '09:00:10', { closed: true }),
@@ -88,7 +88,7 @@ describe('mergeSamples', () => {
   });
 
   it('does not stretch the previous app over a gap before a switch', () => {
-    const { spans } = mergeSamples(null, [sample('09:00:00'), sample('09:01:00', 'firefox')]);
+    const { spans } = mergeSamples(null, [sample('09:00:00'), sample('09:01:00', 'firefox')], null);
 
     expect(spans).toEqual([
       span('09:00:00', '09:00:00', { closed: true }),
@@ -103,7 +103,7 @@ describe('mergeSamples', () => {
       ...run('09:02:35', '09:02:45'),
     ];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([
       span('09:00:00', '09:00:30', { closed: true }),
@@ -114,7 +114,7 @@ describe('mergeSamples', () => {
   it('treats idle just under the threshold as active', () => {
     const almostIdle = sample('09:00:05', 'code', { idleMs: IDLE_THRESHOLD_MS - 1 });
 
-    const { spans } = mergeSamples(null, [sample('09:00:00'), almostIdle]);
+    const { spans } = mergeSamples(null, [sample('09:00:00'), almostIdle], null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:05')]);
   });
@@ -126,7 +126,7 @@ describe('mergeSamples', () => {
       sample('09:00:10', 'code', { locked: true }),
     ];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:05', { closed: true })]);
   });
@@ -134,7 +134,7 @@ describe('mergeSamples', () => {
   it('never ends an idle session before it started', () => {
     const idle = sample('09:00:05', 'code', { idleMs: IDLE_THRESHOLD_MS });
 
-    const { spans } = mergeSamples(null, [sample('09:00:00'), idle]);
+    const { spans } = mergeSamples(null, [sample('09:00:00'), idle], null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:00', { closed: true })]);
   });
@@ -142,15 +142,15 @@ describe('mergeSamples', () => {
   it('closes after a gap even when the next sample is idle', () => {
     const idle = sample('09:05:00', 'code', { idleMs: IDLE_THRESHOLD_MS });
 
-    const { spans } = mergeSamples(null, [sample('09:00:00'), sample('09:00:05'), idle]);
+    const { spans } = mergeSamples(null, [sample('09:00:00'), sample('09:00:05'), idle], null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:05', { closed: true })]);
   });
 
   it('ignores away samples while no session is open', () => {
-    const result = mergeSamples(null, [sample('09:00:00', 'code', { locked: true })]);
+    const result = mergeSamples(null, [sample('09:00:00', 'code', { locked: true })], null);
 
-    expect(result).toEqual({ spans: [], accepted: 1, late: 0 });
+    expect(result).toEqual({ spans: [], accepted: 1, late: 0, recordedUntilMs: at('09:00:00') });
   });
 
   it('gives the same sessions for samples in any order', () => {
@@ -164,13 +164,13 @@ describe('mergeSamples', () => {
       ...ordered.filter((_, index) => index % 2 === 1).reverse(),
     ];
 
-    expect(mergeSamples(null, shuffled)).toEqual(mergeSamples(null, ordered));
+    expect(mergeSamples(null, shuffled, null)).toEqual(mergeSamples(null, ordered, null));
   });
 
   it('keeps the first of two samples with the same timestamp', () => {
     const samples = [sample('09:00:00', 'code'), sample('09:00:00', 'firefox')];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:00')]);
   });
@@ -178,7 +178,7 @@ describe('mergeSamples', () => {
   it('extends the stored open session', () => {
     const stored = span('09:00:00', '09:00:10', { id: 'stored' });
 
-    const { spans } = mergeSamples(stored, run('09:00:15', '09:00:25'));
+    const { spans } = mergeSamples(stored, run('09:00:15', '09:00:25'), null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:25', { id: 'stored' })]);
   });
@@ -186,7 +186,7 @@ describe('mergeSamples', () => {
   it('closes the stored open session when the batch starts after a gap', () => {
     const stored = span('09:00:00', '09:00:10', { id: 'stored' });
 
-    const { spans } = mergeSamples(stored, [sample('09:01:00')]);
+    const { spans } = mergeSamples(stored, [sample('09:01:00')], null);
 
     expect(spans).toEqual([
       span('09:00:00', '09:00:10', { id: 'stored', closed: true }),
@@ -197,9 +197,9 @@ describe('mergeSamples', () => {
   it('skips samples the stored session already covers', () => {
     const stored = span('09:00:00', '09:00:10', { id: 'stored' });
 
-    const result = mergeSamples(stored, [sample('09:00:05', 'firefox'), sample('09:00:10')]);
+    const result = mergeSamples(stored, [sample('09:00:05', 'firefox'), sample('09:00:10')], null);
 
-    expect(result).toEqual({ spans: [], accepted: 0, late: 2 });
+    expect(result).toEqual({ spans: [], accepted: 0, late: 2, recordedUntilMs: null });
   });
 
   it('keeps the latest title the session saw', () => {
@@ -209,8 +209,29 @@ describe('mergeSamples', () => {
       sample('09:00:10', 'code', { title: null }),
     ];
 
-    const { spans } = mergeSamples(null, samples);
+    const { spans } = mergeSamples(null, samples, null);
 
     expect(spans).toEqual([span('09:00:00', '09:00:10', { title: 'b.ts' })]);
+  });
+
+  it('skips samples at or before the watermark even with no open session', () => {
+    const batch = [
+      sample('09:00:00'),
+      sample('09:00:05'),
+      sample('09:00:10', 'code', { locked: true }),
+    ];
+    const first = mergeSamples(null, batch, null);
+
+    const retry = mergeSamples(null, batch, first.recordedUntilMs);
+
+    expect(first.spans).toEqual([span('09:00:00', '09:00:05', { closed: true })]);
+    expect(retry).toEqual({ spans: [], accepted: 0, late: 3, recordedUntilMs: at('09:00:10') });
+  });
+
+  it('applies only the new tail of an overlapping batch', () => {
+    const result = mergeSamples(null, run('09:00:00', '09:00:20'), at('09:00:10'));
+
+    expect(result.spans).toEqual([span('09:00:15', '09:00:20')]);
+    expect(result).toMatchObject({ accepted: 2, late: 3, recordedUntilMs: at('09:00:20') });
   });
 });

@@ -31,8 +31,10 @@ export interface MergeResult {
   readonly spans: readonly Span[];
   /** Samples that were applied. */
   readonly accepted: number;
-  /** Samples at or before the end of the stored open session, which is already recorded. */
+  /** Samples at or before the last applied sample, so already recorded: a retry or an overlap. */
   readonly late: number;
+  /** The newest sample applied so far, this batch included; the next batch's watermark. */
+  readonly recordedUntilMs: number | null;
 }
 
 function isAway(sample: ActivitySample): boolean {
@@ -107,19 +109,30 @@ function step(current: Span | null, sample: ActivitySample): Step {
  * open session. Consecutive samples of one app form a session; a gap of more
  * than {@link MAX_GAP_MS}, an idle or locked sample, or a switch to another
  * app closes it. Samples may arrive in any order.
+ *
+ * `recordedUntilMs` is the newest sample any earlier batch applied. Samples at
+ * or before it are skipped, so a retried or overlapping batch never records
+ * the same time twice, even after the session it touched was closed.
  */
-export function mergeSamples(stored: Span | null, samples: readonly ActivitySample[]): MergeResult {
+export function mergeSamples(
+  stored: Span | null,
+  samples: readonly ActivitySample[],
+  recordedUntilMs: number | null,
+): MergeResult {
   const spans: Span[] = [];
+  const watermark = Math.max(recordedUntilMs ?? -Infinity, stored?.endMs ?? -Infinity);
   let current = stored;
   let accepted = 0;
   let late = 0;
+  let newest = recordedUntilMs;
 
   for (const sample of chronological(samples)) {
-    if (stored !== null && sample.tsMs <= stored.endMs) {
+    if (sample.tsMs <= watermark) {
       late += 1;
       continue;
     }
     accepted += 1;
+    newest = sample.tsMs;
     const next = step(current, sample);
     if (next.closed !== null) {
       spans.push(next.closed);
@@ -131,5 +144,5 @@ export function mergeSamples(stored: Span | null, samples: readonly ActivitySamp
   if (current !== null && current !== stored) {
     spans.push(current);
   }
-  return { spans, accepted, late };
+  return { spans, accepted, late, recordedUntilMs: newest };
 }

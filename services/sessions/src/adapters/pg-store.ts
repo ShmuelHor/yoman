@@ -9,6 +9,8 @@ import { inTransaction, type Queryable } from './sql.js';
 function bind(db: Queryable): SessionsTransaction {
   return {
     lockOpenSession: () => sessions.lockOpenSession(db),
+    recordedUntil: () => sessions.recordedUntil(db),
+    setRecordedUntil: (tsMs) => sessions.setRecordedUntil(db, tsMs),
     saveSpans: (spans) => sessions.saveSpans(db, spans),
     listSessions: (range, limit) => sessions.listSessions(db, range, limit),
     sessionsEndingSince: (cutoff) => sessions.sessionsEndingSince(db, cutoff),

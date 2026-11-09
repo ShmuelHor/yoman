@@ -13,6 +13,7 @@ interface State {
   apps: App[];
   rules: Rule[];
   sessions: StoredSpan[];
+  recordedUntil: number | null;
 }
 
 export interface MemoryStore extends SessionsStore {
@@ -40,6 +41,10 @@ function bind(state: State): SessionsTransaction {
     lockOpenSession: async (): Promise<Span | null> => {
       const open = state.sessions.find((s) => !s.closed);
       return open === undefined ? null : { ...open };
+    },
+    recordedUntil: async () => state.recordedUntil,
+    setRecordedUntil: async (tsMs): Promise<void> => {
+      state.recordedUntil = tsMs;
     },
     saveSpans: async (spans) => spans.map(save),
     listSessions: async (range, limit) =>
@@ -103,7 +108,7 @@ function bind(state: State): SessionsTransaction {
 
 /** An in-memory store with the Postgres store's semantics, rolling back when `work` throws. */
 export function createMemoryStore(initial: Partial<State> = {}): MemoryStore {
-  let committed: State = { apps: [], rules: [], sessions: [], ...initial };
+  let committed: State = { apps: [], rules: [], sessions: [], recordedUntil: null, ...initial };
   return {
     state: () => committed,
     transaction: async <T>(work: (tx: SessionsTransaction) => Promise<T>): Promise<T> => {
