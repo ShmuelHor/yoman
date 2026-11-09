@@ -24,7 +24,7 @@ RUN npm run build --workspace @yoman/web
 FROM nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
 # The digest pins the base, but upstream rebuilds lag Alpine's security fixes
 # (ST19 blocks fixed HIGH/CRITICAL CVEs), so the runtime takes them at build time.
-USER root
+USER 0:0
 RUN apk upgrade --no-cache
 COPY apps/web/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY apps/web/nginx/default.conf /etc/nginx/conf.d/default.conf
