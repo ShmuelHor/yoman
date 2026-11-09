@@ -1,6 +1,7 @@
 # Yoman stack. Only 127.0.0.1:4710 (web) and 127.0.0.1:4711 (gateway) may ever be
 # published (SECURITY A2); each app's and service's own compose file adds its container.
 include:
+  - apps/gateway/compose.yml
   - apps/web/compose.yml
   - services/sessions/compose.yml
   - services/reports/compose.yml
