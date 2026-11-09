@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
+import type { FastifyInstance, InjectOptions } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { BODY_LIMIT_BYTES } from '../../apps/gateway/src/core/app.js';
+import { agentHeaders, GATEWAY_HOST, securityGateway, WEB_ORIGIN } from './lib/gateway.js';
 
 const run = promisify(execFile);
 
@@ -18,8 +22,15 @@ const READY_ATTEMPTS = 50;
 const READY_DELAY_MS = 100;
 const CONTAINER_PORT = '8080/tcp';
 const OK = 200;
+const NO_CONTENT = 204;
+const BAD_REQUEST = 400;
+const UNAUTHORIZED = 401;
+const FORBIDDEN = 403;
 const NOT_FOUND = 404;
 const METHOD_NOT_ALLOWED = 405;
+const PAYLOAD_TOO_LARGE = 413;
+const MISDIRECTED = 421;
+const NOT_IMPLEMENTED = 501;
 /** World-readable, so nginx (uid 101) can serve the fixture files. */
 const READABLE_DIR = 0o755;
 const READABLE_FILE = 0o644;
@@ -195,7 +206,110 @@ describe('ST07 security headers', () => {
     });
   });
 
-  it.todo(
-    '[T19] gateway sends CSP, X-Content-Type-Options, Referrer-Policy: no-referrer and frame-ancestors none',
-  );
+  describe('gateway (every kind of response)', () => {
+    let gateway: FastifyInstance;
+
+    beforeAll(async () => {
+      gateway = await securityGateway();
+    });
+
+    afterAll(async () => {
+      await gateway.close();
+    });
+
+    const big = JSON.stringify({ pad: 'a'.repeat(BODY_LIMIT_BYTES) });
+    const responses: readonly [string, InjectOptions, number][] = [
+      ['the health check', { method: 'GET', url: '/health', headers: { host: GATEWAY_HOST } }, OK],
+      [
+        'a session',
+        { method: 'GET', url: '/v1/session', headers: { host: GATEWAY_HOST, origin: WEB_ORIGIN } },
+        OK,
+      ],
+      [
+        'a route without a handler',
+        { method: 'GET', url: '/v1/focus/state', headers: agentHeaders },
+        NOT_IMPLEMENTED,
+      ],
+      [
+        'an unauthenticated request',
+        { method: 'GET', url: '/v1/apps', headers: { host: GATEWAY_HOST } },
+        UNAUTHORIZED,
+      ],
+      [
+        'a foreign Origin',
+        {
+          method: 'GET',
+          url: '/v1/apps',
+          headers: { host: GATEWAY_HOST, origin: 'http://evil.example' },
+        },
+        FORBIDDEN,
+      ],
+      [
+        'a foreign Host',
+        { method: 'GET', url: '/health', headers: { host: 'evil.example' } },
+        MISDIRECTED,
+      ],
+      ['an unknown path', { method: 'GET', url: '/v1/nope', headers: agentHeaders }, NOT_FOUND],
+      [
+        'an invalid query',
+        { method: 'GET', url: '/v1/focus/state?x=1', headers: agentHeaders },
+        BAD_REQUEST,
+      ],
+      [
+        'an oversized body',
+        {
+          method: 'POST',
+          url: '/v1/ingest',
+          headers: { ...agentHeaders, 'content-type': 'application/json' },
+          payload: big,
+        },
+        PAYLOAD_TOO_LARGE,
+      ],
+      [
+        'a CORS preflight',
+        {
+          method: 'OPTIONS',
+          url: '/v1/rules',
+          headers: {
+            host: GATEWAY_HOST,
+            origin: WEB_ORIGIN,
+            'access-control-request-method': 'POST',
+          },
+        },
+        NO_CONTENT,
+      ],
+    ];
+
+    it.each(responses)(
+      'gateway sends CSP, X-Content-Type-Options, Referrer-Policy: no-referrer and frame-ancestors none on %s',
+      async (_name, request, status) => {
+        const response = await gateway.inject(request);
+
+        expect(response.statusCode).toBe(status);
+        const csp = parseCsp(header(response.headers['content-security-policy']));
+        expect(csp.get('default-src')).toEqual(["'none'"]);
+        expect(csp.get('frame-ancestors')).toEqual(["'none'"]);
+        expect(response.headers['x-content-type-options']).toBe('nosniff');
+        expect(response.headers['referrer-policy']).toBe('no-referrer');
+        expect(response.headers['x-frame-options']).toBe('DENY');
+        expect(response.headers['cache-control']).toBe('no-store');
+      },
+    );
+
+    it('gateway CSP allows nothing, so a JSON reply rendered as a page can run nothing', async () => {
+      const response = await gateway.inject({
+        method: 'GET',
+        url: '/health',
+        headers: { host: GATEWAY_HOST },
+      });
+      const csp = parseCsp(header(response.headers['content-security-policy']));
+
+      expect([...csp.values()].flat().filter((source) => source !== "'none'")).toEqual([]);
+      expect(response.headers['content-type']).toMatch(/^application\/json/);
+    });
+  });
 });
+
+function header(value: string | string[] | number | undefined): string | null {
+  return typeof value === 'string' ? value : null;
+}
