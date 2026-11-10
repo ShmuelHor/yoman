@@ -1,12 +1,13 @@
-import type pg from 'pg';
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
 
 import type { GoalsStore, GoalsTransaction } from '../use-cases/store.js';
+import type { GoalsDatabase } from './database.js';
 import * as events from './events-table.js';
 import * as goals from './goals-table.js';
-import { inTransaction, type Queryable } from './sql.js';
 import * as usage from './usage-table.js';
 
-function bind(db: Queryable): GoalsTransaction {
+function bind(db: Kysely<GoalsDatabase>): GoalsTransaction {
   return {
     listGoals: (limit) => goals.listGoals(db, limit),
     countGoals: () => goals.countGoals(db),
@@ -21,9 +22,10 @@ function bind(db: Queryable): GoalsTransaction {
   };
 }
 
-/** The goals store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: pg.Pool): GoalsStore {
+/** The goals store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): GoalsStore {
+  const db = createQueryBuilder<GoalsDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }

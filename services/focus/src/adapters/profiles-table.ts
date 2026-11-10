@@ -1,44 +1,91 @@
+import { parseRow, parseRows, toPgText } from '@yoman/service-kit/sql';
 import { Profile, type ProfileInput } from '@yoman/shared/focus';
+import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { type Queryable, selectRow, selectRows, toPgText } from './sql.js';
+import type { FocusDatabase } from './database.js';
+
+type Db = Kysely<FocusDatabase>;
 
 /** `count(*)` is a bigint, which pg returns as a string. */
 const CountRow = z.object({ count: z.coerce.number().int().min(0) });
 const IdRow = z.object({ id: z.string() });
 
-const COLUMNS = 'id, name, muted_apps AS "mutedApps", exceptions, mute_new_apps AS "muteNewApps"';
-const ORDER = 'ORDER BY created_at, id';
+const COLUMNS = [
+  'id',
+  'name',
+  'muted_apps as mutedApps',
+  'exceptions',
+  'mute_new_apps as muteNewApps',
+] as const;
 
-function profileValues(input: ProfileInput): unknown[] {
-  return [toPgText(input.name), input.mutedApps, input.exceptions, input.muteNewApps];
+function profileValues(input: ProfileInput): {
+  name: string;
+  muted_apps: string[];
+  exceptions: string[];
+  mute_new_apps: boolean;
+} {
+  return {
+    name: toPgText(input.name),
+    muted_apps: [...input.mutedApps],
+    exceptions: [...input.exceptions],
+    mute_new_apps: input.muteNewApps,
+  };
 }
 
-export function listProfiles(db: Queryable, limit: number): Promise<Profile[]> {
-  return selectRows(db, Profile, `SELECT ${COLUMNS} FROM profiles ${ORDER} LIMIT $1`, [limit]);
+export async function listProfiles(db: Db, limit: number): Promise<Profile[]> {
+  return parseRows(
+    Profile,
+    await db
+      .selectFrom('profiles')
+      .select(COLUMNS)
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
+  );
 }
 
-export async function countProfiles(db: Queryable): Promise<number> {
-  const row = await selectRow(db, CountRow, 'SELECT count(*) AS count FROM profiles');
+export async function countProfiles(db: Db): Promise<number> {
+  const row = parseRow(
+    CountRow,
+    await db
+      .selectFrom('profiles')
+      .select((eb) => eb.fn.countAll().as('count'))
+      .executeTakeFirst(),
+  );
   return row?.count ?? 0;
 }
 
-export function getProfile(db: Queryable, id: string): Promise<Profile | null> {
-  return selectRow(db, Profile, `SELECT ${COLUMNS} FROM profiles WHERE id = $1`, [id]);
+export async function getProfile(db: Db, id: string): Promise<Profile | null> {
+  return parseRow(
+    Profile,
+    await db.selectFrom('profiles').select(COLUMNS).where('id', '=', id).executeTakeFirst(),
+  );
 }
 
 /** The oldest profile: a fresh install's seeded one until the user deletes it. */
-export function defaultProfile(db: Queryable): Promise<Profile | null> {
-  return selectRow(db, Profile, `SELECT ${COLUMNS} FROM profiles ${ORDER} LIMIT 1`);
+export async function defaultProfile(db: Db): Promise<Profile | null> {
+  return parseRow(
+    Profile,
+    await db
+      .selectFrom('profiles')
+      .select(COLUMNS)
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(1)
+      .executeTakeFirst(),
+  );
 }
 
-export async function createProfile(db: Queryable, input: ProfileInput): Promise<Profile> {
-  const profile = await selectRow(
-    db,
+export async function createProfile(db: Db, input: ProfileInput): Promise<Profile> {
+  const profile = parseRow(
     Profile,
-    `INSERT INTO profiles (name, muted_apps, exceptions, mute_new_apps)
-     VALUES ($1, $2, $3, $4) RETURNING ${COLUMNS}`,
-    profileValues(input),
+    await db
+      .insertInto('profiles')
+      .values(profileValues(input))
+      .returning(COLUMNS)
+      .executeTakeFirst(),
   );
   if (profile === null) {
     throw new Error('INSERT returned no row');
@@ -46,21 +93,26 @@ export async function createProfile(db: Queryable, input: ProfileInput): Promise
   return profile;
 }
 
-export function updateProfile(
-  db: Queryable,
+export async function updateProfile(
+  db: Db,
   id: string,
   input: ProfileInput,
 ): Promise<Profile | null> {
-  return selectRow(
-    db,
+  return parseRow(
     Profile,
-    `UPDATE profiles SET name = $2, muted_apps = $3, exceptions = $4, mute_new_apps = $5
-     WHERE id = $1 RETURNING ${COLUMNS}`,
-    [id, ...profileValues(input)],
+    await db
+      .updateTable('profiles')
+      .set(profileValues(input))
+      .where('id', '=', id)
+      .returning(COLUMNS)
+      .executeTakeFirst(),
   );
 }
 
-export async function deleteProfile(db: Queryable, id: string): Promise<boolean> {
-  const row = await selectRow(db, IdRow, 'DELETE FROM profiles WHERE id = $1 RETURNING id', [id]);
+export async function deleteProfile(db: Db, id: string): Promise<boolean> {
+  const row = parseRow(
+    IdRow,
+    await db.deleteFrom('profiles').where('id', '=', id).returning('id').executeTakeFirst(),
+  );
   return row !== null;
 }

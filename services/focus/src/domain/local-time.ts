@@ -1,14 +1,20 @@
 /**
  * Wall-clock times in the user's time zone. `yoman focus until 14:30` names a
  * local time, while the service stores UTC instants, so the conversion goes
- * through here. Pure: the zone database is Node's built-in ICU.
+ * through here. Pure: the zone data is Node's built-in ICU, read through
+ * `@date-fns/tz`.
  */
 
-const MS_PER_SECOND = 1_000;
+import { TZDate, tz, tzOffset } from '@date-fns/tz';
+import { addDays, format, parseISO } from 'date-fns';
+
 const MS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR = 60;
 const MS_PER_DAY = 86_400_000;
-const ISO_DATE_LENGTH = 10;
+const ISO_DATE = 'yyyy-MM-dd';
+
+/** Calendar dates carry no zone; reading them as UTC keeps their arithmetic clear of DST. */
+const calendar = tz('UTC');
 
 /** True when `zone` is an IANA time zone this runtime knows, such as `Asia/Jerusalem`. */
 export function isTimeZone(zone: string): boolean {
@@ -20,59 +26,18 @@ export function isTimeZone(zone: string): boolean {
   }
 }
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
-
-function formatterFor(zone: string): Intl.DateTimeFormat {
-  const cached = formatters.get(zone);
-  if (cached !== undefined) {
-    return cached;
-  }
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: zone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-  });
-  formatters.set(zone, formatter);
-  return formatter;
-}
-
-function part(
-  parts: readonly Intl.DateTimeFormatPart[],
-  type: Intl.DateTimeFormatPartTypes,
-): number {
-  const value = parts.find((candidate) => candidate.type === type)?.value;
-  if (value === undefined) {
-    throw new Error(`The date format has no ${type}`);
-  }
-  return Number(value);
+/** How far the zone's wall clock is ahead of UTC at `tsMs`, in milliseconds. */
+function offsetMs(tsMs: number, zone: string): number {
+  return tzOffset(zone, new Date(tsMs)) * MS_PER_MINUTE;
 }
 
 /** The zone's wall clock at `tsMs`, written as if it were a UTC instant. */
 function wallClockAsUtc(tsMs: number, zone: string): number {
-  const parts = formatterFor(zone).formatToParts(tsMs);
-  return Date.UTC(
-    part(parts, 'year'),
-    part(parts, 'month') - 1,
-    part(parts, 'day'),
-    part(parts, 'hour'),
-    part(parts, 'minute'),
-    part(parts, 'second'),
-  );
-}
-
-/** How far the zone's wall clock is ahead of UTC at `tsMs`, in milliseconds. */
-function offsetMs(tsMs: number, zone: string): number {
-  const wholeSeconds = Math.floor(tsMs / MS_PER_SECOND) * MS_PER_SECOND;
-  return wallClockAsUtc(tsMs, zone) - wholeSeconds;
+  return tsMs + offsetMs(tsMs, zone);
 }
 
 function localDateOf(tsMs: number, zone: string): string {
-  return new Date(tsMs + offsetMs(tsMs, zone)).toISOString().slice(0, ISO_DATE_LENGTH);
+  return format(new TZDate(tsMs, zone), ISO_DATE);
 }
 
 /** Minutes since local midnight, `HH:MM` → `HH * 60 + MM`. */
@@ -103,6 +68,6 @@ export function nextOccurrence(clock: string, nowMs: number, zone: string): numb
   if (candidate > nowMs) {
     return candidate;
   }
-  const tomorrow = new Date(Date.parse(today) + MS_PER_DAY).toISOString().slice(0, ISO_DATE_LENGTH);
+  const tomorrow = format(addDays(parseISO(today, { in: calendar }), 1), ISO_DATE);
   return instantOf(tomorrow, clock, zone);
 }

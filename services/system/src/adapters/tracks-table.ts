@@ -1,9 +1,13 @@
+import { parseRows, pgArray, unnest } from '@yoman/service-kit/sql';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
 import type { ConditionTrack } from '../domain/condition-tracker.js';
 import { CONDITION_TYPES, type ConditionType } from '../domain/conditions.js';
 import type { SystemSampleKind, Watermarks } from '../domain/fresh-samples.js';
-import { type Queryable, selectRows } from './sql.js';
+import type { SystemDatabase } from './database.js';
+
+type Db = Kysely<SystemDatabase>;
 
 const TrackRow = z.object({
   type: z.enum(CONDITION_TYPES),
@@ -17,16 +21,25 @@ const WatermarkRow = z.object({
   recorded_until: z.date(),
 });
 
+interface TrackBatchRow {
+  readonly type: string;
+  readonly run_start: Date | null;
+  readonly run_peak: number;
+  readonly last_at: Date | null;
+}
+
 /**
  * Blocks other batches (not readers) until the transaction ends, so the
  * tracks, the open incidents and the watermarks move one batch at a time.
  */
-export async function lockTracks(db: Queryable): Promise<Map<ConditionType, ConditionTrack>> {
-  await db.query('LOCK TABLE condition_tracks IN SHARE ROW EXCLUSIVE MODE');
-  const rows = await selectRows(
-    db,
+export async function lockTracks(db: Db): Promise<Map<ConditionType, ConditionTrack>> {
+  await sql`LOCK TABLE condition_tracks IN SHARE ROW EXCLUSIVE MODE`.execute(db);
+  const rows = parseRows(
     TrackRow,
-    'SELECT type, run_start, run_peak, last_at FROM condition_tracks',
+    await db
+      .selectFrom('condition_tracks')
+      .select(['type', 'run_start', 'run_peak', 'last_at'])
+      .execute(),
   );
   return new Map(
     rows.map((row) => [
@@ -45,29 +58,51 @@ function toDate(ms: number | null): Date | null {
 }
 
 export async function saveTracks(
-  db: Queryable,
+  db: Db,
   tracks: ReadonlyMap<ConditionType, ConditionTrack>,
 ): Promise<void> {
   const entries = [...tracks];
-  await db.query(
-    `INSERT INTO condition_tracks (type, run_start, run_peak, last_at)
-     SELECT * FROM unnest($1::text[], $2::timestamptz[], $3::float8[], $4::timestamptz[])
-     ON CONFLICT (type) DO UPDATE SET run_start = EXCLUDED.run_start,
-       run_peak = EXCLUDED.run_peak, last_at = EXCLUDED.last_at`,
-    [
-      entries.map(([type]) => type),
-      entries.map(([, track]) => toDate(track.runStartMs)),
-      entries.map(([, track]) => track.runPeak),
-      entries.map(([, track]) => toDate(track.lastMs)),
-    ],
-  );
+  await db
+    .insertInto('condition_tracks')
+    .columns(['type', 'run_start', 'run_peak', 'last_at'])
+    .expression((eb) =>
+      eb
+        .selectFrom(
+          unnest<TrackBatchRow, 't'>('t', {
+            type: pgArray(
+              'text',
+              entries.map(([type]) => type),
+            ),
+            run_start: pgArray(
+              'timestamptz',
+              entries.map(([, track]) => toDate(track.runStartMs)),
+            ),
+            run_peak: pgArray(
+              'float8',
+              entries.map(([, track]) => track.runPeak),
+            ),
+            last_at: pgArray(
+              'timestamptz',
+              entries.map(([, track]) => toDate(track.lastMs)),
+            ),
+          }),
+        )
+        .selectAll(),
+    )
+    .onConflict((conflict) =>
+      conflict.column('type').doUpdateSet((eb) => ({
+        run_start: eb.ref('excluded.run_start'),
+        run_peak: eb.ref('excluded.run_peak'),
+        last_at: eb.ref('excluded.last_at'),
+      })),
+    )
+    .execute();
 }
 
-export async function recordedUntil(db: Queryable): Promise<Watermarks> {
-  const rows = await selectRows(
-    db,
+export async function recordedUntil(db: Db): Promise<Watermarks> {
+  const rows = parseRows(
     WatermarkRow,
-    'SELECT kind, recorded_until FROM sample_watermarks',
+    await db.selectFrom('sample_watermarks').select(['kind', 'recorded_until']).execute(),
   );
   const mark = (kind: SystemSampleKind): number | null =>
     rows.find((row) => row.kind === kind)?.recorded_until.getTime() ?? null;
@@ -75,13 +110,17 @@ export async function recordedUntil(db: Queryable): Promise<Watermarks> {
 }
 
 export async function setRecordedUntil(
-  db: Queryable,
+  db: Db,
   kind: SystemSampleKind,
   tsMs: number,
 ): Promise<void> {
-  await db.query(
-    `INSERT INTO sample_watermarks (kind, recorded_until) VALUES ($1, $2)
-     ON CONFLICT (kind) DO UPDATE SET recorded_until = EXCLUDED.recorded_until`,
-    [kind, new Date(tsMs)],
-  );
+  await db
+    .insertInto('sample_watermarks')
+    .values({ kind, recorded_until: new Date(tsMs) })
+    .onConflict((conflict) =>
+      conflict
+        .column('kind')
+        .doUpdateSet((eb) => ({ recorded_until: eb.ref('excluded.recorded_until') })),
+    )
+    .execute();
 }

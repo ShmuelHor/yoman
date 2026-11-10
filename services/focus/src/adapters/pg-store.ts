@@ -1,14 +1,15 @@
-import type pg from 'pg';
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
 
 import type { FocusStore, FocusTransaction } from '../use-cases/store.js';
 import * as alerts from './alerts-table.js';
+import type { FocusDatabase } from './database.js';
 import * as knownApps from './known-apps-table.js';
 import * as profiles from './profiles-table.js';
 import * as schedules from './schedules-table.js';
 import * as sessions from './sessions-table.js';
-import { inTransaction, type Queryable } from './sql.js';
 
-function bind(db: Queryable): FocusTransaction {
+function bind(db: Kysely<FocusDatabase>): FocusTransaction {
   return {
     lock: () => sessions.lock(db),
     openSession: () => sessions.openSession(db),
@@ -39,9 +40,10 @@ function bind(db: Queryable): FocusTransaction {
   };
 }
 
-/** The focus store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: pg.Pool): FocusStore {
+/** The focus store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): FocusStore {
+  const db = createQueryBuilder<FocusDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }
