@@ -1,7 +1,16 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, {
+  type FastifyBaseLogger,
+  type FastifyInstance,
+  type FastifyRequest,
+} from 'fastify';
+import {
+  ResponseSerializationError,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 
 import { createTokenVerifier } from './agent-token.js';
 import { CSRF_HEADER } from './authenticate.js';
@@ -59,11 +68,21 @@ function registerRequestGuards(app: FastifyInstance): void {
   });
 }
 
+function logFailure(request: FastifyRequest, error: unknown): void {
+  if (error instanceof ResponseSerializationError) {
+    // A handler that breaks its contract is a gateway bug. Paths only: the values are user data.
+    const paths = error.cause.issues.map((issue) => issue.path.join('.'));
+    request.log.error({ paths }, 'Response failed its contract');
+    return;
+  }
+  request.log.error({ err: error }, 'Request failed');
+}
+
 function registerErrorHandlers(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const gatewayError = toGatewayError(error);
     if (gatewayError.statusCode >= HTTP_INTERNAL) {
-      request.log.error({ err: error }, 'Request failed');
+      logFailure(request, error);
     }
     return reply.status(gatewayError.statusCode).send(toErrorBody(gatewayError));
   });
@@ -87,6 +106,9 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
     requestTimeout: REQUEST_TIMEOUT_MS,
     routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
   });
+  // Request parts and responses are parsed by the contracts' own Zod schemas.
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandlers(app);
   registerRequestGuards(app);
 
