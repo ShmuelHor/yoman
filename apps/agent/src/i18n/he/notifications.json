@@ -1,0 +1,36 @@
+{
+  "appName": "יומן",
+  "action": { "openDashboard": "פתיחת לוח הבקרה" },
+  "batteryLow": {
+    "title": "הסוללה חלשה",
+    "body": "נותרו {{percent}}%. כדאי לחבר את המטען בקרוב."
+  },
+  "batteryCritical": {
+    "title": "הסוללה כמעט ריקה",
+    "body": "נותרו {{percent}}%. חברו את המטען עכשיו."
+  },
+  "batteryPluggedFull": {
+    "title": "הסוללה מלאה כבר זמן רב",
+    "body": "המחשב מחובר בטעינה מלאה כבר {{hours}} שעות. נתקו את המטען כדי לשמור על הסוללה."
+  },
+  "pressureIncident": {
+    "title": "המחשב נחנק",
+    "body": "העומס על {{resource}} הגיע ל-{{peak}}%. הכבד ביותר: {{culprit}}."
+  },
+  "memoryCritical": {
+    "title": "הזיכרון כמעט מלא",
+    "body": "רק {{availablePct}}% מהזיכרון פנויים."
+  },
+  "thermal": {
+    "title": "המעבד חם",
+    "body": "טמפרטורת המעבד הגיעה ל-{{celsius}}°C."
+  },
+  "memoryLeak": {
+    "title": "ייתכן שיש דליפת זיכרון",
+    "body": "{{comm}} גדל ב-{{mbPerHour}} MB בכל שעה."
+  },
+  "goalBreach": {
+    "title": "התראת יעד",
+    "body": "{{target}}: {{minutesUsed}} מתוך {{targetMinutes}} דקות היום."
+  }
+}
