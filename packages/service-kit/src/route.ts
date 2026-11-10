@@ -30,6 +30,8 @@ export interface RouteSpec<Params, Query, Body, Response> {
   readonly url: string;
   /** Defaults to 200. With 204 the response schema must accept `undefined`. */
   readonly status?: number;
+  /** Bytes. Overrides the default for a route whose contract allows a larger body. */
+  readonly bodyLimit?: number;
   readonly schema: RouteSchemas<Params, Query, Body, Response>;
   readonly handler: (context: RequestContext<Params, Query, Body>) => Promise<Response> | Response;
 }
@@ -45,6 +47,7 @@ export interface Route {
   readonly method: HttpMethod;
   readonly url: string;
   readonly status: number;
+  readonly bodyLimit?: number;
   readonly handle: (request: RawRequest, log: FastifyBaseLogger) => Promise<unknown>;
 }
 
@@ -63,6 +66,7 @@ export function defineRoute<
     method: spec.method,
     url: spec.url,
     status: spec.status ?? HTTP_OK,
+    ...(spec.bodyLimit === undefined ? {} : { bodyLimit: spec.bodyLimit }),
     handle: async (request, log): Promise<unknown> => {
       const context: RequestContext<Params, Query, Body> = {
         params: parseOptional(schema.params, 'params', request.params),
