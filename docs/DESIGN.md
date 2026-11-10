@@ -3,6 +3,11 @@
 Warm paper, dark ink and earth tones. Quiet and personal, like a good notebook.
 **Every color, font, radius and spacing value comes from a token.** Writing a hex value in a component is not allowed.
 
+The UI is built on MUI, and the tokens live in its theme, not in CSS files (the web app has none):
+- **Colors:** `apps/web/src/theme/color-tokens.ts`, the only file allowed to hold a color literal. The theme exposes them as `theme.vars.palette.tokens.*` (`--mui-palette-tokens-*` CSS variables, switched by `data-theme`) and maps them onto MUI's roles (`primary` = accent, `success` = ok, `background`, `text`, `divider`).
+- **Everything else:** `apps/web/src/theme/mui-theme.ts`. Spacing is `theme.spacing(n)` = n × 4px, so the scale below is spacing 1, 2, 3, 4, 6, 8. Radii are `theme.shape.borderRadius` and `theme.shape.radiusSm`, fonts and sizes are typography variants (`h1` for page titles, `hero`, `number`, `table`, `label`), and chart values are `theme.chart`.
+- Components style themselves with `sx` or `styled` using theme values, with logical properties only (a Biome Grit rule enforces this).
+
 ## Tokens
 
 | Token | Light | Dark | Use |
@@ -49,7 +54,7 @@ Two weights only: 400 and 500. Numbers use `font-variant-numeric: tabular-nums`.
 3. **`--ok` (olive)** marks a healthy state, active focus mode and a switch that is on.
 4. **No gradients, no shadows and no blur.** Depth comes only from borders and the difference between `--bg` and `--surface`.
 5. **Charts:** 1.5px lines, bars with `--radius-sm`, and anomaly regions in `--accent` at 12% opacity.
-6. **RTL and LTR:** only `margin-inline-*`, `padding-inline-*` and `inset-inline-*`. Directional icons (arrows) flip according to `dir`.
+6. **RTL and LTR:** only `margin-inline-*`, `padding-inline-*` and `inset-inline-*` (`marginInlineStart` and so on in `sx`). Directional icons (arrows) flip according to `dir`; MUI's own styles are mirrored by the right-to-left Emotion cache.
 7. **Dark mode** is only a different set of values for the same tokens: `[data-theme="dark"]`, or `prefers-color-scheme` when the choice is `system`.
 
 ## Components

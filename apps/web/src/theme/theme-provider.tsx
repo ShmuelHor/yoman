@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { AppBaseline } from './app-baseline.js';
 import { appTheme } from './mui-theme.js';
 import {
   applyTheme,
@@ -18,8 +19,8 @@ import {
   resolveTheme,
   type ThemePreference,
 } from './theme.js';
-// The provider owns the look, so the tokens and fonts load wherever it is used.
-import './theme.css';
+// The provider owns the look, so the fonts load wherever it is used.
+import './fonts.js';
 
 interface ThemeState {
   readonly preference: ThemePreference;
@@ -72,6 +73,7 @@ export function ThemeProvider({
   return (
     <ThemeContext.Provider value={value}>
       <MuiThemeProvider theme={appTheme} colorSchemeNode={null} storageManager={null}>
+        <AppBaseline />
         {children}
       </MuiThemeProvider>
     </ThemeContext.Provider>
