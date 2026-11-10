@@ -18,7 +18,10 @@ const NGINX_DIR = join(WEB_DIR, 'nginx');
 
 /** Pulling the image on a cold runner takes longer than Vitest's 5s default. */
 const CONTAINER_TIMEOUT_MS = 120_000;
-const READY_ATTEMPTS = 50;
+/** Vitest's 10s hook default is too tight for a pull plus container start on a cold runner. */
+const HOOK_TIMEOUT_MS = 120_000;
+const READY_ATTEMPTS = 300;
+const READY_PROBE_TIMEOUT_MS = 1_000;
 const READY_DELAY_MS = 100;
 const CONTAINER_PORT = '8080/tcp';
 const OK = 200;
@@ -66,7 +69,7 @@ const mount = (source: string, target: string): string[] => [
 async function waitUntilServing(baseUrl: string): Promise<void> {
   for (let attempt = 0; attempt < READY_ATTEMPTS; attempt += 1) {
     try {
-      await fetch(`${baseUrl}/healthz`);
+      await fetch(`${baseUrl}/healthz`, { signal: AbortSignal.timeout(READY_PROBE_TIMEOUT_MS) });
       return;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, READY_DELAY_MS));
@@ -135,14 +138,14 @@ describe('ST07 security headers', () => {
       }
       baseUrl = `http://${address}`;
       await waitUntilServing(baseUrl);
-    });
+    }, HOOK_TIMEOUT_MS);
 
     afterAll(async () => {
       if (container !== undefined) {
         await run('docker', ['rm', '--force', container]);
       }
       await rm(site, { recursive: true, force: true });
-    });
+    }, HOOK_TIMEOUT_MS);
 
     const responses: readonly [string, string, string, number][] = [
       ['the app shell', 'GET', '/', OK],
