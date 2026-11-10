@@ -76,9 +76,9 @@ rather than good intentions. The full threat model is in [`docs/SECURITY.md`](do
 **Planned (wave 0, before any feature code)**
 
 - gitleaks on every commit and in CI.
-- CI that blocks merges on CodeQL, Semgrep, Trivy, OSV-Scanner, npm audit, hadolint, actionlint,
-  zizmor and a suite of behavioral security tests.
-- Releases signed with cosign and shipped with an SBOM.
+- CI that blocks merges on CodeQL, npm audit, actionlint
+  and a suite of behavioral security tests.
+- Containers with no route to the internet (only web and gateway, on loopback).
 
 **By design (built with the features)**
 
@@ -101,7 +101,7 @@ security rules), commitlint
 - **Frontend:** React, Vite, TanStack Query, react-i18next
 - **Agent:** Node.js with D-Bus (GNOME Shell, Mutter, freedesktop notifications)
 - **Testing:** fast-check, Playwright
-- **Delivery:** Docker Compose, GitHub Actions, cosign, Syft, Trivy
+- **Delivery:** Docker Compose, GitHub Actions
 
 ## Repository layout
 

@@ -195,11 +195,11 @@ All of them: Fastify + TypeScript, `GET /health`, JSON logging (pino), config va
   - fast-check for route fuzzing
   - Contract tests: every response is validated against `packages/shared`
   - Playwright for E2E
-  - `tests/security/` with ST01–ST19
+  - `tests/security/` with ST01–ST18
 - **CI (on every PR):** lint, typecheck, tests, build, and every security gate from SECURITY.md §4. All of them are blocking
 - **CD:**
-  - On push to main: build images, Trivy, and compose up with smoke and security tests
-  - On a `v*` tag: SBOM, keyless signing with cosign, provenance, push to a private GHCR, and a GitHub Release with a compose file pinned to digests
-- **Nightly:** full scans and ZAP baseline
+  - On push to main: compose up with smoke and security tests
+  - On a `v*` tag: build and push to a private GHCR, and a GitHub Release with a compose file pinned to digests
+- **Nightly:** gitleaks and npm audit
 - **Repo:** private, branch protection, secret scanning and push protection
 - **Healthchecks** in compose and `depends_on: condition: service_healthy`

@@ -13,7 +13,7 @@ Same as code-reviewer: you never change the repository, and probes live only in 
 
 ## Inputs
 
-A PR number labeled `security`. Read `docs/SECURITY.md` in full (threats A1–A19, ST01–ST19 and the CI gates), the linked issue, and the PR.
+A PR number labeled `security`. Read `docs/SECURITY.md` in full (threats A1–A19, ST01–ST18 and the CI gates), the linked issue, and the PR.
 
 ## Review
 

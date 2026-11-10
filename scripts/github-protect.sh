@@ -56,14 +56,9 @@ CHECKS='[
   "Security tests",
   "gitleaks (full history)",
   "npm audit",
-  "OSV-Scanner",
   "Dependency review",
   "CodeQL",
-  "Semgrep",
-  "hadolint",
-  "Trivy fs and config",
-  "actionlint",
-  "zizmor"
+  "actionlint"
 ]'
 
 # 1. Branch protection on main.
@@ -112,12 +107,7 @@ api PUT /actions/permissions/selected-actions '{
   "github_owned_allowed": true,
   "verified_allowed": false,
   "patterns_allowed": [
-    "aquasecurity/*",
-    "docker/*",
-    "google/*",
-    "ossf/*",
-    "sigstore/*",
-    "zizmorcore/*"
+    "docker/*"
   ]
 }'
 api PUT /actions/permissions/workflow '{

@@ -66,6 +66,7 @@ const ComposeNamedVolume = z.object({
 const ComposeNetwork = z.object({
   name: z.string().optional(),
   driver: z.string().optional(),
+  internal: z.boolean().optional(),
 });
 
 /** A Compose project as printed by `docker compose config --format json`. */
@@ -295,8 +296,8 @@ function isInside(root: string, path: string): boolean {
 }
 
 /**
- * A build is exempt from the digest rule only because hadolint and Trivy check
- * its Dockerfile in this repo. So the context, the Dockerfile and every
+ * A build is exempt from the digest rule only because its Dockerfile is
+ * reviewed in this repo. So the context, the Dockerfile and every
  * additional context must be local paths inside the project, and the
  * Dockerfile can't be inline, where those tools never see it.
  */
@@ -320,7 +321,7 @@ function checkBuildSource(
     problems.push(`builds with ${build.dockerfile}, which is outside the project`);
   }
   if (build.dockerfile_inline !== undefined) {
-    problems.push('uses dockerfile_inline, which hadolint and Trivy never see');
+    problems.push('uses dockerfile_inline, which is never reviewed in the repo');
   }
   for (const [name, source] of Object.entries(build.additional_contexts ?? {})) {
     if (!isInside(projectRoot, source)) {

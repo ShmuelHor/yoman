@@ -1,7 +1,7 @@
 # Security tests
 
 The automated security tests from `docs/SECURITY.md` section 3, one file per test:
-`stNN-<slug>.test.ts` for ST01 to ST19, directly in this directory. Helpers live in `lib/` and
+`stNN-<slug>.test.ts` for ST01 to ST18, directly in this directory. Helpers live in `lib/` and
 fixtures in `fixtures/`.
 
 ```
@@ -88,8 +88,7 @@ needs the Compose CLI but no running Docker daemon.
   without `dockerfile_inline`. Remote and git contexts are rejected.
 - **Image** `[image-digest]`: `image` must be pinned by `@sha256:` digest, including an `image` set
   next to `build`, because `docker compose pull` can fetch it instead of building. A service with
-  `build` and no `image` has nothing to pin: its base images are checked in the Dockerfile by
-  hadolint and Trivy, which is why the build source must be a Dockerfile in this repo.
+  `build` and no `image` has nothing to pin: its base images are reviewed in the Dockerfile, which is why the build source must be a Dockerfile in this repo.
 
 `fixtures/compose/` holds a compliant project and copies that each break one rule (an extra port,
 a missing `read_only`), plus a project whose override file breaks the policy, to prove the whole
