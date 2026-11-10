@@ -65,7 +65,7 @@ branch t13-…  →  commits  →  push  →  PR (draft)  →  CI green  →  Re
 |---|---|---|
 | 0 · CI/CD and security | [x] T01 [x] T02 [x] T03 [x] T04 [x] T05 [x] T06 [x] T07 | G0 |
 | 1 · Contracts and infrastructure | [x] T08 [x] T09 [x] T10 [x] T11 [x] T12 | G1 |
-| 2 · Independent units | [ ] T13 [ ] T14 [ ] T15 [ ] T16 [ ] T17 [ ] T18 [ ] T19 [ ] T20 [ ] T21 [ ] T22 [ ] T23 [ ] T24 [ ] T25 [ ] T26 | G2 |
+| 2 · Independent units | [x] T13 [x] T14 [x] T15 [x] T16 [x] T17 [x] T18 [x] T19 [x] T20 [x] T21 [x] T22 [x] T23 [x] T24 [x] T25 [x] T26 | G2 |
 | 3 · Integration | [ ] T27 [ ] T28 [ ] T29 [ ] T30 [ ] T31 [ ] T32 [ ] T33 [ ] T34 [ ] T35 [ ] T36 [ ] T37 [ ] T38 [ ] T39 [ ] T40 [ ] T41 | G3 |
 | 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 | G4 |
 | 5 · Release | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
@@ -239,12 +239,12 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
   - API per the SPEC
   - Enables: **ST12**
 - **Done when:**
-  - [ ] There are tests: a continuous run, an app switch, a gap, idle, out-of-order samples, and rule priority
+  - [x] There are tests: a continuous run, an app switch, a gap, idle, out-of-order samples, and rule priority
 
 ### T14 · reports-service
 - **What:** rollups, focus streaks, and the weekly summary. Enables: **ST12**
 - **Done when:**
-  - [ ] There is a test for a rollup that crosses midnight
+  - [x] There is a test for a rollup that crosses midnight
 
 ### T15 · goals-service
 - **What:** CRUD, `/evaluate` with one alert per goal per day, and `/progress`. Enables: **ST12**
@@ -252,17 +252,17 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 ### T16 · battery-service
 - **What:** samples, daily, health, time remaining, `power-by-app` and alerts. Enables: **ST12**
 - **Done when:**
-  - [ ] There are tests for the health calculation and for per-app power attribution
+  - [x] There are tests for the health calculation and for per-app power attribution
 
 ### T17 · system-service
 - **What:** incidents with a 15 s threshold, culprits, memory leaks, and critical for OOM. Enables: **ST12**
 - **Done when:**
-  - [ ] There are tests: a short spike does not open an incident, and sustained load opens exactly one incident
+  - [x] There are tests: a short spike does not open an incident, and sustained load opens exactly one incident
 
 ### T18 · focus-service
 - **What:** state, profiles (including "mute new apps"), exceptions, schedules, `alert_policy`, `/route`, rate limit, queue, a summary on exit, and known-apps. Enables: **ST12**
 - **Done when:**
-  - [ ] There are tests for the table of 3 levels × in focus/not in focus, for the rate limit, for the summary and for exceptions
+  - [x] There are tests for the table of 3 levels × in focus/not in focus, for the rate limit, for the summary and for exceptions
 
 ### T19 · Gateway: core and security
 - **Owns:** `apps/gateway/src/core/`, `apps/gateway/compose.yml`
@@ -275,7 +275,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
   - Validation of every req against the contract
   - Enables: **ST03–ST10**
 - **Done when:**
-  - [ ] Every ST test owned by T19 is green
+  - [x] Every ST test owned by T19 is green
 
 ### T20 · Collector: active window
 - **What:** Window Calls over D-Bus. If the extension is missing: a warning, no crash
@@ -289,7 +289,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 ### T23 · Collector: load and processes
 - **What:** PSI, and a process snapshot only under load. **Only `comm`**. Enables: **ST17** (cmdline)
 - **Done when:**
-  - [ ] The overhead is measured in a test
+  - [x] The overhead is measured in a test
 
 ### T24 · Collector: temperature and cgroup
 - **What:** thermal and throttling. Mapping to a container through cgroup, **without the docker socket** by default
@@ -297,7 +297,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 ### T25 · Collector: app discovery
 - **What:** inotify on `.desktop` directories, gsettings monitor, computing the notification-id, and Chrome apps as separate apps
 - **Done when:**
-  - [ ] A new install is detected within 5 s
+  - [x] A new install is detected within 5 s
 
 ### T26 · Web: tokens and components
 - **Owns:** `apps/web/src/theme/`, `apps/web/src/components/`, `apps/web/src/pages/dev-components/`
@@ -307,9 +307,9 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
   - A CI check that there are no hex values outside `tokens.css`
 
 **Gate G2:**
-- [ ] Every service is healthy
-- [ ] Contract tests: every service response is validated against the contract
-- [ ] ST03–ST12, ST16 and ST17 are green
+- [x] Every service is healthy
+- [x] Contract tests: every service response is validated against the contract
+- [x] ST03–ST12, ST16 and ST17 are green
 
 ---
 
