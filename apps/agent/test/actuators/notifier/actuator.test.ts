@@ -5,6 +5,7 @@ import type { NotifyRequest } from '../../../src/actuators/notifier/domain/notif
 import type { Actuator, PluginContext } from '../../../src/core/plugin.js';
 import { runActuator } from '../../../src/core/registry.js';
 import { SessionBusError } from '../../../src/core/session-bus.js';
+import { translate } from '../../../src/i18n/catalogs.js';
 import { recordingLogger } from '../../support/logs.js';
 import { FakeNotificationServer } from './fake-notification-server.js';
 
@@ -57,7 +58,7 @@ describe('notifier', () => {
 
     // Assert
     const notify = bus.calls.find((call) => call.member === 'Notify');
-    expect(notify?.body?.[0]).toBe('יומן');
+    expect(notify?.body?.[0]).toBe(translate('notifications.appName', 'he'));
   });
 
   it('shows the alert in the requested language', async () => {
