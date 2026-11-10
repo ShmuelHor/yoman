@@ -6,9 +6,12 @@ export type Language = z.infer<typeof Language>;
 
 export const DEFAULT_LANGUAGE: Language = 'he';
 
-const DIRECTIONS: Readonly<Record<Language, 'rtl' | 'ltr'>> = { he: 'rtl', en: 'ltr' };
+/** Text direction of a language, as used by `dir` and the MUI theme. */
+export type Direction = 'rtl' | 'ltr';
 
-export function directionOf(language: Language): 'rtl' | 'ltr' {
+const DIRECTIONS: Readonly<Record<Language, Direction>> = { he: 'rtl', en: 'ltr' };
+
+export function directionOf(language: Language): Direction {
   return DIRECTIONS[language];
 }
 

@@ -1,3 +1,4 @@
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import {
   createContext,
   type ReactNode,
@@ -8,6 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import { appTheme } from './mui-theme.js';
 import {
   applyTheme,
   DARK_QUERY,
@@ -47,6 +49,11 @@ interface ThemeProviderProps {
  * Owns the color theme. `system` follows the OS live, through the
  * `prefers-color-scheme` media query. Saving the choice to the gateway settings
  * arrives with the Settings page; until then it lasts for the page's lifetime.
+ *
+ * It also provides the MUI theme. `data-theme` on the root, which this provider
+ * alone writes, switches MUI's color variables in CSS, so MUI is told neither
+ * to write the attribute (`colorSchemeNode`) nor to keep its own mode in
+ * localStorage (`storageManager`).
  */
 export function ThemeProvider({
   children,
@@ -62,7 +69,13 @@ export function ThemeProvider({
   }, [root, resolved]);
 
   const value = useMemo(() => ({ preference, resolved, setPreference }), [preference, resolved]);
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      <MuiThemeProvider theme={appTheme} colorSchemeNode={null} storageManager={null}>
+        {children}
+      </MuiThemeProvider>
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeState {
