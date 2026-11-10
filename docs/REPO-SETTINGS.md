@@ -32,7 +32,7 @@ These are the job names that run on `pull_request` in `.github/workflows/ci.yml`
 
 CI: `Lint (Biome)`, `Typecheck`, `Unit tests (coverage)`, `Language check`, `Build (workspaces)`, `Commit messages`, `Security tests`.
 
-Security: `gitleaks (full history)`, `npm audit`, `OSV-Scanner`, `Dependency review`, `CodeQL`, `Semgrep`, `hadolint`, `Trivy fs and config`, `actionlint`, `zizmor`.
+Security: `gitleaks (full history)`, `npm audit`, `Dependency review`, `CodeQL`, `actionlint`.
 
 `Commit messages` and `Dependency review` only run on pull requests, which is fine because merging requires a PR anyway.
 
@@ -51,6 +51,6 @@ Features already enabled are left as they are.
 
 ## Actions
 
-- **Allowed actions: selected.** GitHub-owned actions (`actions/*`, `github/*`) plus these third-party owners, which the workflows use today: `aquasecurity`, `docker`, `google`, `ossf`, `sigstore`, `zizmorcore`. Marketplace-verified creators are not allowed wholesale. Add an owner to the script only when a workflow needs it. Actions are also pinned to a commit SHA in the workflows.
+- **Allowed actions: selected.** GitHub-owned actions (`actions/*`, `github/*`) plus these third-party owners, which the workflows use today: `docker`. Marketplace-verified creators are not allowed wholesale. Add an owner to the script only when a workflow needs it. Actions are also pinned to a commit SHA in the workflows.
 - **Default workflow permissions: read.** Workflows get a read-only token unless a job asks for more explicitly.
 - **Actions cannot approve pull requests**, so a workflow can never satisfy review rules on its own.
