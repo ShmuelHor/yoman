@@ -10,8 +10,10 @@ const WEB_DIR = fileURLToPath(new URL('..', import.meta.url));
 const BUILD_TIMEOUT_MS = 60_000;
 
 /**
- * The CSP allows only same-origin files (SECURITY A6), so anything inline in the
- * production build would be blocked and show up as a console error.
+ * The CSP allows only same-origin scripts (SECURITY A6), so an inline script in
+ * the production build would be blocked and show up as a console error. Inline
+ * styles are allowed for Emotion's runtime rules, but the shipped HTML needs
+ * none, so it stays free of them too.
  */
 describe('production build', { timeout: BUILD_TIMEOUT_MS }, () => {
   let outDir: string;
