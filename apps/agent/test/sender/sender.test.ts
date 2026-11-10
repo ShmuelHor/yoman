@@ -1,5 +1,5 @@
 import type { IngestResult } from '@yoman/shared/ingest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BufferBatch, SampleBuffer } from '../../src/core/buffer.js';
 import type { IngestClient, IngestHttpReply } from '../../src/sender/adapters/ingest-client.js';
 import { IngestRequestError } from '../../src/sender/adapters/ingest-client.js';
@@ -79,7 +79,6 @@ describe('createSender', () => {
       agentVersion: AGENT_VERSION,
       logger: recorded.logger,
       replyHandlers: [],
-      timers,
     });
   }
 
@@ -91,8 +90,13 @@ describe('createSender', () => {
     return Array.from({ length: times }, () => new IngestRequestError('UNREACHABLE'));
   }
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     timers = new VirtualTimers();
+    timers.install();
     buffer = stubBuffer();
     steps = [];
     postedAt = [];
@@ -172,23 +176,41 @@ describe('createSender', () => {
     expect(timers.armedDelays).toEqual([SEND_INTERVAL_MS]);
   });
 
-  it('does not rearm an attempt that settles after a pause', async () => {
+  it('sends nothing and arms nothing when paused before the first send', async () => {
     sender.start();
     sender.pause();
     await sender.whenIdle();
 
-    expect(postedAt).toEqual([0]);
+    expect(postedAt).toEqual([]);
     expect(timers.armedDelays).toEqual([]);
   });
 
   it('waits for the send in flight on stop, then never sends again', async () => {
     sender.start();
+    await sender.whenIdle();
     await sender.stop();
 
     expect(buffer.acks).toBe(1);
     expect(sender.state).toBe('stopped');
     await advance(ONE_HOUR);
     expect(postedAt).toEqual([0]);
+  });
+
+  it('stops waiting for the backoff on pause, then sends at once on resume', async () => {
+    steps.push(...unreachable(1));
+    sender.start();
+    await sender.whenIdle();
+    expect(timers.armedDelays).toEqual([TWO_MINUTES]);
+
+    sender.pause();
+    expect(timers.armedDelays).toEqual([]);
+    await advance(ONE_HOUR);
+    expect(postedAt).toEqual([0]);
+
+    sender.resume();
+    await sender.whenIdle();
+
+    expect(postedAt).toEqual([0, ONE_HOUR]);
   });
 
   it('ignores pause and resume when not running', () => {
@@ -212,7 +234,6 @@ describe('createSender', () => {
         agentVersion: 'not a version',
         logger: recordingLogger().logger,
         replyHandlers: [] satisfies ReplyHandler[],
-        timers,
       }),
     ).toThrow();
   });

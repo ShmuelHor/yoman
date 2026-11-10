@@ -13,7 +13,9 @@ export const MAX_BACKOFF_MS = 600_000;
  */
 export const DRAIN_INTERVAL_MS = 11_000;
 
-const BACKOFF_FACTOR = 2;
+/** The first retry after a failure waits two intervals; each next one doubles (p-retry `factor`). */
+export const BACKOFF_FACTOR = 2;
+export const FIRST_BACKOFF_MS = SEND_INTERVAL_MS * BACKOFF_FACTOR;
 const SHRINK_FACTOR = 2;
 
 /** What one attempt ended in, as far as scheduling cares. */
@@ -29,17 +31,12 @@ export type AttemptResult =
   /** Unreachable, timed out or refused: the samples stay buffered. */
   | { readonly kind: 'failed' };
 
-export interface SendPlan {
-  /** Consecutive failures so far; it drives the backoff. */
-  readonly failures: number;
-  readonly delayMs: number;
-}
-
-/** The delay after `failures` consecutive failures: 120 s, 240 s, 480 s, then 10 min. */
-export function backoffDelayMs(failures: number): number {
-  const delay = SEND_INTERVAL_MS * BACKOFF_FACTOR ** failures;
-  return Math.min(delay, MAX_BACKOFF_MS);
-}
+/**
+ * An attempt the gateway answered, or that found nothing to send. Failures are
+ * not here: the sender retries them with p-retry's exponential backoff
+ * (120 s, 240 s, 480 s, then 10 min) before it plans anything.
+ */
+export type AnsweredAttempt = Exclude<AttemptResult, { readonly kind: 'failed' }>;
 
 function clampRetryAfter(retryAfterMs: number | undefined): number {
   if (retryAfterMs === undefined) {
@@ -48,22 +45,18 @@ function clampRetryAfter(retryAfterMs: number | undefined): number {
   return Math.min(Math.max(retryAfterMs, DRAIN_INTERVAL_MS), MAX_BACKOFF_MS);
 }
 
-/** The next attempt, given how the last one went and the failures before it. */
-export function planNext(failures: number, result: AttemptResult): SendPlan {
+/** How long to wait before the next regular attempt. */
+export function planNextDelayMs(result: AnsweredAttempt): number {
   switch (result.kind) {
     case 'sent':
-      return { failures: 0, delayMs: result.more ? DRAIN_INTERVAL_MS : SEND_INTERVAL_MS };
+      return result.more ? DRAIN_INTERVAL_MS : SEND_INTERVAL_MS;
     case 'empty':
-      return { failures: 0, delayMs: SEND_INTERVAL_MS };
+      return SEND_INTERVAL_MS;
     case 'too-large':
-      return { failures, delayMs: DRAIN_INTERVAL_MS };
+      return DRAIN_INTERVAL_MS;
     case 'rate-limited':
-      // A 429 means the gateway is up and answering: no reason to grow the backoff.
-      return { failures, delayMs: clampRetryAfter(result.retryAfterMs) };
-    case 'failed': {
-      const next = failures + 1;
-      return { failures: next, delayMs: backoffDelayMs(next) };
-    }
+      // A 429 means the gateway is up and answering: honor its Retry-After.
+      return clampRetryAfter(result.retryAfterMs);
   }
 }
 

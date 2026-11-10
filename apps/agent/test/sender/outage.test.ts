@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { IngestBatch, type IngestResult, type Sample } from '@yoman/shared/ingest';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createBuffer, type SampleBuffer } from '../../src/core/buffer.js';
 import { createIngestClient, type FetchFn } from '../../src/sender/adapters/ingest-client.js';
 import { MAX_BACKOFF_MS, SEND_INTERVAL_MS } from '../../src/sender/domain/schedule.js';
@@ -125,6 +125,7 @@ describe('sender during a gateway outage', () => {
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'yoman-outage-'));
     timers = new VirtualTimers();
+    timers.install();
     gateway = new FakeGateway(timers);
     const { logger } = recordingLogger();
     buffer = await createBuffer({
@@ -151,12 +152,12 @@ describe('sender during a gateway outage', () => {
       agentVersion: '0.0.0',
       logger,
       replyHandlers: [counter],
-      timers,
     });
   });
 
   afterEach(async () => {
     await sender.stop();
+    vi.unstubAllGlobals();
     await rm(root, { recursive: true, force: true });
   });
 

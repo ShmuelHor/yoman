@@ -1,18 +1,20 @@
+import { setImmediate } from 'node:timers/promises';
 import { IngestBatch } from '@yoman/shared/ingest';
 import { LIMITS } from '@yoman/shared/limits';
+import pRetry from 'p-retry';
 import type { AgentLogger } from '../core/logger.js';
-import type { Timers } from '../core/scheduler.js';
-import { type AttemptResult, nextBatchLimit, planNext } from './domain/schedule.js';
+import {
+  type AnsweredAttempt,
+  BACKOFF_FACTOR,
+  FIRST_BACKOFF_MS,
+  MAX_BACKOFF_MS,
+  nextBatchLimit,
+  planNextDelayMs,
+} from './domain/schedule.js';
 import { type SendAttemptDeps, sendAttempt } from './send-attempt.js';
-
-const systemTimers: Timers = {
-  setTimeout: (callback, ms) => setTimeout(callback, ms),
-  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-};
 
 export interface SenderOptions extends SendAttemptDeps {
   readonly logger: Pick<AgentLogger, 'debug' | 'info' | 'warn' | 'error'>;
-  readonly timers?: Timers;
 }
 
 export type SenderState = 'idle' | 'running' | 'paused' | 'stopped';
@@ -30,77 +32,114 @@ export interface Sender {
   resume(): void;
   /** Final. Waits for a send in flight, so an accepted batch is always acked. */
   stop(): Promise<void>;
-  /** Resolves once no send is in flight. */
+  /** Resolves once no request is in flight. A backoff wait is not a send in flight. */
   whenIdle(): Promise<void>;
   readonly state: SenderState;
 }
 
+/** A failed attempt, thrown so p-retry backs off and tries again. */
+class SendFailed extends Error {
+  override readonly name = 'SendFailed';
+}
+
 /**
- * Each attempt is armed only after the previous one settles, so sends never
- * overlap and a slow gateway never queues a burst of requests.
+ * A send cycle starts on the regular schedule. While the gateway is
+ * unreachable, p-retry repeats it with an exponential backoff (SPEC §4.3), and
+ * only an answered attempt arms the next cycle, so sends never overlap and a
+ * slow gateway never queues a burst of requests.
  */
 export function createSender(options: SenderOptions): Sender {
-  const timers = options.timers ?? systemTimers;
   const { logger } = options;
   // Fail at startup, not on every send, if the version cannot pass the contract.
   IngestBatch.shape.agentVersion.parse(options.agentVersion);
 
   let state: SenderState = 'idle';
-  let handle: unknown;
-  let inFlight: Promise<void> = Promise.resolve();
-  // Bumped on every pause and stop, so an attempt that settles afterwards does not rearm.
-  let generation = 0;
-  let failures = 0;
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  // The whole cycle, backoff waits included: `stop` waits for it.
+  let cycle: Promise<void> = Promise.resolve();
+  // Only the request itself: `whenIdle` waits for it.
+  let request: Promise<unknown> = Promise.resolve();
+  // Cancels the backoff wait of the cycle on pause and stop.
+  let cancel = new AbortController();
   let limit: number = LIMITS.ingestSamples;
 
-  async function attempt(): Promise<AttemptResult> {
+  async function attempt(): Promise<AnsweredAttempt> {
     try {
-      return await sendAttempt(options, limit);
+      const result = await sendAttempt(options, limit);
+      if (result.kind !== 'failed') {
+        return result;
+      }
     } catch (error: unknown) {
       // The buffer itself failed (disk full, permissions): retry on the backoff.
       const name = error instanceof Error ? error.name : typeof error;
       logger.error({ error: name }, 'send attempt failed');
-      return { kind: 'failed' };
+    }
+    throw new SendFailed('the batch was not delivered');
+  }
+
+  async function sendWithBackoff(signal: AbortSignal): Promise<AnsweredAttempt> {
+    let failures = 0;
+    const answered = await pRetry(
+      () => {
+        const inFlight = attempt();
+        request = inFlight.catch(() => undefined);
+        return inFlight;
+      },
+      {
+        retries: Number.POSITIVE_INFINITY,
+        minTimeout: FIRST_BACKOFF_MS,
+        factor: BACKOFF_FACTOR,
+        maxTimeout: MAX_BACKOFF_MS,
+        signal,
+        onFailedAttempt: ({ retryDelay }) => {
+          failures += 1;
+          logger.warn({ failures, retryInMs: retryDelay }, 'backing off');
+        },
+      },
+    );
+    if (failures > 0) {
+      logger.info({ failures }, 'gateway reachable again');
+    }
+    return answered;
+  }
+
+  async function run(signal: AbortSignal): Promise<void> {
+    let result: AnsweredAttempt;
+    try {
+      result = await sendWithBackoff(signal);
+    } catch (error: unknown) {
+      if (signal.aborted) {
+        return;
+      }
+      throw error;
+    }
+    limit = nextBatchLimit(limit, LIMITS.ingestSamples, result);
+    if (state === 'running' && !signal.aborted) {
+      arm(planNextDelayMs(result), signal);
     }
   }
 
-  function arm(delayMs: number): void {
-    const armedIn = generation;
-    handle = timers.setTimeout(() => {
+  function arm(delayMs: number, signal: AbortSignal): void {
+    handle = setTimeout(() => {
       handle = undefined;
-      inFlight = run(armedIn);
+      cycle = run(signal);
     }, delayMs);
   }
 
-  async function run(armedIn: number): Promise<void> {
-    const result = await attempt();
-    const plan = planNext(failures, result);
-    if (failures > 0 && plan.failures === 0) {
-      logger.info({ failures }, 'gateway reachable again');
-    }
-    if (plan.failures > failures) {
-      logger.warn({ failures: plan.failures, retryInMs: plan.delayMs }, 'backing off');
-    }
-    failures = plan.failures;
-    limit = nextBatchLimit(limit, LIMITS.ingestSamples, result);
-    if (state === 'running' && armedIn === generation) {
-      arm(plan.delayMs);
-    }
-  }
-
   function disarm(): void {
-    generation += 1;
+    cancel.abort();
+    cancel = new AbortController();
     if (handle !== undefined) {
-      timers.clearTimeout(handle);
+      clearTimeout(handle);
       handle = undefined;
     }
   }
 
   function startNow(): void {
     state = 'running';
-    // A send still in flight from before a pause finishes first, then the new one starts.
-    const armedIn = generation;
-    inFlight = inFlight.then(() => run(armedIn));
+    const { signal } = cancel;
+    // A cycle still settling from before a pause finishes first, then the new one starts.
+    cycle = cycle.then(() => run(signal));
   }
 
   return {
@@ -124,9 +163,14 @@ export function createSender(options: SenderOptions): Sender {
     async stop(): Promise<void> {
       disarm();
       state = 'stopped';
-      await inFlight;
+      await cycle;
     },
-    whenIdle: () => inFlight,
+    async whenIdle(): Promise<void> {
+      // Lets a cycle that just woke start its request, and then arm its next timer.
+      await setImmediate();
+      await request;
+      await setImmediate();
+    },
     get state(): SenderState {
       return state;
     },

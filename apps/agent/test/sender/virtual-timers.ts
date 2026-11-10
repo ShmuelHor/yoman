@@ -1,4 +1,4 @@
-import type { Timers } from '../../src/core/scheduler.js';
+import { vi } from 'vitest';
 
 interface Pending {
   readonly id: number;
@@ -8,12 +8,21 @@ interface Pending {
 
 /**
  * A clock the test moves by hand. Unlike fake timers it waits for real IO
- * (the buffer's files) after each callback, through `settle`.
+ * (the buffer's files) after each callback, through `settle`. `install`
+ * replaces the global timers, which is what p-retry's backoff waits on.
  */
-export class VirtualTimers implements Timers {
+export class VirtualTimers {
   now = 0;
   private nextId = 0;
   private pending: Pending[] = [];
+
+  /** Routes the global `setTimeout` and `clearTimeout` here until `vi.unstubAllGlobals()`. */
+  install(): void {
+    vi.stubGlobal('setTimeout', (callback: () => void, ms: number) =>
+      this.setTimeout(callback, ms),
+    );
+    vi.stubGlobal('clearTimeout', (handle: unknown) => this.clearTimeout(handle));
+  }
 
   setTimeout(callback: () => void, ms: number): unknown {
     this.nextId += 1;
