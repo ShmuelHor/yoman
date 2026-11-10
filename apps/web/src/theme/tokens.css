@@ -1,36 +1,42 @@
 /*
- * "Paper and Ink" design tokens (docs/DESIGN.md). This is the only file in the
- * web app that may contain a color literal; test/theme/no-raw-colors.test.ts
- * enforces that.
+ * "Paper and Ink" design tokens (docs/DESIGN.md) for plain CSS.
  *
- * Each color is declared once as light-dark(light, dark). Which value applies
- * follows `color-scheme`: the OS preference before the app starts, then the
- * data-theme attribute that ThemeProvider sets on <html>.
+ * The colors live in theme/color-tokens.ts, the only file allowed to hold a
+ * color literal (test/theme/no-raw-colors.test.ts). The MUI theme publishes
+ * them as --mui-palette-tokens-* variables for the light scheme on :root and
+ * [data-theme="light"], and for the dark one on [data-theme="dark"]; the short
+ * names below alias them. They are declared on every [data-theme] element too,
+ * so a subtree that pins its own theme resolves its own values.
  */
-:root {
-  color-scheme: light dark;
+:root,
+[data-theme] {
+  --bg: var(--mui-palette-tokens-bg);
+  --surface: var(--mui-palette-tokens-surface);
+  --text: var(--mui-palette-tokens-text);
+  --muted: var(--mui-palette-tokens-muted);
+  --line: var(--mui-palette-tokens-line);
+  --accent: var(--mui-palette-tokens-accent);
+  --accent-bg: var(--mui-palette-tokens-accentBg);
+  --ok: var(--mui-palette-tokens-ok);
+  --on-accent: var(--mui-palette-tokens-onAccent);
 
-  --bg: light-dark(#f3ede2, #1b1916);
-  --surface: light-dark(#fbf7f0, #24211d);
-  --text: light-dark(#1e1c19, #ede6d9);
-  --muted: light-dark(#7a7368, #a39a8b);
-  --line: light-dark(#ddd3c3, #3a352e);
-  --accent: light-dark(#b4532a, #e07b4f);
-  --accent-bg: light-dark(#f3ded2, #3a271e);
-  --ok: light-dark(#5e6b3a, #9aaa6a);
-  --on-accent: light-dark(#fbf7f0, #1b1916);
-
-  --cat-work: light-dark(#b4532a, #e07b4f);
-  --cat-comms: light-dark(#5e6b3a, #9aaa6a);
-  --cat-fun: light-dark(#c9a15b, #d9b26e);
-  --cat-other: light-dark(#8c8478, #7d7568);
+  --cat-work: var(--mui-palette-tokens-catWork);
+  --cat-comms: var(--mui-palette-tokens-catComms);
+  --cat-fun: var(--mui-palette-tokens-catFun);
+  --cat-other: var(--mui-palette-tokens-catOther);
   --cat-idle: var(--line);
 
-  --radius: 10px;
-  --radius-sm: 3px;
   --border: 1px solid var(--line);
   --border-accent: 1px solid var(--accent);
   --focus-ring: 2px solid var(--text);
+  --chart-anomaly: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+:root {
+  color-scheme: light dark;
+
+  --radius: 10px;
+  --radius-sm: 3px;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -51,7 +57,6 @@
   --font-size-label: 12px;
 
   --chart-stroke: 1.5px;
-  --chart-anomaly: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 [data-theme="light"] {
