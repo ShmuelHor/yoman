@@ -1,0 +1,29 @@
+{
+  "title": "Today",
+  "error": "Today's data could not be loaded.",
+  "degraded": "Some data is unavailable right now. What is shown may be incomplete.",
+  "unavailable": "Unavailable",
+  "duration": "{{hours}}h {{minutes}}m",
+  "active": { "label": "Active time" },
+  "streak": { "label": "Longest focus streak" },
+  "battery": {
+    "label": "Battery",
+    "value": "{{percent}}%",
+    "status": {
+      "charging": "Charging",
+      "discharging": "On battery",
+      "full": "Full",
+      "not-charging": "Not charging",
+      "unknown": "Unknown"
+    }
+  },
+  "timeline": { "label": "Where the time went" },
+  "topApps": { "label": "Top apps" },
+  "category": {
+    "work": "Work",
+    "social": "Social",
+    "comms": "Communication",
+    "fun": "Entertainment",
+    "idle": "Other"
+  }
+}
