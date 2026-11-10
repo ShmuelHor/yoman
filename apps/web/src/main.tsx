@@ -8,7 +8,6 @@ import { bundledResources } from './i18n/bundled.js';
 import { createI18n } from './i18n/i18n.js';
 import { pageRoutes } from './router/pages.js';
 import { createAppRouter } from './router/router.js';
-import './styles/base.css';
 
 async function enableMocks(): Promise<void> {
   // `VITE_MOCKS=off npm run dev` talks to a real local gateway instead.

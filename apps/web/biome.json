@@ -8,5 +8,6 @@
         "useLogicalProperties": "error"
       }
     }
-  }
+  },
+  "plugins": ["./biome-plugins/no-physical-style-props.grit"]
 }

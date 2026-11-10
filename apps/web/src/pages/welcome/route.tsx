@@ -1,3 +1,4 @@
+import Typography from '@mui/material/Typography';
 import { useTranslation } from 'react-i18next';
 
 import type { PageRoute } from '../../router/page-route.js';
@@ -7,8 +8,8 @@ function WelcomePage(): React.JSX.Element {
   const { t } = useTranslation('welcome');
   return (
     <>
-      <h1>{t('title')}</h1>
-      <p>{t('body')}</p>
+      <Typography variant="h1">{t('title')}</Typography>
+      <Typography>{t('body')}</Typography>
     </>
   );
 }

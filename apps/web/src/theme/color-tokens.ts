@@ -3,8 +3,8 @@ import type { ResolvedTheme } from './theme.js';
 /**
  * The "Paper and Ink" colors (docs/DESIGN.md). This is the only file in the web
  * app that may hold a color literal; test/theme/no-raw-colors.test.ts enforces
- * that. The MUI theme turns them into CSS variables, and tokens.css aliases
- * those as the short `--bg`, `--accent`, ... names.
+ * that. The MUI theme (mui-theme.ts) publishes them as `palette.tokens` and
+ * as `--mui-palette-tokens-*` CSS variables, keyed off `data-theme`.
  */
 export interface ColorTokens {
   readonly bg: string;
@@ -20,6 +20,8 @@ export interface ColorTokens {
   readonly catComms: string;
   readonly catFun: string;
   readonly catOther: string;
+  /** Away from the computer: the same value as `line`. */
+  readonly catIdle: string;
 }
 
 export const colorTokens: Readonly<Record<ResolvedTheme, ColorTokens>> = {
@@ -37,6 +39,7 @@ export const colorTokens: Readonly<Record<ResolvedTheme, ColorTokens>> = {
     catComms: '#5e6b3a',
     catFun: '#c9a15b',
     catOther: '#8c8478',
+    catIdle: '#ddd3c3',
   },
   dark: {
     bg: '#1b1916',
@@ -52,5 +55,6 @@ export const colorTokens: Readonly<Record<ResolvedTheme, ColorTokens>> = {
     catComms: '#9aaa6a',
     catFun: '#d9b26e',
     catOther: '#7d7568',
+    catIdle: '#3a352e',
   },
 };

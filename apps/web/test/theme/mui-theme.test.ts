@@ -1,15 +1,18 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { colorTokens } from '../../src/theme/color-tokens.js';
 import { appTheme } from '../../src/theme/mui-theme.js';
 
-const TOKENS_CSS = fileURLToPath(new URL('../../src/theme/tokens.css', import.meta.url));
 const LIGHT_SELECTOR = ':root, [data-theme="light"]';
 const DARK_SELECTOR = '[data-theme="dark"]';
 const WEIGHT_REGULAR = 400;
+const RADIUS_PX = 10;
+const RADIUS_SM_PX = 3;
+/** theme.spacing(6) is DESIGN.md's fifth step, 24px (6 × the 4px unit). */
+const SPACE_5 = 6;
+const CHART_STROKE_PX = 1.5;
+const ANOMALY_OPACITY = 0.12;
+const HERO_PX = 44;
 const WEIGHT_MEDIUM = 500;
 
 /** The CSS variables MUI generates, keyed by the selector they are declared on. */
@@ -49,8 +52,21 @@ describe('appTheme', () => {
     expect(new Set(appTheme.shadows)).toEqual(new Set(['none']));
   });
 
-  it('takes the radius from tokens.css', () => {
-    expect(appTheme.shape.borderRadius).toBe('var(--radius)');
+  it('carries the DESIGN.md radii, spacing scale and chart tokens', () => {
+    expect(appTheme.shape).toMatchObject({ borderRadius: RADIUS_PX, radiusSm: RADIUS_SM_PX });
+    expect(appTheme.spacing(SPACE_5)).toBe('calc(6 * var(--mui-spacing, 4px))');
+    expect(appTheme.chart).toEqual({
+      strokeWidth: CHART_STROKE_PX,
+      anomalyOpacity: ANOMALY_OPACITY,
+    });
+  });
+
+  it('sets numbers in the serif with tabular figures', () => {
+    expect(appTheme.typography.hero).toMatchObject({
+      fontFamily: appTheme.typography.fontFamilySerif,
+      fontSize: HERO_PX,
+      fontVariantNumeric: 'tabular-nums',
+    });
   });
 
   it('uses only the two allowed font weights', () => {
@@ -60,20 +76,5 @@ describe('appTheme', () => {
     expect(new Set([fontWeightLight, fontWeightRegular, fontWeightMedium, fontWeightBold])).toEqual(
       new Set([WEIGHT_REGULAR, WEIGHT_MEDIUM]),
     );
-  });
-});
-
-describe('tokens.css color aliases', () => {
-  it('point only at variables the theme declares', async () => {
-    const css = await readFile(TOKENS_CSS, 'utf8');
-    const light = variablesBySelector().get(LIGHT_SELECTOR) ?? {};
-    const referenced = [...css.matchAll(/var\((--mui-[\w-]+)\)/gu)].flatMap(
-      ([, name]) => name ?? [],
-    );
-
-    expect(referenced.length).toBeGreaterThan(0);
-    for (const name of referenced) {
-      expect(light, `${name}`).toHaveProperty([name]);
-    }
   });
 });

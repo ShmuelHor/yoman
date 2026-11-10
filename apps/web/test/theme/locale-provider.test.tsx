@@ -10,6 +10,7 @@ import { ThemeProvider } from '../../src/theme/theme-provider.js';
 
 function Probe(): React.JSX.Element {
   const { direction } = useTheme();
+  // biome-ignore lint/plugin: the test checks how physical CSS is mirrored
   return <Box sx={{ marginLeft: '7px' }}>{direction}</Box>;
 }
 
