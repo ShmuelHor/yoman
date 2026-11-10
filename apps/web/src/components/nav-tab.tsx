@@ -1,7 +1,7 @@
+import MuiButton from '@mui/material/Button';
+import type { SxProps, Theme } from '@mui/material/styles';
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
-
-import './nav-tab.css';
 
 export interface NavTabProps {
   readonly to: string;
@@ -10,15 +10,22 @@ export interface NavTabProps {
   readonly end?: boolean;
 }
 
+const tabSx: SxProps<Theme> = (theme) => ({
+  paddingBlock: 1,
+  paddingInline: 3,
+  fontWeight: 'fontWeightRegular',
+  color: theme.vars.palette.tokens.muted,
+  '&[aria-current="page"]': {
+    backgroundColor: theme.vars.palette.tokens.text,
+    color: theme.vars.palette.tokens.bg,
+  },
+});
+
 /** A navigation tab. React Router marks the current one with `aria-current="page"`. */
 export function NavTab({ to, children, end = true }: NavTabProps): React.JSX.Element {
   return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }): string => `nav-tab${isActive ? ' nav-tab--active' : ''}`}
-    >
+    <MuiButton component={NavLink} to={to} end={end} sx={tabSx}>
       {children}
-    </NavLink>
+    </MuiButton>
   );
 }

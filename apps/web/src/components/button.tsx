@@ -1,11 +1,10 @@
-import type { ButtonHTMLAttributes } from 'react';
-
-import './button.css';
+import MuiButton, { type ButtonProps as MuiButtonProps } from '@mui/material/Button';
 
 /** `primary` is the one main action on a screen (DESIGN.md rule 2); everything else is `secondary`. */
 export type ButtonVariant = 'primary' | 'secondary';
 
-export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {
+export interface ButtonProps
+  extends Omit<MuiButtonProps, 'variant' | 'color' | 'size' | 'className' | 'sx'> {
   readonly variant?: ButtonVariant;
 }
 
@@ -15,5 +14,15 @@ export function Button({
   type = 'button',
   ...rest
 }: ButtonProps): React.JSX.Element {
-  return <button {...rest} type={type} className={`button button--${variant}`} />;
+  if (variant === 'primary') {
+    return <MuiButton {...rest} type={type} variant="contained" color="primary" />;
+  }
+  return (
+    <MuiButton
+      {...rest}
+      type={type}
+      variant="outlined"
+      sx={{ borderColor: 'divider', color: 'text.primary' }}
+    />
+  );
 }
