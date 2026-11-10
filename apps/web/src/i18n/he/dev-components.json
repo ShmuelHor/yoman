@@ -10,7 +10,9 @@
     "navTabs": "לשוניות ניווט",
     "cards": "כרטיסים",
     "alert": "כרטיס התראה",
-    "focusBanner": "פס מצב ריכוז"
+    "focusBanner": "פס מצב ריכוז",
+    "dataGrid": "טבלת נתונים",
+    "datePicker": "בורר תאריך"
   },
   "button": { "primary": "התחלת ריכוז", "secondary": "ביטול", "disabled": "לא זמין" },
   "input": { "label": "שם האפליקציה", "placeholder": "למשל, Firefox" },
@@ -27,5 +29,13 @@
     "title": "צריכת סוללה חריגה",
     "body": "Firefox צרך {{share}} מהסוללה בשעה האחרונה."
   },
+  "dataGrid": {
+    "app": "אפליקציה",
+    "category": "קטגוריה",
+    "minutes": "דקות",
+    "work": "עבודה",
+    "comms": "תקשורת"
+  },
+  "datePicker": { "label": "יום" },
   "focusBanner": "מצב ריכוז · נותרו {{minutes}} דק׳"
 }
