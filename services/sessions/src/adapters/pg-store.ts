@@ -1,12 +1,13 @@
-import type pg from 'pg';
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
 
 import type { SessionsStore, SessionsTransaction } from '../use-cases/store.js';
 import * as apps from './apps-table.js';
+import type { SessionsDatabase } from './database.js';
 import * as rules from './rules-table.js';
 import * as sessions from './sessions-table.js';
-import { inTransaction, type Queryable } from './sql.js';
 
-function bind(db: Queryable): SessionsTransaction {
+function bind(db: Kysely<SessionsDatabase>): SessionsTransaction {
   return {
     lockOpenSession: () => sessions.lockOpenSession(db),
     recordedUntil: () => sessions.recordedUntil(db),
@@ -27,9 +28,10 @@ function bind(db: Queryable): SessionsTransaction {
   };
 }
 
-/** The sessions store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: pg.Pool): SessionsStore {
+/** The sessions store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): SessionsStore {
+  const db = createQueryBuilder<SessionsDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }

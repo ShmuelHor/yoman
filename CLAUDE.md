@@ -60,7 +60,7 @@ Merge only when CI is green, the latest review says `Verdict: approved`, and eve
 - Check plan usage (`get_usage`) before starting any agent, review or task. At 80% or more of the plan usage limit (the 5-hour or weekly window, not a session's context window), start nothing new: let running agents finish, then stop and tell the user the usage, the reset time and exactly where to resume.
 
 ## Security rules (blocking)
-- **Secrets:** never commit `.env`, tokens, passwords or real data. Only placeholders in `.env.example`. Never bypass or weaken gitleaks, CI security jobs or branch protection. No `continue-on-error`, and no new `.trivyignore` or `.semgrepignore` entries without a reason and an expiry date.
+- **Secrets:** never commit `.env`, tokens, passwords or real data. Only placeholders in `.env.example`. Never bypass or weaken gitleaks, CI security jobs or branch protection. No `continue-on-error`.
 - **Network:** only `127.0.0.1:4710` (web) and `127.0.0.1:4711` (gateway) are published. Internal services stay on the internal network. Don't touch the Host, Origin, CORS or CSP rules without updating SECURITY.md.
 - **Input:** validate every external input with Zod at the boundary. Window titles are untrusted input.
 
@@ -76,7 +76,7 @@ Zod is the only validation library in the repo.
 - **Logs:** never log titles, cmdlines, tokens, cookies or passwords. Use the pino redaction in service-kit or agent core.
 - **Agent:** send process `comm` only, never `cmdline`. Never require the `docker` group. Save GNOME settings before changing them, and make them restorable after a crash. Never touch system apps.
 - **Files:** `.env` and state files `0600`, their directories `0700`.
-- **Dependencies:** prefer a popular, well-maintained library over hand-written infrastructure code (UI kit, query builder, retries, dates, HTTP plumbing). Justify every new one in the PR. It must be maintained, permissively licensed, and have no install scripts. Pin Actions to a SHA and images to a digest.
+- **Dependencies:** prefer a popular, well-maintained library over hand-written infrastructure code (UI kit, query builder, retries, dates, HTTP plumbing), always at its latest stable version, pinned exactly. Justify every new one in the PR. It must be maintained, popular and permissively licensed. Pin Actions to a SHA and images to a digest.
 - **Containers:** non-root, read-only rootfs, `cap_drop: [ALL]`, `no-new-privileges`, memory limits. No docker.sock mounts.
 
 ## Language
@@ -99,11 +99,11 @@ This repo is a portfolio piece. Code should read like it was written by a strong
 ## Product rules
 - **Boundaries:** web and agent talk only to the gateway. Services never call each other and never read another service's schema. The gateway orchestrates and owns only `gateway.settings`.
 - **Battery budget:** the agent stays ≤ 0.5% CPU and ≤ 60MB RSS. No new polling without updating SPEC §4.1. Everything pauses while the screen is locked.
-- **Design:** the UI is built with MUI. Colors, fonts, radii and spacing come only from the theme tokens (`apps/web/src/theme/`), mapped into the MUI theme. No hex values elsewhere, no gradients or shadows.
+- **Design:** the UI is built with MUI. Colors come only from `apps/web/src/theme/color-tokens.ts` and every other token from the MUI theme (`apps/web/src/theme/mui-theme.ts`). No hand-written CSS files. No hex values elsewhere, no gradients or shadows.
 - **i18n:** every user-facing string goes in both `he` and `en` (Hebrew is the default). CSS uses logical properties only. Dates and numbers go through `Intl`.
 
 ## Stack
-Node 22 + TypeScript (strict) · npm workspaces · Biome (lint + format, GritQL rules in `biome-plugins/`) · Fastify (fastify-type-provider-zod, helmet, sensible) · zod · pino · PostgreSQL 16 (node-pg-migrate, Kysely) · date-fns · p-retry · vitest · fast-check · Playwright · React 18 + Vite + MUI (Emotion, MUI X Charts) + react-hook-form + TanStack Query + react-i18next + MSW · dbus-next (agent) · Docker Engine + Compose v2 · GitHub Actions · cosign · syft · Trivy · Semgrep · CodeQL · gitleaks · ZAP.
+Node 22 + TypeScript (strict) · npm workspaces · Biome (lint + format, GritQL rules in `biome-plugins/`) · Fastify (fastify-type-provider-zod, helmet, swagger in dev) · zod · pino · PostgreSQL 16 (node-pg-migrate, Kysely) · date-fns · p-retry · vitest · fast-check · Playwright · React 19 + Vite + MUI (Emotion, MUI X Charts, Data Grid, Date Pickers) + react-hook-form + TanStack Query + react-i18next + MSW · dbus-next (agent) · Docker Engine + Compose v2 · GitHub Actions · CodeQL · gitleaks.
 
 ## Commands
 ```
@@ -113,6 +113,6 @@ npm run agent:dev        # run the agent in the foreground
 npm run check            # Biome lint + format, typecheck, language check
 npm run format           # apply Biome fixes and formatting
 npm test                 # unit tests with coverage thresholds
-npm run test:security    # tests/security (ST01–ST19)
+npm run test:security    # tests/security (ST01–ST18)
 npm run security:todo    # list ST tests not enabled yet (--strict fails)
 ```

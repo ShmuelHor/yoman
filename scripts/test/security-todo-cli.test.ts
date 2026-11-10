@@ -6,7 +6,7 @@ const SUITE = '/repo/tests/security';
 
 type Status = VitestJsonReport['testResults'][number]['assertionResults'][number]['status'];
 
-/** A report of ST01 to ST19 where ST03 has one test with the given status. */
+/** A report of ST01 to ST18 where ST03 has one test with the given status. */
 function reportWith(status: Status, title = '[T19] returns 401'): VitestJsonReport {
   return {
     testResults: Array.from({ length: SECURITY_TEST_COUNT }, (_, index) => {

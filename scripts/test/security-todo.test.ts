@@ -32,7 +32,7 @@ function file(
   return { name: `${SUITE}/${name}`, status, message: '', assertionResults: [...assertions] };
 }
 
-/** A report of ST01 to ST19, each with one passing test, with the given files swapped in. */
+/** A report of ST01 to ST18, each with one passing test, with the given files swapped in. */
 function report(overrides: Readonly<Record<string, FileResult>> = {}): VitestJsonReport {
   const testResults = Array.from({ length: SECURITY_TEST_COUNT }, (_, index) => {
     const name = `st${String(index + 1).padStart(2, '0')}-check.test.ts`;
@@ -146,7 +146,7 @@ describe('scanSecurityReport', () => {
     );
 
     expect(scan.errors).toEqual([
-      `${name} is not named st01- to st19-<slug>.test.ts directly in the suite`,
+      `${name} is not named st01- to st18-<slug>.test.ts directly in the suite`,
     ]);
   });
 });

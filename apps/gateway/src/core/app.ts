@@ -1,9 +1,20 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
-import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
+import Fastify, {
+  type FastifyBaseLogger,
+  type FastifyInstance,
+  type FastifyRequest,
+} from 'fastify';
+import {
+  ResponseSerializationError,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 
 import { createTokenVerifier } from './agent-token.js';
+import { registerApiDocs } from './api-docs.js';
 import { CSRF_HEADER } from './authenticate.js';
 import { INGEST_RATE_LIMIT, type RateLimit, registerContractRoutes } from './contract-routes.js';
 import {
@@ -17,7 +28,7 @@ import {
 } from './errors.js';
 import { ALLOWED_ORIGINS, isAllowedHost, isAllowedOrigin } from './origins.js';
 import type { HandlerMap } from './route-handler.js';
-import { SECURITY_HEADERS } from './security-headers.js';
+import { CACHE_CONTROL, HELMET_OPTIONS } from './security-headers.js';
 import type { ServiceClient } from './service-client.js';
 import { createSessionStore, type SessionStore } from './web-sessions.js';
 
@@ -39,11 +50,15 @@ export interface GatewayOptions {
   readonly handlers?: HandlerMap;
   readonly sessions?: SessionStore;
   readonly rateLimits?: { readonly global?: RateLimit; readonly ingest?: RateLimit };
+  /** Serve the OpenAPI document and Swagger UI under `/docs`. Development only. */
+  readonly apiDocs?: boolean;
 }
 
-function registerRequestGuards(app: FastifyInstance): void {
+async function registerRequestGuards(app: FastifyInstance): Promise<void> {
+  // Before the guards below, so a rejected request carries the security headers too (ST07).
+  await app.register(helmet, HELMET_OPTIONS);
   app.addHook('onSend', async (_request, reply, payload) => {
-    void reply.headers(SECURITY_HEADERS);
+    void reply.header('cache-control', CACHE_CONTROL);
     return payload;
   });
   // First, before routing, CORS and the rate limit: a rebinding attempt gets nothing (SECURITY A4).
@@ -59,11 +74,21 @@ function registerRequestGuards(app: FastifyInstance): void {
   });
 }
 
+function logFailure(request: FastifyRequest, error: unknown): void {
+  if (error instanceof ResponseSerializationError) {
+    // A handler that breaks its contract is a gateway bug. Paths only: the values are user data.
+    const paths = error.cause.issues.map((issue) => issue.path.join('.'));
+    request.log.error({ paths }, 'Response failed its contract');
+    return;
+  }
+  request.log.error({ err: error }, 'Request failed');
+}
+
 function registerErrorHandlers(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const gatewayError = toGatewayError(error);
     if (gatewayError.statusCode >= HTTP_INTERNAL) {
-      request.log.error({ err: error }, 'Request failed');
+      logFailure(request, error);
     }
     return reply.status(gatewayError.statusCode).send(toErrorBody(gatewayError));
   });
@@ -87,8 +112,11 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
     requestTimeout: REQUEST_TIMEOUT_MS,
     routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
   });
+  // Request parts and responses are parsed by the contracts' own Zod schemas.
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
   registerErrorHandlers(app);
-  registerRequestGuards(app);
+  await registerRequestGuards(app);
 
   await app.register(cors, {
     origin: [...ALLOWED_ORIGINS],
@@ -103,6 +131,9 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
     ...(options.rateLimits?.global ?? GLOBAL_RATE_LIMIT),
     errorResponseBuilder: () => new RateLimitedError(),
   });
+  if (options.apiDocs === true) {
+    await registerApiDocs(app);
+  }
 
   // Polled by Docker; it carries no data, so it needs no credential and no rate limit.
   app.get('/health', { logLevel: 'warn', config: { rateLimit: false } }, async () => ({

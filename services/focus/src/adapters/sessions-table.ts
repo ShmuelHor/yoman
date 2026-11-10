@@ -1,9 +1,13 @@
+import { parseRow } from '@yoman/service-kit/sql';
 import { FocusSource } from '@yoman/shared/focus';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
 import type { FocusSession } from '../domain/focus-session.js';
 import type { NewFocusSession } from '../use-cases/store.js';
-import { type Queryable, selectRow } from './sql.js';
+import type { FocusDatabase } from './database.js';
+
+type Db = Kysely<FocusDatabase>;
 
 /** Any constant works; it only has to be the same for every focus writer. */
 const FOCUS_LOCK_KEY = 18;
@@ -18,7 +22,7 @@ const SessionRow = z.object({
 });
 type SessionRow = z.infer<typeof SessionRow>;
 
-const COLUMNS = 'id, profile_id, source, started_at, ends_at, muted_apps';
+const COLUMNS = ['id', 'profile_id', 'source', 'started_at', 'ends_at', 'muted_apps'] as const;
 
 function toSession(row: SessionRow): FocusSession {
   return {
@@ -32,32 +36,36 @@ function toSession(row: SessionRow): FocusSession {
 }
 
 /** Blocks other writers (not readers) until the transaction ends. */
-export async function lock(db: Queryable): Promise<void> {
-  await db.query('SELECT pg_advisory_xact_lock($1)', [FOCUS_LOCK_KEY]);
+export async function lock(db: Db): Promise<void> {
+  await sql`SELECT pg_advisory_xact_lock(${FOCUS_LOCK_KEY})`.execute(db);
 }
 
-export async function openSession(db: Queryable): Promise<FocusSession | null> {
-  const row = await selectRow(
-    db,
+export async function openSession(db: Db): Promise<FocusSession | null> {
+  const row = parseRow(
     SessionRow,
-    `SELECT ${COLUMNS} FROM focus_sessions WHERE ended_at IS NULL`,
+    await db
+      .selectFrom('focus_sessions')
+      .select(COLUMNS)
+      .where('ended_at', 'is', null)
+      .executeTakeFirst(),
   );
   return row === null ? null : toSession(row);
 }
 
-export async function startSession(db: Queryable, session: NewFocusSession): Promise<FocusSession> {
-  const row = await selectRow(
-    db,
+export async function startSession(db: Db, session: NewFocusSession): Promise<FocusSession> {
+  const row = parseRow(
     SessionRow,
-    `INSERT INTO focus_sessions (profile_id, source, started_at, ends_at, muted_apps)
-     VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
-    [
-      session.profileId,
-      session.source,
-      new Date(session.startedAtMs),
-      new Date(session.endsAtMs),
-      [...session.mutedApps],
-    ],
+    await db
+      .insertInto('focus_sessions')
+      .values({
+        profile_id: session.profileId,
+        source: session.source,
+        started_at: new Date(session.startedAtMs),
+        ends_at: new Date(session.endsAtMs),
+        muted_apps: [...session.mutedApps],
+      })
+      .returning(COLUMNS)
+      .executeTakeFirst(),
   );
   if (row === null) {
     throw new Error('INSERT returned no row');
@@ -65,9 +73,10 @@ export async function startSession(db: Queryable, session: NewFocusSession): Pro
   return toSession(row);
 }
 
-export async function endSession(db: Queryable, id: string, endedAtMs: number): Promise<void> {
-  await db.query('UPDATE focus_sessions SET ended_at = $2 WHERE id = $1', [
-    id,
-    new Date(endedAtMs),
-  ]);
+export async function endSession(db: Db, id: string, endedAtMs: number): Promise<void> {
+  await db
+    .updateTable('focus_sessions')
+    .set({ ended_at: new Date(endedAtMs) })
+    .where('id', '=', id)
+    .execute();
 }

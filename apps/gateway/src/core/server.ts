@@ -54,13 +54,14 @@ function installSignalHandlers(log: Logger, stop: () => Promise<void>): void {
 /** Validates the environment, loads the route modules and listens. */
 export async function startGateway(options: StartOptions): Promise<RunningGateway> {
   const config = loadConfig(options.env ?? process.env);
-  const log = createLogger(config.logLevel, options.logStream);
+  const log = createLogger(config.logLevel, options.logStream, config.development);
   try {
     const app = await buildGateway({
       logger: log,
       agentToken: config.agentToken,
       services: createServiceClient({ urls: config.serviceUrls, log }),
       handlers: await loadRouteHandlers({ dir: options.routesDir }),
+      apiDocs: config.development,
     });
     let stopping: Promise<void> | undefined;
     const stop = (): Promise<void> => {

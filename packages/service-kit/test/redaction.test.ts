@@ -68,3 +68,14 @@ describe('serializeError', () => {
     expect(serializeError('a string with a token')).toEqual({ type: 'string' });
   });
 });
+
+describe('buildLoggerOptions in development', () => {
+  it('pretty-prints through pino-pretty and keeps the redaction', () => {
+    const options = buildLoggerOptions('test', 'info', true);
+
+    expect(options.transport).toEqual(expect.objectContaining({ target: 'pino-pretty' }));
+    expect(options.redact).toEqual(
+      expect.objectContaining({ paths: expect.arrayContaining(['token']) }),
+    );
+  });
+});

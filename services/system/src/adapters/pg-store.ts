@@ -1,10 +1,13 @@
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
+
 import type { SystemStore, SystemTransaction } from '../use-cases/store.js';
+import type { SystemDatabase } from './database.js';
 import * as incidents from './incidents-table.js';
 import * as samples from './samples-table.js';
-import { type ClientPool, inTransaction, type Queryable } from './sql.js';
 import * as tracks from './tracks-table.js';
 
-function bind(db: Queryable): SystemTransaction {
+function bind(db: Kysely<SystemDatabase>): SystemTransaction {
   return {
     lockTracks: () => tracks.lockTracks(db),
     saveTracks: (entries) => tracks.saveTracks(db, entries),
@@ -23,9 +26,10 @@ function bind(db: Queryable): SystemTransaction {
   };
 }
 
-/** The system store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: ClientPool): SystemStore {
+/** The system store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): SystemStore {
+  const db = createQueryBuilder<SystemDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }

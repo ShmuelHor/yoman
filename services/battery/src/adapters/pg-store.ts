@@ -1,12 +1,13 @@
-import type pg from 'pg';
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
 
 import type { BatteryStore, BatteryTransaction } from '../use-cases/store.js';
 import * as alerts from './alert-state-table.js';
 import * as daily from './daily-table.js';
+import type { BatteryDatabase } from './database.js';
 import * as samples from './samples-table.js';
-import { inTransaction, type Queryable } from './sql.js';
 
-function bind(db: Queryable): BatteryTransaction {
+function bind(db: Kysely<BatteryDatabase>): BatteryTransaction {
   return {
     lockSamples: () => alerts.lockSamples(db),
     insertSamples: (rows) => samples.insertSamples(db, rows),
@@ -20,9 +21,10 @@ function bind(db: Queryable): BatteryTransaction {
   };
 }
 
-/** The battery store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: pg.Pool): BatteryStore {
+/** The battery store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): BatteryStore {
+  const db = createQueryBuilder<BatteryDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }

@@ -1,31 +1,66 @@
+import { asText, parseRows, pgArray, unnest } from '@yoman/service-kit/sql';
 import { BatteryDay } from '@yoman/shared/battery';
+import type { Kysely } from 'kysely';
 
-import { type Queryable, selectRows } from './sql.js';
+import type { BatteryDailyTable, BatteryDatabase } from './database.js';
 
-export async function saveDays(db: Queryable, days: readonly BatteryDay[]): Promise<void> {
+type Db = Kysely<BatteryDatabase>;
+
+export async function saveDays(db: Db, days: readonly BatteryDay[]): Promise<void> {
   if (days.length === 0) {
     return;
   }
-  await db.query(
-    `INSERT INTO battery_daily (date, health_pct, cycles, average_w)
-     SELECT * FROM unnest($1::date[], $2::float8[], $3::integer[], $4::float8[])
-     ON CONFLICT (date) DO UPDATE SET health_pct = EXCLUDED.health_pct,
-       cycles = EXCLUDED.cycles, average_w = EXCLUDED.average_w`,
-    [
-      days.map((day) => day.date),
-      days.map((day) => day.healthPct),
-      days.map((day) => day.cycles),
-      days.map((day) => day.averageW),
-    ],
-  );
+  await db
+    .insertInto('battery_daily')
+    .columns(['date', 'health_pct', 'cycles', 'average_w'])
+    .expression((eb) =>
+      eb
+        .selectFrom(
+          unnest<BatteryDailyTable, 't'>('t', {
+            date: pgArray(
+              'date',
+              days.map((day) => day.date),
+            ),
+            health_pct: pgArray(
+              'float8',
+              days.map((day) => day.healthPct),
+            ),
+            cycles: pgArray(
+              'integer',
+              days.map((day) => day.cycles),
+            ),
+            average_w: pgArray(
+              'float8',
+              days.map((day) => day.averageW),
+            ),
+          }),
+        )
+        .selectAll(),
+    )
+    .onConflict((conflict) =>
+      conflict.column('date').doUpdateSet((eb) => ({
+        health_pct: eb.ref('excluded.health_pct'),
+        cycles: eb.ref('excluded.cycles'),
+        average_w: eb.ref('excluded.average_w'),
+      })),
+    )
+    .execute();
 }
 
-export function daysSince(db: Queryable, date: string, limit: number): Promise<BatteryDay[]> {
-  return selectRows(
-    db,
+export async function daysSince(db: Db, date: string, limit: number): Promise<BatteryDay[]> {
+  return parseRows(
     BatteryDay,
-    `SELECT date::text AS date, health_pct AS "healthPct", cycles, average_w AS "averageW"
-     FROM battery_daily WHERE date >= $1 ORDER BY date LIMIT $2`,
-    [date, limit],
+    await db
+      .selectFrom('battery_daily')
+      .select([
+        asText('date', 'date'),
+        'health_pct as healthPct',
+        'cycles',
+        'average_w as averageW',
+      ])
+      .where('date', '>=', date)
+      .orderBy('date')
+      .limit(limit)
+      .execute(),
   );
 }

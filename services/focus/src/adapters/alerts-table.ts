@@ -1,8 +1,12 @@
+import { parseRows, pgArray, toPgText, unnest } from '@yoman/service-kit/sql';
 import { type Alert, AlertLevel, AlertParams, AlertType, QueuedAlert } from '@yoman/shared/alerts';
 import type { AlertPolicyEntry } from '@yoman/shared/focus';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
-import { type Queryable, selectRows, toPgText } from './sql.js';
+import type { FocusDatabase } from './database.js';
+
+type Db = Kysely<FocusDatabase>;
 
 const PolicyRow = z.object({ type: AlertType, level: AlertLevel });
 const AcceptedRow = z.object({ alert_key: z.string(), accepted_at: z.date() });
@@ -16,7 +20,7 @@ const QueuedRow = z.object({
 });
 type QueuedRow = z.infer<typeof QueuedRow>;
 
-const QUEUED_COLUMNS = 'alert_key, type, level, ts, params, queued_at';
+const QUEUED_COLUMNS = ['alert_key', 'type', 'level', 'ts', 'params', 'queued_at'] as const;
 
 function toQueuedAlert(row: QueuedRow): QueuedAlert {
   return QueuedAlert.parse({
@@ -40,64 +44,94 @@ function storableParams(params: Alert['params']): string {
   return JSON.stringify(Object.fromEntries(entries));
 }
 
-export async function alertPolicy(db: Queryable): Promise<Map<AlertType, AlertLevel>> {
-  const rows = await selectRows(db, PolicyRow, 'SELECT type, level FROM alert_policy');
+export async function alertPolicy(db: Db): Promise<Map<AlertType, AlertLevel>> {
+  const rows = parseRows(
+    PolicyRow,
+    await db.selectFrom('alert_policy').select(['type', 'level']).execute(),
+  );
   return new Map(rows.map((row) => [row.type, row.level]));
 }
 
 export async function replaceAlertPolicy(
-  db: Queryable,
+  db: Db,
   entries: readonly AlertPolicyEntry[],
 ): Promise<void> {
-  await db.query('DELETE FROM alert_policy');
+  await db.deleteFrom('alert_policy').execute();
   if (entries.length === 0) {
     return;
   }
-  await db.query(
-    'INSERT INTO alert_policy (type, level) SELECT * FROM unnest($1::text[], $2::text[])',
-    [entries.map((entry) => entry.type), entries.map((entry) => entry.level)],
-  );
+  await db
+    .insertInto('alert_policy')
+    .columns(['type', 'level'])
+    .expression((eb) =>
+      eb
+        .selectFrom(
+          unnest<{ type: string; level: string }, 't'>('t', {
+            type: pgArray(
+              'text',
+              entries.map((entry) => entry.type),
+            ),
+            level: pgArray(
+              'text',
+              entries.map((entry) => entry.level),
+            ),
+          }),
+        )
+        .selectAll(),
+    )
+    .execute();
 }
 
-export async function lastAccepted(
-  db: Queryable,
-  keys: readonly string[],
-): Promise<Map<string, number>> {
+export async function lastAccepted(db: Db, keys: readonly string[]): Promise<Map<string, number>> {
   if (keys.length === 0) {
     return new Map();
   }
-  const rows = await selectRows(
-    db,
+  const rows = parseRows(
     AcceptedRow,
-    'SELECT alert_key, accepted_at FROM alert_rate_limits WHERE alert_key = ANY($1::text[])',
-    [[...new Set(keys)]],
+    await db
+      .selectFrom('alert_rate_limits')
+      .select(['alert_key', 'accepted_at'])
+      .where('alert_key', '=', (eb) => eb.fn.any(pgArray('text', [...new Set(keys)])))
+      .execute(),
   );
   return new Map(rows.map((row) => [row.alert_key, row.accepted_at.getTime()]));
 }
 
-export async function recordAccepted(
-  db: Queryable,
-  keys: readonly string[],
-  atMs: number,
-): Promise<void> {
+export async function recordAccepted(db: Db, keys: readonly string[], atMs: number): Promise<void> {
   if (keys.length === 0) {
     return;
   }
-  await db.query(
-    `INSERT INTO alert_rate_limits (alert_key, accepted_at)
-     SELECT key, $2 FROM unnest($1::text[]) AS t(key)
-     ON CONFLICT (alert_key) DO UPDATE SET accepted_at = EXCLUDED.accepted_at`,
-    [[...new Set(keys)], new Date(atMs)],
-  );
+  await db
+    .insertInto('alert_rate_limits')
+    .columns(['alert_key', 'accepted_at'])
+    .expression((eb) =>
+      eb
+        .selectFrom(unnest<{ key: string }, 't'>('t', { key: pgArray('text', [...new Set(keys)]) }))
+        .select(['t.key', sql<Date>`${new Date(atMs)}`.as('accepted_at')]),
+    )
+    .onConflict((conflict) =>
+      conflict
+        .column('alert_key')
+        .doUpdateSet((eb) => ({ accepted_at: eb.ref('excluded.accepted_at') })),
+    )
+    .execute();
 }
 
-export async function forgetAcceptedBefore(db: Queryable, beforeMs: number): Promise<void> {
-  await db.query('DELETE FROM alert_rate_limits WHERE accepted_at < $1', [new Date(beforeMs)]);
+export async function forgetAcceptedBefore(db: Db, beforeMs: number): Promise<void> {
+  await db.deleteFrom('alert_rate_limits').where('accepted_at', '<', new Date(beforeMs)).execute();
+}
+
+interface AlertBatchRow {
+  readonly alert_key: string;
+  readonly type: string;
+  readonly level: string;
+  readonly ts: Date;
+  readonly params: string;
 }
 
 /** Appends in order, then keeps only the newest `capacity` alerts. */
 export async function enqueue(
-  db: Queryable,
+  db: Db,
   alerts: readonly Alert[],
   atMs: number,
   capacity: number,
@@ -105,44 +139,79 @@ export async function enqueue(
   if (alerts.length === 0) {
     return;
   }
-  await db.query(
-    `INSERT INTO queued_alerts (alert_key, type, level, ts, params, queued_at)
-     SELECT t.alert_key, t.type, t.level, t.ts, t.params, $6
-     FROM unnest($1::text[], $2::text[], $3::text[], $4::timestamptz[], $5::jsonb[])
-       WITH ORDINALITY AS t(alert_key, type, level, ts, params, ord)
-     ORDER BY t.ord`,
-    [
-      alerts.map((alert) => alert.alertKey),
-      alerts.map((alert) => alert.type),
-      alerts.map((alert) => alert.level),
-      alerts.map((alert) => new Date(alert.ts)),
-      alerts.map((alert) => storableParams(alert.params)),
-      new Date(atMs),
-    ],
+  const batch = unnest<AlertBatchRow, 't'>(
+    't',
+    {
+      alert_key: pgArray(
+        'text',
+        alerts.map((alert) => alert.alertKey),
+      ),
+      type: pgArray(
+        'text',
+        alerts.map((alert) => alert.type),
+      ),
+      level: pgArray(
+        'text',
+        alerts.map((alert) => alert.level),
+      ),
+      ts: pgArray(
+        'timestamptz',
+        alerts.map((alert) => new Date(alert.ts)),
+      ),
+      params: pgArray(
+        'jsonb',
+        alerts.map((alert) => storableParams(alert.params)),
+      ),
+    },
+    { ordinality: 'ord' },
   );
-  await db.query(
-    `DELETE FROM queued_alerts
-     WHERE id NOT IN (SELECT id FROM queued_alerts ORDER BY id DESC LIMIT $1)`,
-    [capacity],
-  );
+  await db
+    .insertInto('queued_alerts')
+    .columns([...QUEUED_COLUMNS])
+    .expression((eb) =>
+      eb
+        .selectFrom(batch)
+        .select([
+          't.alert_key',
+          't.type',
+          't.level',
+          't.ts',
+          't.params',
+          sql<Date>`${new Date(atMs)}`.as('queued_at'),
+        ])
+        .orderBy(sql.ref('t.ord')),
+    )
+    .execute();
+  await db
+    .deleteFrom('queued_alerts')
+    .where('id', 'not in', (eb) =>
+      eb.selectFrom('queued_alerts').select('id').orderBy('id', 'desc').limit(capacity),
+    )
+    .execute();
 }
 
-export async function listQueue(db: Queryable, limit: number): Promise<QueuedAlert[]> {
-  const rows = await selectRows(
-    db,
+export async function listQueue(db: Db, limit: number): Promise<QueuedAlert[]> {
+  const rows = parseRows(
     QueuedRow,
-    `SELECT ${QUEUED_COLUMNS} FROM queued_alerts ORDER BY id LIMIT $1`,
-    [limit],
+    await db
+      .selectFrom('queued_alerts')
+      .select(QUEUED_COLUMNS)
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
   return rows.map(toQueuedAlert);
 }
 
-export async function drainQueue(db: Queryable): Promise<QueuedAlert[]> {
-  const rows = await selectRows(
-    db,
+export async function drainQueue(db: Db): Promise<QueuedAlert[]> {
+  const rows = parseRows(
     QueuedRow,
-    `WITH drained AS (DELETE FROM queued_alerts RETURNING id, ${QUEUED_COLUMNS})
-     SELECT ${QUEUED_COLUMNS} FROM drained ORDER BY id`,
+    await db
+      .with('drained', (qb) => qb.deleteFrom('queued_alerts').returning(['id', ...QUEUED_COLUMNS]))
+      .selectFrom('drained')
+      .select(QUEUED_COLUMNS)
+      .orderBy('id')
+      .execute(),
   );
   return rows.map(toQueuedAlert);
 }

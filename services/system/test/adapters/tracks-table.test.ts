@@ -14,8 +14,8 @@ const PEAK = 55;
 
 describe('tracks table', () => {
   it('locks the tracks before reading them', async () => {
-    const db = fakeDb((text) =>
-      text.startsWith('SELECT')
+    const { db, queries } = fakeDb((text) =>
+      text.startsWith('select')
         ? [
             { type: 'cpu', run_start: START, run_peak: PEAK, last_at: LAST },
             { type: 'io', run_start: null, run_peak: 0, last_at: null },
@@ -25,7 +25,7 @@ describe('tracks table', () => {
 
     const tracks = await lockTracks(db);
 
-    expect(db.queries[0]?.text).toMatch(/^LOCK TABLE condition_tracks/);
+    expect(queries[0]?.text).toMatch(/^LOCK TABLE condition_tracks/);
     expect(tracks.get('cpu')).toEqual({
       runStartMs: START.getTime(),
       runPeak: PEAK,
@@ -35,7 +35,7 @@ describe('tracks table', () => {
   });
 
   it('upserts every track as parameter arrays', async () => {
-    const db = fakeDb();
+    const { db, queries } = fakeDb();
 
     await saveTracks(
       db,
@@ -45,7 +45,7 @@ describe('tracks table', () => {
       ]),
     );
 
-    expect(db.queries[0]?.values).toEqual([
+    expect(queries[0]?.values).toEqual([
       ['cpu', 'io'],
       [START, null],
       [PEAK, 0],
@@ -54,12 +54,12 @@ describe('tracks table', () => {
   });
 
   it('reads a missing watermark as null and writes one by kind', async () => {
-    const db = fakeDb(() => [{ kind: 'thermal', recorded_until: LAST }]);
+    const { db, queries } = fakeDb(() => [{ kind: 'thermal', recorded_until: LAST }]);
 
     const marks = await recordedUntil(db);
     await setRecordedUntil(db, 'pressure', START.getTime());
 
     expect(marks).toEqual({ pressure: null, processes: null, thermal: LAST.getTime() });
-    expect(db.queries[1]?.values).toEqual(['pressure', START]);
+    expect(queries[1]?.values).toEqual(['pressure', START]);
   });
 });

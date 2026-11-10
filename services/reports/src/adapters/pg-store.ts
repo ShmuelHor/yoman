@@ -1,12 +1,13 @@
-import type pg from 'pg';
+import { createQueryBuilder, inTransaction } from '@yoman/service-kit/sql';
+import type { Kysely, PostgresPool } from 'kysely';
 
 import type { ReportsStore, ReportsTransaction } from '../use-cases/store.js';
 import * as counted from './counted-sessions-table.js';
+import type { ReportsDatabase } from './database.js';
 import * as rollups from './rollups-table.js';
-import { inTransaction, type Queryable } from './sql.js';
 import * as streaks from './streaks-table.js';
 
-function bind(db: Queryable): ReportsTransaction {
+function bind(db: Kysely<ReportsDatabase>): ReportsTransaction {
   return {
     lockWrites: () => streaks.lockStreaks(db),
     markCounted: (sessions) => counted.markCounted(db, sessions),
@@ -18,9 +19,10 @@ function bind(db: Queryable): ReportsTransaction {
   };
 }
 
-/** The reports store on Postgres. Every query is parameterized (SECURITY A8). */
-export function createPgStore(pool: pg.Pool): ReportsStore {
+/** The reports store on Postgres. Kysely sends every value as a bind parameter (SECURITY A8). */
+export function createPgStore(pool: PostgresPool): ReportsStore {
+  const db = createQueryBuilder<ReportsDatabase>(pool);
   return {
-    transaction: (work) => inTransaction(pool, (client) => work(bind(client))),
+    transaction: (work) => inTransaction(db, (trx) => work(bind(trx))),
   };
 }

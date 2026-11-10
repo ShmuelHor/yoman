@@ -1,8 +1,12 @@
+import { asText, parseRows, pgArray, unnest } from '@yoman/service-kit/sql';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
 import type { LocalDateString } from '../domain/local-time.js';
 import type { RollupEntry } from '../domain/rollup.js';
-import { type Queryable, selectRows } from './sql.js';
+import type { ReportsDatabase } from './database.js';
+
+type Db = Kysely<ReportsDatabase>;
 
 /** `day` comes back as text: a `date` turned into a JS `Date` would shift with the server's zone. */
 const RollupRow = z.object({
@@ -12,37 +16,74 @@ const RollupRow = z.object({
   active_ms: z.number().int().min(0),
 });
 
+interface RollupBatchRow {
+  readonly day: string;
+  readonly app_id: string;
+  readonly category: string | null;
+  readonly active_ms: number;
+}
+
 /**
  * Adds each entry's time to its row. The entries carry unique keys (see
  * `rollUp`), as one upsert statement may touch a row only once.
  */
-export async function addToRollups(db: Queryable, entries: readonly RollupEntry[]): Promise<void> {
-  await db.query(
-    `INSERT INTO daily_rollups (day, app_id, category, active_ms)
-     SELECT * FROM unnest($1::date[], $2::text[], $3::text[], $4::bigint[])
-     ON CONFLICT (day, app_id, category)
-     DO UPDATE SET active_ms = daily_rollups.active_ms + EXCLUDED.active_ms`,
-    [
-      entries.map((entry) => entry.date),
-      entries.map((entry) => entry.appId),
-      entries.map((entry) => entry.category),
-      entries.map((entry) => entry.ms),
-    ],
-  );
+export async function addToRollups(db: Db, entries: readonly RollupEntry[]): Promise<void> {
+  await db
+    .insertInto('daily_rollups')
+    .columns(['day', 'app_id', 'category', 'active_ms'])
+    .expression((eb) =>
+      eb
+        .selectFrom(
+          unnest<RollupBatchRow, 't'>('t', {
+            day: pgArray(
+              'date',
+              entries.map((entry) => entry.date),
+            ),
+            app_id: pgArray(
+              'text',
+              entries.map((entry) => entry.appId),
+            ),
+            category: pgArray(
+              'text',
+              entries.map((entry) => entry.category),
+            ),
+            active_ms: pgArray(
+              'bigint',
+              entries.map((entry) => entry.ms),
+            ),
+          }),
+        )
+        .selectAll(),
+    )
+    .onConflict((conflict) =>
+      conflict.columns(['day', 'app_id', 'category']).doUpdateSet({
+        active_ms: sql<number>`daily_rollups.active_ms + excluded.active_ms`,
+      }),
+    )
+    .execute();
 }
 
 export async function rollups(
-  db: Queryable,
+  db: Db,
   from: LocalDateString,
   to: LocalDateString,
 ): Promise<RollupEntry[]> {
-  const rows = await selectRows(
-    db,
+  const rows = parseRows(
     RollupRow,
-    `SELECT day::text AS day, app_id, category, active_ms::float8 AS active_ms
-     FROM daily_rollups WHERE day >= $1::date AND day < $2::date
-     ORDER BY day, app_id, category NULLS FIRST`,
-    [from, to],
+    await db
+      .selectFrom('daily_rollups')
+      .select([
+        asText('day', 'day'),
+        'app_id',
+        'category',
+        sql<number>`active_ms::float8`.as('active_ms'),
+      ])
+      .where('day', '>=', from)
+      .where('day', '<', to)
+      .orderBy('day')
+      .orderBy('app_id')
+      .orderBy('category', (order) => order.nullsFirst())
+      .execute(),
   );
   return rows.map((row) => ({
     date: row.day,

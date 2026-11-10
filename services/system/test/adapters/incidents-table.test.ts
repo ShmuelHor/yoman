@@ -43,7 +43,7 @@ function incident(overrides: Partial<IncidentState> = {}): IncidentState {
 
 describe('incidents table', () => {
   it('reads open incidents with their culprits', async () => {
-    const db = fakeDb(() => [row]);
+    const { db } = fakeDb(() => [row]);
 
     expect(await openIncidents(db)).toEqual([
       {
@@ -59,34 +59,29 @@ describe('incidents table', () => {
   });
 
   it('inserts new incidents and updates stored ones, in order', async () => {
-    const db = fakeDb((text) => (text.startsWith('INSERT') ? [{ id: NEW_ID }] : []));
+    const { db, queries } = fakeDb((text) => (text.startsWith('insert') ? [{ id: NEW_ID }] : []));
 
     const saved = await saveIncidents(db, [incident({ id: ID, endMs: END.getTime() }), incident()]);
 
     expect(saved.map((item) => item.id)).toEqual([ID, NEW_ID]);
-    expect(db.queries.map((query) => query.text.split(' ')[0])).toEqual(['UPDATE', 'INSERT']);
-    expect(db.queries[0]?.values).toEqual([ID, END, PEAK, JSON.stringify([culprit])]);
-    expect(db.queries[1]?.values).toEqual([
-      'cpu',
-      START,
-      null,
-      PEAK,
-      JSON.stringify([culprit]),
-      null,
-    ]);
+    expect(queries.map((query) => query.text.split(' ')[0])).toEqual(['update', 'insert']);
+    expect(queries[0]?.values).toEqual([END, PEAK, JSON.stringify([culprit]), ID]);
+    expect(queries[1]?.values).toEqual(['cpu', START, null, PEAK, JSON.stringify([culprit]), null]);
   });
 
   it('fails loudly when an insert returns no id', async () => {
-    await expect(saveIncidents(fakeDb(), [incident()])).rejects.toThrow('INSERT returned no row');
+    await expect(saveIncidents(fakeDb().db, [incident()])).rejects.toThrow(
+      'INSERT returned no row',
+    );
   });
 
   it('lists incidents in the public shape', async () => {
-    const db = fakeDb(() => [{ ...row, end_at: END }]);
+    const { db, queries } = fakeDb(() => [{ ...row, end_at: END }]);
     const range = { from: at('08:00:00'), to: at('10:00:00') };
 
     const items = await listIncidents(db, range, LIMIT);
 
-    expect(db.queries[0]?.values).toEqual([range.from, range.to, LIMIT]);
+    expect(queries[0]?.values).toEqual([new Date(range.to), new Date(range.from), LIMIT]);
     expect(items).toEqual([
       {
         id: ID,
@@ -100,16 +95,16 @@ describe('incidents table', () => {
   });
 
   it('rejects a stored culprit that breaks the contract', async () => {
-    const db = fakeDb(() => [{ ...row, culprits: [{ ...culprit, cmdline: 'secret' }] }]);
+    const { db } = fakeDb(() => [{ ...row, culprits: [{ ...culprit, cmdline: 'secret' }] }]);
 
     await expect(openIncidents(db)).rejects.toThrow();
   });
 
   it('counts culprits since a moment', async () => {
     const counts = [{ comm: 'node', container: null, incidents: 3 }];
-    const db = fakeDb(() => counts);
+    const { db, queries } = fakeDb(() => counts);
 
     expect(await culpritCounts(db, START.getTime(), LIMIT)).toEqual(counts);
-    expect(db.queries[0]?.values).toEqual([START, LIMIT]);
+    expect(queries[0]?.values).toEqual([START, LIMIT]);
   });
 });

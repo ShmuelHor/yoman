@@ -11,12 +11,11 @@
     "test": "vitest run --root ../.. services/focus"
   },
   "dependencies": {
+    "@date-fns/tz": "1.5.0",
     "@yoman/service-kit": "0.0.0",
     "@yoman/shared": "0.0.0",
-    "pg": "8.23.1",
+    "date-fns": "4.4.0",
+    "kysely": "0.29.8",
     "zod": "4.6.7"
-  },
-  "devDependencies": {
-    "@types/pg": "8.23.1"
   }
 }

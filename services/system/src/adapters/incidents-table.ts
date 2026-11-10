@@ -1,11 +1,15 @@
+import { parseRow, parseRows } from '@yoman/service-kit/sql';
 import type { TimeRangeQuery } from '@yoman/shared/common';
 import { LIMITS } from '@yoman/shared/limits';
 import { Culprit, type CulpritSummary, type Incident, IncidentType } from '@yoman/shared/system';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
 import type { IncidentState } from '../domain/incident.js';
 import type { StoredIncident } from '../use-cases/store.js';
-import { type Queryable, selectRow, selectRows } from './sql.js';
+import type { SystemDatabase } from './database.js';
+
+type Db = Kysely<SystemDatabase>;
 
 const IncidentRow = z.object({
   id: z.string(),
@@ -26,7 +30,7 @@ const CountRow = z.object({
 
 const IdRow = z.object({ id: z.string() });
 
-const COLUMNS = 'id, type, start_at, end_at, peak, culprits, pid';
+const COLUMNS = ['id', 'type', 'start_at', 'end_at', 'peak', 'culprits', 'pid'] as const;
 
 function toState(row: IncidentRow): StoredIncident {
   return {
@@ -55,29 +59,35 @@ function toDate(ms: number | null): Date | null {
   return ms === null ? null : new Date(ms);
 }
 
-export async function openIncidents(db: Queryable): Promise<StoredIncident[]> {
-  const rows = await selectRows(
-    db,
+export async function openIncidents(db: Db): Promise<StoredIncident[]> {
+  const rows = parseRows(
     IncidentRow,
-    `SELECT ${COLUMNS} FROM incidents WHERE end_at IS NULL ORDER BY start_at, id`,
+    await db
+      .selectFrom('incidents')
+      .select(COLUMNS)
+      .where('end_at', 'is', null)
+      .orderBy('start_at')
+      .orderBy('id')
+      .execute(),
   );
   return rows.map(toState);
 }
 
-async function insertIncident(db: Queryable, incident: IncidentState): Promise<string> {
-  const row = await selectRow(
-    db,
+async function insertIncident(db: Db, incident: IncidentState): Promise<string> {
+  const row = parseRow(
     IdRow,
-    `INSERT INTO incidents (type, start_at, end_at, peak, culprits, pid)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [
-      incident.type,
-      new Date(incident.startMs),
-      toDate(incident.endMs),
-      incident.peak,
-      JSON.stringify(incident.culprits),
-      incident.pid,
-    ],
+    await db
+      .insertInto('incidents')
+      .values({
+        type: incident.type,
+        start_at: new Date(incident.startMs),
+        end_at: toDate(incident.endMs),
+        peak: incident.peak,
+        culprits: JSON.stringify(incident.culprits),
+        pid: incident.pid,
+      })
+      .returning('id')
+      .executeTakeFirst(),
   );
   if (row === null) {
     throw new Error('INSERT returned no row');
@@ -85,18 +95,21 @@ async function insertIncident(db: Queryable, incident: IncidentState): Promise<s
   return row.id;
 }
 
-async function updateIncident(db: Queryable, id: string, incident: IncidentState): Promise<void> {
-  await db.query('UPDATE incidents SET end_at = $2, peak = $3, culprits = $4 WHERE id = $1', [
-    id,
-    toDate(incident.endMs),
-    incident.peak,
-    JSON.stringify(incident.culprits),
-  ]);
+async function updateIncident(db: Db, id: string, incident: IncidentState): Promise<void> {
+  await db
+    .updateTable('incidents')
+    .set({
+      end_at: toDate(incident.endMs),
+      peak: incident.peak,
+      culprits: JSON.stringify(incident.culprits),
+    })
+    .where('id', '=', id)
+    .execute();
 }
 
 /** In order: an incident must close before the next one of its kind opens (one open at most). */
 export async function saveIncidents(
-  db: Queryable,
+  db: Db,
   incidents: readonly IncidentState[],
 ): Promise<StoredIncident[]> {
   const saved: StoredIncident[] = [];
@@ -113,33 +126,46 @@ export async function saveIncidents(
 
 /** Incidents overlapping `[from, to)`. An open incident lasts until now. */
 export async function listIncidents(
-  db: Queryable,
+  db: Db,
   range: TimeRangeQuery,
   limit: number,
 ): Promise<Incident[]> {
-  const rows = await selectRows(
-    db,
+  const rows = parseRows(
     IncidentRow,
-    `SELECT ${COLUMNS} FROM incidents
-     WHERE start_at < $2 AND (end_at IS NULL OR end_at >= $1) ORDER BY start_at, id LIMIT $3`,
-    [range.from, range.to, limit],
+    await db
+      .selectFrom('incidents')
+      .select(COLUMNS)
+      .where('start_at', '<', new Date(range.to))
+      .where((eb) => eb.or([eb('end_at', 'is', null), eb('end_at', '>=', new Date(range.from))]))
+      .orderBy('start_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
   return rows.map(toIncident);
 }
 
 export async function culpritCounts(
-  db: Queryable,
+  db: Db,
   sinceMs: number,
   limit: number,
 ): Promise<CulpritSummary[]> {
-  return selectRows(
-    db,
+  return parseRows(
     CountRow,
-    `SELECT c.comm, c.container, count(DISTINCT i.id)::int AS incidents
-     FROM incidents i CROSS JOIN LATERAL jsonb_to_recordset(i.culprits) AS c(comm text, container text)
-     WHERE i.start_at >= $1
-     GROUP BY c.comm, c.container
-     ORDER BY incidents DESC, c.comm, c.container NULLS FIRST LIMIT $2`,
-    [new Date(sinceMs), limit],
+    await db
+      .selectFrom('incidents as i')
+      .crossJoinLateral(
+        sql<{ comm: string; container: string | null }>`jsonb_to_recordset(i.culprits)`.as<'c'>(
+          sql`c(comm text, container text)`,
+        ),
+      )
+      .select(['c.comm', 'c.container', sql<number>`count(DISTINCT i.id)::int`.as('incidents')])
+      .where('i.start_at', '>=', new Date(sinceMs))
+      .groupBy(['c.comm', 'c.container'])
+      .orderBy('incidents', 'desc')
+      .orderBy('c.comm')
+      .orderBy('c.container', (order) => order.nullsFirst())
+      .limit(limit)
+      .execute(),
   );
 }

@@ -1,3 +1,6 @@
+import type { FastifyError } from 'fastify';
+import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
+
 /**
  * Typed gateway errors with stable codes. The code is part of the public API;
  * the message is fixed per class, so a client never sees a stack, an upstream
@@ -153,6 +156,40 @@ function statusCodeOf(error: unknown): number {
   return typeof error.statusCode === 'number' ? error.statusCode : HTTP_INTERNAL;
 }
 
+/** Fastify's name for the request part a validator rejected. */
+type RequestPart = NonNullable<FastifyError['validationContext']>;
+
+/** Error paths name the request part as the contract does: `query.days`, not `querystring.days`. */
+const PART_NAMES: Readonly<Record<RequestPart, string>> = {
+  params: 'params',
+  querystring: 'query',
+  body: 'body',
+  headers: 'headers',
+};
+
+/** A schema path such as `/samples/0/appId`, as segments. */
+function pathSegments(instancePath: string): string[] {
+  return instancePath.split('/').filter((segment) => segment !== '');
+}
+
+/**
+ * A request part rejected by its contract, as found by the Zod validator
+ * compiler. Field paths and Zod's messages only: Zod 4 messages never echo
+ * the rejected value.
+ */
+function toValidationError(error: unknown): ValidationError | undefined {
+  if (!hasZodFastifySchemaValidationErrors(error)) {
+    return undefined;
+  }
+  const part = error.validationContext === undefined ? [] : [PART_NAMES[error.validationContext]];
+  return new ValidationError(
+    error.validation.map((issue) => ({
+      path: [...part, ...pathSegments(issue.instancePath)].join('.'),
+      message: issue.message ?? 'Invalid input',
+    })),
+  );
+}
+
 /**
  * Maps any thrown value to a gateway error. Fastify's own 4xx errors keep their
  * status but lose their message, which can quote the rejected input.
@@ -160,6 +197,10 @@ function statusCodeOf(error: unknown): number {
 export function toGatewayError(error: unknown): GatewayError {
   if (error instanceof GatewayError) {
     return error;
+  }
+  const invalid = toValidationError(error);
+  if (invalid !== undefined) {
+    return invalid;
   }
   const status = statusCodeOf(error);
   if (status === HTTP_PAYLOAD_TOO_LARGE) {

@@ -1,6 +1,6 @@
 import type { RateLimitOptions } from '@fastify/rate-limit';
 import { type RouteContract, type RouteName, routes } from '@yoman/shared/routes';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest, FastifySchema } from 'fastify';
 import { z } from 'zod';
 
 import {
@@ -34,23 +34,10 @@ export interface ContractRouteDeps {
   readonly routeRateLimits?: Partial<Record<RouteName, RateLimit>>;
 }
 
-/** A part without a schema in the contract must be empty: no stray query keys, no body. */
+/** A part without a schema in the contract must be empty: no stray query keys, no path params. */
 const NoFields = z.strictObject({});
+/** Fastify hands a missing body to validators as `null`, so "no body" is checked after validation. */
 const NoBody = z.undefined();
-
-function parsePart(schema: z.ZodType, part: string, value: unknown): unknown {
-  const result = schema.safeParse(value);
-  if (result.success) {
-    return result.data;
-  }
-  // Field paths and Zod's messages only; Zod 4 messages never echo the rejected value.
-  throw new ValidationError(
-    result.error.issues.map((issue) => ({
-      path: [part, ...issue.path.map(String)].join('.'),
-      message: issue.message,
-    })),
-  );
-}
 
 const ROUTE_NAMES = Object.keys(routes).filter((name): name is RouteName => name in routes);
 
@@ -77,39 +64,33 @@ function credentialsOf(request: FastifyRequest): Credentials {
 
 type Handler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 
-interface RequestParts {
-  readonly params: unknown;
-  readonly query: unknown;
-  readonly body: unknown;
-}
-
-/** Every route, the core's own included, accepts exactly what its contract allows. */
-function parseParts(contract: RouteContract, request: FastifyRequest): RequestParts {
+/**
+ * Every route, the core's own included, accepts exactly what its contract
+ * allows. The type provider's compilers parse each part, and the response,
+ * with these schemas; a failure reaches the error handler (`toGatewayError`).
+ */
+function schemaOf(contract: RouteContract): FastifySchema {
   return {
-    params: parsePart(contract.params ?? NoFields, 'params', request.params),
-    query: parsePart(contract.query ?? NoFields, 'query', request.query),
-    body: parsePart(contract.body ?? NoBody, 'body', request.body),
+    params: contract.params ?? NoFields,
+    querystring: contract.query ?? NoFields,
+    ...(contract.body === undefined ? {} : { body: contract.body }),
+    ...(contract.response === null ? {} : { response: { [contract.status]: contract.response } }),
   };
 }
 
-function checkResponse(contract: RouteContract, request: FastifyRequest, result: unknown): unknown {
-  if (contract.response === null) {
-    return undefined;
+/** A route whose contract has no body rejects one, as Zod would: `body` must be `undefined`. */
+async function rejectBody(request: FastifyRequest): Promise<void> {
+  const result = NoBody.safeParse(request.body);
+  if (!result.success) {
+    throw new ValidationError(
+      result.error.issues.map((issue) => ({ path: 'body', message: issue.message })),
+    );
   }
-  const checked = contract.response.safeParse(result);
-  if (!checked.success) {
-    // A handler that breaks its contract is a gateway bug, not the client's fault.
-    const paths = checked.error.issues.map((issue) => issue.path.join('.'));
-    request.log.error({ paths }, 'Response failed its contract');
-    throw new InternalError();
-  }
-  return checked.data;
 }
 
 /** `GET /v1/session`: a new session cookie, and its CSRF token in the body. */
-function sessionHandler(contract: RouteContract, deps: ContractRouteDeps): Handler {
-  return async (request, reply) => {
-    parseParts(contract, request);
+function sessionHandler(deps: ContractRouteDeps): Handler {
+  return async (_request, reply) => {
     const { sessions } = deps.auth;
     const session = sessions.create();
     // Not `Secure`: the gateway is plain HTTP on loopback, and the cookie never leaves the host.
@@ -119,10 +100,7 @@ function sessionHandler(contract: RouteContract, deps: ContractRouteDeps): Handl
       path: '/v1',
       maxAge: Math.floor(sessions.ttlMs / MS_PER_SECOND),
     });
-    return checkResponse(contract, request, {
-      csrfToken: session.csrfToken,
-      expiresAt: new Date(session.expiresAt).toISOString(),
-    });
+    return { csrfToken: session.csrfToken, expiresAt: new Date(session.expiresAt).toISOString() };
   };
 }
 
@@ -133,7 +111,9 @@ function contractHandler(
 ): Handler {
   return async (request, reply) => {
     const context: HandlerContext<unknown, unknown, unknown> = {
-      ...parseParts(contract, request),
+      params: request.params,
+      query: request.query,
+      body: request.body,
       principal: principalOf(request),
       services: deps.services,
       log: request.log,
@@ -141,11 +121,11 @@ function contractHandler(
     if (handler === undefined) {
       throw new NotImplementedError();
     }
-    // The validated boundary: every part was just parsed by this route's own schemas.
+    // The validated boundary: every part was parsed by this route's own schemas.
     const result = await handler(context as HandlerContext<never, never, never>);
-    const body = checkResponse(contract, request, result);
     reply.status(contract.status);
-    return contract.response === null ? reply.send() : body;
+    // The serializer parses the result with the response schema, so unknown fields never leave.
+    return contract.response === null ? reply.send() : result;
   };
 }
 
@@ -182,9 +162,11 @@ export function registerContractRoutes(app: FastifyInstance, deps: ContractRoute
         principals.set(request, authenticate(deps.auth, contract.auth, credentialsOf(request)));
         return payload;
       },
+      schema: schemaOf(contract),
+      ...(contract.body === undefined ? { preHandler: rejectBody } : {}),
       handler:
         name === 'session'
-          ? sessionHandler(contract, deps)
+          ? sessionHandler(deps)
           : contractHandler(contract, deps.handlers.get(name), deps),
     });
   }

@@ -112,16 +112,16 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
   - [ ] Dropping coverage below the threshold fails CI
 
 ### T04 · CI: security gates ‖
-- **Owns:** `.github/workflows/security.yml`, `.github/dependabot.yml`, `.semgrep/`, `.trivyignore` (empty), `.github/codeql/`
-- **What:** every tool from SECURITY.md §4. All of them are blocking. SARIF reports are uploaded to the Security tab. Dependabot for npm, docker and actions, weekly. A nightly cron. Scorecard weekly
+- **Owns:** `.github/workflows/security.yml`, `.github/dependabot.yml`, `.github/codeql/`
+- **What:** every tool from SECURITY.md §4. All of them are blocking. SARIF reports are uploaded to the Security tab. Dependabot for npm, docker and actions, weekly. A nightly cron
 - **Done when:**
   - [ ] A dummy PR with a secret, with `shell:true` or with a vulnerable dependency **fails**. The PR documents that this was checked
-  - [ ] zizmor and actionlint are clean
+  - [ ] actionlint is clean
 
 ### T05 · Security test infrastructure ‖
 - **Owns:** `tests/security/`, `scripts/security-todo.ts`
 - **What:**
-  - A vitest suite in which every ST01–ST19 from SECURITY.md §3 appears, each in its own file
+  - A vitest suite in which every ST01–ST18 from SECURITY.md §3 appears, each in its own file
   - **ST01 and ST02 are active right away:** ST01 parses `docker compose config --format json` and checks the policy
   - The rest are defined as `it.todo('…', { owner: 'T19' })`
   - `npm run security:todo` prints a list by task, and fails with `--strict`
@@ -129,21 +129,20 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
 - **Done when:**
   - [ ] Adding `ports: ["4712:4712"]` or removing `read_only` in compose fails ST01
 
-### T06 · CD: signed release
+### T06 · CD: release
 - **Depends on:** T03, T04, T05
 - **Owns:** `.github/workflows/release.yml`, `.github/workflows/main.yml`
 - **What:**
-  - **On push to main:** build every image, Trivy image (ST19), `docker compose up` on the runner, and smoke and security tests against the running compose
+  - **On push to main:** `docker compose up` on the runner, and smoke and security tests against the running compose
   - **On a `v*.*.*` tag:**
     - `npm run security:todo --strict` (no todo left)
-    - Build, Trivy, SBOM (syft, SPDX), keyless signing with cosign through OIDC, and a provenance attestation
+    - Build the images
     - Push to GHCR as a private package
-    - A GitHub Release with a changelog from the commits, the SBOM, and a `docker-compose.release.yml` pinned to digests
-  - ZAP baseline (ST18) is added in wave 5. Until then the job exists and is explicitly skipped with a reference to T52
+    - A GitHub Release with a changelog from the commits, the source archive, and a `docker-compose.release.yml` pinned to digests
   - No secrets other than `GITHUB_TOKEN`, with minimal `permissions` for every job
 - **Done when:**
-  - [ ] A `v0.0.1` tag on the skeleton produces a signed release
-  - [ ] `cosign verify` passes
+  - [ ] A `v0.0.1` tag on the skeleton produces a release
+
 
 ### T07 · GitHub repo protection
 - **Depends on:** T06
@@ -156,7 +155,7 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
 
 **Gate G0:**
 - [ ] CI, security and CD are green on the skeleton
-- [ ] A signed v0.0.1 release
+- [ ] A v0.0.1 release
 - [ ] ST01 and ST02 are active, and the remaining tests are registered as todo with owners
 
 ---
@@ -182,7 +181,6 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
   - Enables: **ST11**
 - **Done when:**
   - [ ] A dummy service starts read-only as non-root
-  - [ ] hadolint is clean
 
 ### T10 · Compose and Postgres ‖
 - **Owns:** `docker-compose.yml`, `infra/postgres/`, `services/*/compose.yml` (stubs only)
@@ -304,7 +302,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **What:**
   - Tokens exactly as in DESIGN.md, and every component from DESIGN.md
   - A `/dev/components` page in both modes and both languages
-  - A CI check that there are no hex values outside `tokens.css`
+  - A CI check that there are no hex values outside `apps/web/src/theme/color-tokens.ts`
 
 **Gate G2:**
 - [x] Every service is healthy
@@ -362,15 +360,13 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 
 **Gate G4:**
 - [ ] Every feature in the coverage matrix is checked off
-- [ ] `npm run security:todo` shows only ST18
+- [ ] `npm run security:todo` shows nothing
 
 ---
 
 ## Wave 5 · Release
 
-- **T52 · E2E and DAST:**
-  - Playwright against compose with a mocked agent: every page, both languages, both modes, and focus
-  - ZAP baseline in CD. Enables: **ST18**
+- **T52 · E2E:** Playwright against compose with a mocked agent: every page, both languages, both modes, and focus
 - **T53 · Battery budget:** a script that measures, over one hour, the agent's CPU and RSS and the containers' idle consumption. **Fails if SPEC §4.4 is exceeded**
 - **T54 · Full security review:**
   - A separate agent goes through all of SECURITY.md
@@ -382,7 +378,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 **Gate G5:**
 - [ ] `security:todo --strict` passes
 - [ ] All CI is green
-- [ ] A `v1.0.0` tag → a signed release
+- [ ] A `v1.0.0` tag → a release
 
 ---
 

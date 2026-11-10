@@ -12,6 +12,7 @@ describe('loadConfig', () => {
       host: '127.0.0.1',
       port: 8080,
       logLevel: 'info',
+      development: false,
       db: {
         host: 'postgres',
         port: 5432,

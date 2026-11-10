@@ -7,6 +7,8 @@ const DEFAULT_DB_PORT = 5432;
 const baseSchema = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
+  // Anything but an explicit `development` runs as production: fail closed.
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DB_HOST: z.string().min(1).default('postgres'),
   DB_PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_DB_PORT),
@@ -28,6 +30,8 @@ export interface ServiceConfig<Extra> {
   readonly host: string;
   readonly port: number;
   readonly logLevel: string;
+  /** `NODE_ENV=development`: pretty logs. Never set in the image. */
+  readonly development: boolean;
   readonly db: DatabaseConfig;
   /** The service's own variables, validated by the schema it passed to `createService`. */
   readonly service: Extra;
@@ -85,6 +89,7 @@ export function loadConfig<Extra extends z.ZodObject = z.ZodObject<Record<never,
     host: data.HOST,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
+    development: data.NODE_ENV === 'development',
     db: {
       host: data.DB_HOST,
       port: data.DB_PORT,
