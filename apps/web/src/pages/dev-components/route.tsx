@@ -1,6 +1,8 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,6 +25,7 @@ const NAMESPACE = 'dev-components';
 const ORDER = 1000;
 const THEMES: readonly ResolvedTheme[] = ['light', 'dark'];
 const PANEL_MIN_WIDTH_PX = 360;
+const GRID_HEIGHT_PX = 200;
 
 /** Sample values, formatted per language through Intl like real data will be. */
 const SAMPLE = {
@@ -31,6 +34,12 @@ const SAMPLE = {
   minutesMore: 47,
   drainShare: 0.3,
   focusMinutesLeft: 47,
+  day: '2026-11-10T00:00:00',
+  apps: [
+    { id: 1, app: 'Code', category: 'work', minutes: 184 },
+    { id: 2, app: 'Firefox', category: 'work', minutes: 96 },
+    { id: 3, app: 'Slack', category: 'comms', minutes: 41 },
+  ],
 } as const;
 
 interface PanelProps {
@@ -57,10 +66,36 @@ function Section({
   );
 }
 
+function SampleGrid({ language }: { readonly language: Language }): React.JSX.Element {
+  const { t } = useTranslation(NAMESPACE, { lng: language });
+  const columns: GridColDef[] = [
+    { field: 'app', headerName: t('dataGrid.app'), flex: 1 },
+    {
+      field: 'category',
+      headerName: t('dataGrid.category'),
+      flex: 1,
+      valueFormatter: (value: 'work' | 'comms'): string => t(`dataGrid.${value}`),
+    },
+    {
+      field: 'minutes',
+      headerName: t('dataGrid.minutes'),
+      type: 'number',
+      flex: 1,
+      valueFormatter: (value: number): string => new Intl.NumberFormat(language).format(value),
+    },
+  ];
+  return (
+    <Box sx={{ blockSize: GRID_HEIGHT_PX, inlineSize: '100%' }}>
+      <DataGrid rows={SAMPLE.apps} columns={columns} hideFooter disableColumnMenu />
+    </Box>
+  );
+}
+
 function Gallery({ language }: { readonly language: Language }): React.JSX.Element {
   const { t } = useTranslation(NAMESPACE, { lng: language });
   const [focusOn, setFocusOn] = useState(true);
   const [quietOn, setQuietOn] = useState(false);
+  const [day, setDay] = useState<Date | null>(new Date(SAMPLE.day));
   const number = new Intl.NumberFormat(language);
   const percent = new Intl.NumberFormat(language, { style: 'percent' });
   const hours = new Intl.NumberFormat(language, {
@@ -113,6 +148,12 @@ function Gallery({ language }: { readonly language: Language }): React.JSX.Eleme
         <AlertCard title={t('alert.title')}>
           {t('alert.body', { share: percent.format(SAMPLE.drainShare) })}
         </AlertCard>
+      </Section>
+      <Section title={t('section.dataGrid')}>
+        <SampleGrid language={language} />
+      </Section>
+      <Section title={t('section.datePicker')}>
+        <DatePicker label={t('datePicker.label')} value={day} onChange={setDay} />
       </Section>
     </>
   );

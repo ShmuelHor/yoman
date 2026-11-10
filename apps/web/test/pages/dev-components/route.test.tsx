@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+
+import { heIL as pickersHe } from '@mui/x-date-pickers/locales';
 import { cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
@@ -13,11 +15,17 @@ import { renderWithTheme } from '../../support/render-with-theme.js';
 const PANEL_COUNT = 4;
 const HEBREW_PANEL = 0;
 const ENGLISH_PANEL = 2;
-/** Four full galleries take seconds to mount in happy-dom. */
+/** Four panels, each with a data grid and a date picker, take seconds to mount in happy-dom. */
 const RENDER_TIMEOUT_MS = 30_000;
 
+const instance = createI18n(bundledResources, document.createElement('html'));
+/** MUI X's own Hebrew label for the button that opens a date picker. */
+const HEBREW_CHOOSE_DATE =
+  pickersHe.components.MuiLocalizationProvider.defaultProps.localeText.openDatePickerDialogue?.(
+    null,
+  ) ?? '';
+
 function renderPage(): void {
-  const instance = createI18n(bundledResources, document.createElement('html'));
   const router = createMemoryRouter([{ path: '*', Component: route.Component }], {
     initialEntries: ['/dev/components'],
   });
@@ -76,6 +84,19 @@ describe('/dev/components', { timeout: RENDER_TIMEOUT_MS }, () => {
     expect(english.getByRole('region', { name: 'Screen time today' })).toBeDefined();
     expect(english.getByRole('region', { name: 'Unusual battery drain' })).toBeDefined();
     expect(english.getByRole('status').textContent).toBe('Focus mode · 47 min left');
+    expect(english.getByRole('grid')).toBeDefined();
+  });
+
+  it('localizes the data grid and the date picker per panel', () => {
+    expect(panel(ENGLISH_PANEL).getByRole('columnheader', { name: 'Minutes' })).toBeDefined();
+    const hebrewMinutes = instance.t('dataGrid.minutes', { ns: 'dev-components', lng: 'he' });
+    expect(panel(HEBREW_PANEL).getByRole('columnheader', { name: hebrewMinutes })).toBeDefined();
+    expect(panel(ENGLISH_PANEL).getByRole('button', { name: /^Choose date/u })).toBeDefined();
+    const [hebrewPicker] = panel(HEBREW_PANEL).getAllByRole('button', {
+      name: (name: string): boolean =>
+        HEBREW_CHOOSE_DATE !== '' && name.startsWith(HEBREW_CHOOSE_DATE),
+    });
+    expect(hebrewPicker).toBeDefined();
   });
 
   it('lets the sample switches be toggled', async () => {

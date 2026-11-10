@@ -10,7 +10,9 @@
     "navTabs": "Navigation tabs",
     "cards": "Cards",
     "alert": "Alert card",
-    "focusBanner": "Focus banner"
+    "focusBanner": "Focus banner",
+    "dataGrid": "Data grid",
+    "datePicker": "Date picker"
   },
   "button": { "primary": "Start focus", "secondary": "Cancel", "disabled": "Unavailable" },
   "input": { "label": "App name", "placeholder": "For example, Firefox" },
@@ -27,5 +29,13 @@
     "title": "Unusual battery drain",
     "body": "Firefox used {{share}} of the battery in the last hour."
   },
+  "dataGrid": {
+    "app": "App",
+    "category": "Category",
+    "minutes": "Minutes",
+    "work": "Work",
+    "comms": "Communication"
+  },
+  "datePicker": { "label": "Day" },
   "focusBanner": "Focus mode · {{minutes}} min left"
 }
