@@ -1,3 +1,4 @@
+import { Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { CENSOR, createLogger, REDACTED_KEYS } from '../../src/core/logger.js';
 
@@ -43,6 +44,24 @@ describe('createLogger', () => {
     logger.info('dropped');
     logger.warn('kept');
     expect(sink.lines).toHaveLength(1);
+  });
+
+  it('prints readable lines in development and still redacts', () => {
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _encoding, done): void {
+        lines.push(chunk.toString());
+        done();
+      },
+    });
+    const logger = createLogger({ level: 'info', destination: sink, pretty: true });
+    logger.info({ title: SECRET, wmClass: 'firefox' }, 'sample');
+    const output = lines.join('');
+    expect(output).toContain('sample');
+    expect(output).toContain('firefox');
+    expect(output).toContain(CENSOR);
+    expect(output).not.toContain(SECRET);
+    expect(() => JSON.parse(output)).toThrow();
   });
 
   it('writes to stdout by default', () => {
