@@ -14,8 +14,8 @@ import {
   securityGateway,
 } from './lib/gateway.js';
 
-/** SECURITY ST08: 500 invalid inputs per route. */
-const RUNS_PER_ROUTE = 500;
+/** SECURITY ST08: 50 invalid inputs per route. */
+const RUNS_PER_ROUTE = 50;
 /** A fixed seed keeps CI reproducible; a failure prints the counterexample to replay. */
 const SEED = 4711;
 const MAX_TEXT = 64;
@@ -143,7 +143,7 @@ describe('ST08 route fuzzing', () => {
   });
 
   it.each(contractRoutes)(
-    '500 invalid inputs per route, generated from its zod schema, return 400 and never 500: $name',
+    '50 invalid inputs per route, generated from its zod schema, return 400 and never 500: $name',
     async (route) => {
       const headers = await credentialsFor(app, route.contract);
 

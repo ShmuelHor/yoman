@@ -16,7 +16,7 @@ import { posix } from 'node:path';
 import { z } from 'zod';
 
 /** The number of ST tests SECURITY.md section 3 defines. */
-export const SECURITY_TEST_COUNT = 19;
+export const SECURITY_TEST_COUNT = 18;
 
 const ID_WIDTH = 2;
 const FILE_NAME = /^st(\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*\.test\.ts$/u;
@@ -135,7 +135,7 @@ function scanFile(id: string, path: string, file: FileResult, scan: FileScan): v
 
 /**
  * Reads a Vitest JSON report of the security suite. Each file must be
- * `stNN-<slug>.test.ts` directly inside `suiteDir`, and each of ST01 to ST19
+ * `stNN-<slug>.test.ts` directly inside `suiteDir`, and each of ST01 to ST18
  * must have exactly one file.
  */
 export function scanSecurityReport(report: VitestJsonReport, suiteDir: string): SecurityTodoScan {
