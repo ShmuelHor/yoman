@@ -43,7 +43,8 @@ function readCounters(root: string, pid: number): ProcessCounters | undefined {
   if (stat === undefined || stat.pid !== pid) {
     return undefined;
   }
-  const ioText = readProcessFile(root, pid, 'io');
+  // Kernel threads have no IO counters to read, and they are a third of a typical process table.
+  const ioText = stat.kernelThread ? undefined : readProcessFile(root, pid, 'io');
   return { ...stat, ioBytes: (ioText === undefined ? undefined : parseProcessIo(ioText)) ?? 0 };
 }
 

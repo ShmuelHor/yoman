@@ -7,6 +7,7 @@ import { LIMITS } from '@yoman/shared/limits';
 export interface FakeProcess {
   readonly pid: number;
   readonly comm: string;
+  readonly kernelThread?: boolean;
   readonly cpuTicks?: number;
   readonly startTicks?: number;
   readonly rssPages?: number;
@@ -22,6 +23,10 @@ export interface FakePressure {
   readonly io: number;
 }
 
+/** `PF_RANDOMIZE`, as on a user process; with `PF_KTHREAD` for a kernel thread. */
+const USER_FLAGS = '4194304';
+const KTHREAD_FLAGS = '6291456';
+
 const CALM: FakePressure = { cpu: 0, memory: 0, io: 0 };
 
 function psi(some: number): string {
@@ -35,7 +40,8 @@ function psi(some: number): string {
 
 function stat(process: FakeProcess): string {
   const { pid, comm, cpuTicks = 0, startTicks = 0, rssPages = 0 } = process;
-  return `${pid} (${comm}) S 1 1 1 0 -1 4194304 1 0 0 0 ${cpuTicks} 0 0 0 20 0 1 0 ${startTicks} 1 ${rssPages} 18446744073709551615 1 1 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n`;
+  const flags = process.kernelThread === true ? KTHREAD_FLAGS : USER_FLAGS;
+  return `${pid} (${comm}) S 1 1 1 0 -1 ${flags} 1 0 0 0 ${cpuTicks} 0 0 0 20 0 1 0 ${startTicks} 1 ${rssPages} 18446744073709551615 1 1 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n`;
 }
 
 /** A writable `/proc` look-alike in a temporary directory. */
@@ -99,6 +105,16 @@ export class ProcTree {
       join(this.root, String(pids.from), 'stat'),
       join(this.root, String(pids.to), 'stat'),
     );
+  }
+
+  /**
+   * Turns a file into a directory, so any attempt to read it throws `EISDIR`
+   * and fails the test: proof that the collector never opens it.
+   */
+  async makeUnreadable(target: { pid: number; file: string }): Promise<void> {
+    const path = join(this.root, String(target.pid), target.file);
+    await rm(path, { force: true });
+    await mkdir(path);
   }
 
   async removeFile(target: { pid: number; file: string }): Promise<void> {
