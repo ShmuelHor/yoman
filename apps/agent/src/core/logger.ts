@@ -1,4 +1,6 @@
+import { createRequire } from 'node:module';
 import { type DestinationStream, type Logger, pino } from 'pino';
+import type { PrettyOptions } from 'pino-pretty';
 import type { LogLevel } from './config.js';
 
 /** SECURITY A11: these keys never reach a log, wherever they appear in a log object. */
@@ -15,13 +17,37 @@ function redactPaths(): string[] {
   return prefixes.flatMap((prefix) => REDACTED_KEYS.map((key) => `${prefix}${key}`));
 }
 
+type PrettyFactory = (options: PrettyOptions) => DestinationStream;
+
+function isPrettyFactory(value: unknown): value is PrettyFactory {
+  return typeof value === 'function';
+}
+
+/**
+ * pino-pretty is a dev dependency, so it is loaded only when asked for. The
+ * stream sits behind pino's own redaction, which has already run by then.
+ */
+function prettyStream(destination: DestinationStream | undefined): DestinationStream {
+  const loaded: unknown = createRequire(import.meta.url)('pino-pretty');
+  if (!isPrettyFactory(loaded)) {
+    throw new Error('pino-pretty did not export a factory');
+  }
+  return loaded({ colorize: true, sync: true, ...(destination ? { destination } : {}) });
+}
+
 export interface LoggerOptions {
   readonly level: LogLevel;
+  /** Human-readable lines for development. Never set in production: it needs a dev dependency. */
+  readonly pretty?: boolean;
   /** Defaults to stdout, which journald captures for the systemd user unit. */
   readonly destination?: DestinationStream;
 }
 
 export type AgentLogger = Logger;
+
+function stdout(): DestinationStream {
+  return pino.destination({ fd: 1, sync: false });
+}
 
 export function createLogger(options: LoggerOptions): AgentLogger {
   return pino(
@@ -30,6 +56,6 @@ export function createLogger(options: LoggerOptions): AgentLogger {
       level: options.level,
       redact: { paths: redactPaths(), censor: CENSOR },
     },
-    options.destination ?? pino.destination({ fd: 1, sync: false }),
+    options.pretty ? prettyStream(options.destination) : (options.destination ?? stdout()),
   );
 }
