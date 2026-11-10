@@ -19,6 +19,8 @@ const serviceUrl = (service: ServiceName): z.ZodType<URL, string | undefined> =>
 const GatewayEnvironment = z.object({
   HOST: z.string().min(1).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
+  // Anything but an explicit `development` runs as production: fail closed.
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   AGENT_TOKEN: z
     .string()
@@ -39,6 +41,8 @@ export interface GatewayConfig {
   readonly host: string;
   readonly port: number;
   readonly logLevel: LogLevel;
+  /** `NODE_ENV=development`: API docs and pretty logs. Never set in the image. */
+  readonly development: boolean;
   readonly agentToken: string;
   readonly serviceUrls: Readonly<Record<ServiceName, URL>>;
 }
@@ -60,6 +64,7 @@ export function loadConfig(env: Environment): GatewayConfig {
     host: data.HOST,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
+    development: data.NODE_ENV === 'development',
     agentToken: data.AGENT_TOKEN,
     serviceUrls: {
       sessions: data.SESSIONS_URL,

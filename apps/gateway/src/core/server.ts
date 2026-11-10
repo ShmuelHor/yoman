@@ -61,6 +61,7 @@ export async function startGateway(options: StartOptions): Promise<RunningGatewa
       agentToken: config.agentToken,
       services: createServiceClient({ urls: config.serviceUrls, log }),
       handlers: await loadRouteHandlers({ dir: options.routesDir }),
+      apiDocs: config.development,
     });
     let stopping: Promise<void> | undefined;
     const stop = (): Promise<void> => {
