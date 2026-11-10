@@ -14,6 +14,7 @@ export const MAX_BACKOFF_MS = 600_000;
 export const DRAIN_INTERVAL_MS = 11_000;
 
 const BACKOFF_FACTOR = 2;
+const SHRINK_FACTOR = 2;
 
 /** What one attempt ended in, as far as scheduling cares. */
 export type AttemptResult =
@@ -21,6 +22,8 @@ export type AttemptResult =
   | { readonly kind: 'sent'; readonly more: boolean }
   /** Nothing was buffered. */
   | { readonly kind: 'empty' }
+  /** The gateway refused a body this big (413): retry soon with fewer than `samples`. */
+  | { readonly kind: 'too-large'; readonly samples: number }
   /** The gateway asked to slow down; `retryAfterMs` comes from its `Retry-After`. */
   | { readonly kind: 'rate-limited'; readonly retryAfterMs: number | undefined }
   /** Unreachable, timed out or refused: the samples stay buffered. */
@@ -52,6 +55,8 @@ export function planNext(failures: number, result: AttemptResult): SendPlan {
       return { failures: 0, delayMs: result.more ? DRAIN_INTERVAL_MS : SEND_INTERVAL_MS };
     case 'empty':
       return { failures: 0, delayMs: SEND_INTERVAL_MS };
+    case 'too-large':
+      return { failures, delayMs: DRAIN_INTERVAL_MS };
     case 'rate-limited':
       // A 429 means the gateway is up and answering: no reason to grow the backoff.
       return { failures, delayMs: clampRetryAfter(result.retryAfterMs) };
@@ -59,5 +64,20 @@ export function planNext(failures: number, result: AttemptResult): SendPlan {
       const next = failures + 1;
       return { failures: next, delayMs: backoffDelayMs(next) };
     }
+  }
+}
+
+/**
+ * The most samples to read for the next batch. A 413 halves the batch that
+ * was refused; a batch the gateway took restores the full size.
+ */
+export function nextBatchLimit(limit: number, maxLimit: number, result: AttemptResult): number {
+  switch (result.kind) {
+    case 'too-large':
+      return Math.max(1, Math.floor(result.samples / SHRINK_FACTOR));
+    case 'sent':
+      return maxLimit;
+    default:
+      return limit;
   }
 }
