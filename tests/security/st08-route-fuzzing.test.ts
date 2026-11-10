@@ -1,9 +1,13 @@
+import { fileURLToPath } from 'node:url';
+
 import { requestFixtures } from '@yoman/shared/fixtures/requests';
+import { routes } from '@yoman/shared/routes';
 import fc from 'fast-check';
 import type { FastifyInstance, InjectOptions } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-
+import type { HandledRouteName, HandlerMap } from '../../apps/gateway/src/core/route-handler.js';
+import { loadRouteHandlers } from '../../apps/gateway/src/core/route-loader.js';
 import {
   type ContractRoute,
   contractRoutes,
@@ -25,6 +29,33 @@ const MAX_KEYS = 4;
 const NO_PARAMS = z.strictObject({});
 const NO_BODY = z.undefined();
 const METHODS_WITH_BODY = new Set(['POST', 'PUT', 'DELETE']);
+/** The gateway's route modules, loaded as `startGateway` loads them. */
+const ROUTES_DIR = fileURLToPath(new URL('../../apps/gateway/src/routes/', import.meta.url));
+
+/** The routes each route task implements, fuzzed again with their real handlers in place. */
+const T28_ROUTES: readonly HandledRouteName[] = [
+  'dashboardToday',
+  'week',
+  'listApps',
+  'updateApp',
+  'listRules',
+  'createRule',
+  'updateRule',
+  'deleteRule',
+  'listGoals',
+  'createGoal',
+  'updateGoal',
+  'deleteGoal',
+  'goalProgress',
+];
+
+interface HandledRoute extends ContractRoute {
+  readonly name: HandledRouteName;
+}
+
+function routesNamed(names: readonly HandledRouteName[]): HandledRoute[] {
+  return names.map((name) => ({ name, contract: routes[name] }));
+}
 
 interface Input {
   readonly params: Readonly<Record<string, string>>;
@@ -131,35 +162,52 @@ function toRequest(
   };
 }
 
+async function fuzzRoute(app: FastifyInstance, route: ContractRoute): Promise<void> {
+  const headers = await credentialsFor(app, route.contract);
+
+  await fc.assert(
+    fc.asyncProperty(invalidInputs(route), async (input) => {
+      const response = await app.inject(toRequest(route, input, headers));
+
+      expect(response.statusCode).toBe(STATUS.BAD_REQUEST);
+    }),
+    { numRuns: RUNS_PER_ROUTE, seed: SEED },
+  );
+}
+
 describe('ST08 route fuzzing', () => {
   let app: FastifyInstance;
+  /** The same gateway with every route module under `src/routes` loaded. */
+  let handled: FastifyInstance;
+  let handlers: HandlerMap;
 
   beforeAll(async () => {
     app = await securityGateway({ rateLimits: NO_RATE_LIMIT });
+    handlers = await loadRouteHandlers({ dir: ROUTES_DIR });
+    handled = await securityGateway({ rateLimits: NO_RATE_LIMIT, handlers });
   });
 
   afterAll(async () => {
     await app.close();
+    await handled.close();
   });
 
   it.each(contractRoutes)(
     '50 invalid inputs per route, generated from its zod schema, return 400 and never 500: $name',
     async (route) => {
-      const headers = await credentialsFor(app, route.contract);
-
-      await fc.assert(
-        fc.asyncProperty(invalidInputs(route), async (input) => {
-          const response = await app.inject(toRequest(route, input, headers));
-
-          expect(response.statusCode).toBe(STATUS.BAD_REQUEST);
-        }),
-        { numRuns: RUNS_PER_ROUTE, seed: SEED },
-      );
+      await fuzzRoute(app, route);
     },
   );
 
   it.todo('[T27] ingest routes pass the fuzzing check');
-  it.todo('[T28] dashboard, reports, apps, rules and goals routes pass the fuzzing check');
+  it.each(routesNamed(T28_ROUTES))(
+    'dashboard, reports, apps, rules and goals routes pass the fuzzing check with their handlers: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
   it.todo('[T29] battery and system routes pass the fuzzing check');
   it.todo('[T30] focus routes pass the fuzzing check');
   it.todo('[T31] settings routes pass the fuzzing check');
