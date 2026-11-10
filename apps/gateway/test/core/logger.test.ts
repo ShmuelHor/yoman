@@ -2,7 +2,12 @@ import { Writable } from 'node:stream';
 
 import { describe, expect, it } from 'vitest';
 
-import { createLogger, serializeError, serializeRequest } from '../../src/core/logger.js';
+import {
+  buildLoggerOptions,
+  createLogger,
+  serializeError,
+  serializeRequest,
+} from '../../src/core/logger.js';
 
 function capture(): { stream: Writable; output: () => string } {
   const chunks: string[] = [];
@@ -69,5 +74,16 @@ describe('serializeError', () => {
 
   it('records only the type of a thrown non-error', () => {
     expect(serializeError('secret')).toEqual({ type: 'string' });
+  });
+});
+
+describe('buildLoggerOptions in development', () => {
+  it('pretty-prints through pino-pretty and keeps the redaction', () => {
+    const options = buildLoggerOptions('info', true);
+
+    expect(options.transport).toEqual(expect.objectContaining({ target: 'pino-pretty' }));
+    expect(options.redact).toEqual(
+      expect.objectContaining({ paths: expect.arrayContaining(['token']) }),
+    );
   });
 });
