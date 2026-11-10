@@ -2,6 +2,15 @@ import { createServer } from 'node:net';
 import { Writable } from 'node:stream';
 
 import { BatteryNow, HealthTrend, PowerByApp } from '@yoman/shared/battery';
+import {
+  AlertPolicy,
+  AlertQueue,
+  FocusState,
+  KnownAppList,
+  KnownAppsResult,
+  Profile,
+  ProfileList,
+} from '@yoman/shared/focus';
 import { Goal, GoalList, GoalProgress } from '@yoman/shared/goals';
 import { DayReport, WeeklySummary, WeekReport } from '@yoman/shared/reports';
 import { App, AppList, Rule, RuleList } from '@yoman/shared/sessions';
@@ -10,6 +19,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SampleResult as BatterySampleResult } from '../../services/battery/src/contracts.js';
 import { createBatteryService } from '../../services/battery/src/service.js';
+import { FocusTransition, RouteResult, Schedule } from '../../services/focus/src/contracts.js';
+import { createFocusService } from '../../services/focus/src/service.js';
 import { EvaluateResult } from '../../services/goals/src/contracts.js';
 import { createGoalsService } from '../../services/goals/src/service.js';
 import { SessionBatchResult, TopAppList } from '../../services/reports/src/contracts.js';
@@ -815,7 +826,218 @@ describe('ST12 SQL injection', () => {
       expect(logs.output()).not.toContain('Request failed');
     });
   });
-  it.todo(
-    '[T18] focus-service: SQL injection payloads in every parameter cause no DB error and no leak',
-  );
+
+  // `describe(name, { skip })` rather than `describe.skipIf`, so Biome scopes the hooks per suite.
+  describe('focus-service', { skip: !available }, () => {
+    const FOCUS_MINUTES = 60;
+    const profileInput = {
+      name: 'Deep work',
+      mutedApps: ['slack'],
+      exceptions: [],
+      muteNewApps: false,
+    };
+    const alert = {
+      alertKey: 'thermal:0',
+      type: 'thermal',
+      level: 'normal',
+      ts: '2026-11-08T09:00:00.000Z',
+      params: { celsius: 95 },
+    };
+    let postgres: DisposablePostgres | undefined;
+    let service: ReturnType<typeof createFocusService> | undefined;
+    const logs = captureLogs();
+
+    beforeAll(async () => {
+      postgres = await startPostgres();
+      service = createFocusService({
+        env: {
+          HOST: '127.0.0.1',
+          PORT: String(await freePort()),
+          DB_HOST: postgres.host,
+          DB_PORT: String(postgres.port),
+          FOCUS_DB_PASSWORD: postgres.passwords.focus,
+          TZ: 'Asia/Jerusalem',
+          LOG_LEVEL: 'info',
+        },
+        logStream: logs.stream,
+        handleSignals: false,
+      });
+      // The real migrations, run as the service's own least-privilege role.
+      await service.start();
+    }, STARTUP_TIMEOUT_MS);
+
+    afterAll(async () => {
+      try {
+        await service?.stop();
+      } finally {
+        await postgres?.stop();
+      }
+    }, STARTUP_TIMEOUT_MS);
+
+    /** Every answer, accepted or rejected, is below 500 and carries no DB detail. */
+    async function send(
+      method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+      url: string,
+      payload?: object,
+    ): Promise<{ status: number; json: unknown }> {
+      if (service === undefined) {
+        throw new Error('The service did not start');
+      }
+      const response = await service.app.inject({
+        method,
+        url,
+        ...(payload === undefined ? {} : { payload }),
+      });
+      expect(response.statusCode, `${method} ${url}`).toBeLessThan(HTTP_INTERNAL);
+      expect(response.body).not.toMatch(LEAK);
+      const json: unknown = response.body === '' ? undefined : JSON.parse(response.body);
+      return { status: response.statusCode, json };
+    }
+
+    it('stores injected profile names verbatim and rejects injection in every other field', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const payload of PAYLOADS) {
+        const created = Profile.parse(
+          (await send('POST', '/profiles', { ...profileInput, name: payload })).json,
+        );
+        expect(created.name).toBe(stored(payload));
+        const updated = await send('PUT', `/profiles/${created.id}`, {
+          ...profileInput,
+          name: payload,
+        });
+        expect(Profile.parse(updated.json).name).toBe(stored(payload));
+        expect((await send('DELETE', `/profiles/${created.id}`)).status).toBe(HTTP_NO_CONTENT);
+
+        const bad = [
+          { ...profileInput, mutedApps: [payload] },
+          { ...profileInput, exceptions: [payload] },
+          { ...profileInput, muteNewApps: payload },
+        ];
+        for (const body of bad) {
+          expect((await send('POST', '/profiles', body)).status).toBe(HTTP_BAD_REQUEST);
+        }
+        const badId = `/profiles/${encodeURIComponent(payload)}`;
+        expect((await send('PUT', badId, profileInput)).status).toBe(HTTP_BAD_REQUEST);
+        expect((await send('DELETE', badId)).status).toBe(HTTP_BAD_REQUEST);
+      }
+    });
+
+    it('stores injected app names verbatim and rejects injected app ids and sources', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const [index, payload] of PAYLOADS.entries()) {
+        const app = { appId: `app${index}`, name: payload, source: 'desktop' };
+        const result = KnownAppsResult.parse(
+          (await send('POST', '/known-apps', { items: [app] })).json,
+        );
+        expect(result).toEqual({ added: 1 });
+
+        for (const field of ['appId', 'source']) {
+          const bad = { items: [{ ...app, [field]: payload }] };
+          expect((await send('POST', '/known-apps', bad)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+      const listed = KnownAppList.parse((await send('GET', '/known-apps')).json).items;
+      expect(listed.map((app) => app.name).sort()).toEqual(PAYLOADS.map(stored).sort());
+    });
+
+    it('hands injected alert params back verbatim and rejects injection in every other field', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      // In focus, so every normal alert is queued and stored before it comes back.
+      FocusTransition.parse((await send('POST', '/start', { minutes: FOCUS_MINUTES })).json);
+      for (const [index, payload] of PAYLOADS.entries()) {
+        const queued = { ...alert, alertKey: `thermal:${index}`, params: { culprit: payload } };
+        const result = RouteResult.parse((await send('POST', '/route', { alerts: [queued] })).json);
+        expect(result.queued).toBe(1);
+
+        const bad = [
+          ...['alertKey', 'type', 'level', 'ts'].map((field) => ({ ...alert, [field]: payload })),
+          { ...alert, params: { [payload]: 1 } },
+          { ...alert, params: payload },
+        ];
+        for (const body of bad) {
+          expect((await send('POST', '/route', { alerts: [body] })).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+      const queue = AlertQueue.parse((await send('GET', '/queue')).json).items;
+      const stopped = FocusTransition.parse((await send('POST', '/stop')).json);
+
+      expect(queue.map((item) => item.alert.params)).toEqual(
+        PAYLOADS.map((payload) => ({ culprit: stored(payload) })),
+      );
+      expect(stopped.summary?.alerts).toEqual(queue);
+    });
+
+    it('rejects injection in the focus start and the alert policy', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const payload of PAYLOADS) {
+        const starts = [
+          { profileId: payload, minutes: 5 },
+          { minutes: payload },
+          { until: payload },
+        ];
+        for (const body of starts) {
+          expect((await send('POST', '/start', body)).status).toBe(HTTP_BAD_REQUEST);
+        }
+        const policies = [
+          { type: payload, level: 'normal' },
+          { type: 'thermal', level: payload },
+        ];
+        for (const entry of policies) {
+          const body = { items: [entry] };
+          expect((await send('PUT', '/alert-policy', body)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+    });
+
+    it('rejects injection in every schedule field and id', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const [profile] = ProfileList.parse((await send('GET', '/profiles')).json).items;
+      if (profile === undefined) {
+        throw new Error('The seeded profile is missing');
+      }
+      const schedule = {
+        profileId: profile.id,
+        days: [0],
+        start: '09:00',
+        end: '12:00',
+        enabled: true,
+      };
+      const created = Schedule.parse((await send('POST', '/schedules', schedule)).json);
+      for (const payload of PAYLOADS) {
+        for (const field of Object.keys(schedule)) {
+          const bad = { ...schedule, [field]: payload };
+          expect((await send('POST', '/schedules', bad)).status).toBe(HTTP_BAD_REQUEST);
+          const update = await send('PUT', `/schedules/${created.id}`, bad);
+          expect(update.status).toBe(HTTP_BAD_REQUEST);
+        }
+        const badId = `/schedules/${encodeURIComponent(payload)}`;
+        expect((await send('PUT', badId, schedule)).status).toBe(HTTP_BAD_REQUEST);
+        expect((await send('DELETE', badId)).status).toBe(HTTP_BAD_REQUEST);
+      }
+    });
+
+    it('still answers every route and logs no database error', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const policy = { items: [{ type: 'thermal', level: 'critical' }] };
+      const profiles = ProfileList.parse((await send('GET', '/profiles')).json).items;
+      const state = FocusState.parse((await send('GET', '/state')).json);
+      const replaced = AlertPolicy.parse((await send('PUT', '/alert-policy', policy)).json);
+      const apps = KnownAppList.parse((await send('GET', '/known-apps')).json).items;
+
+      // Only the seeded profile is left: every injected one was deleted again.
+      expect(profiles.map((profile) => profile.name)).toEqual(['Default']);
+      expect(state).toEqual({ active: false });
+      expect(replaced).toEqual(policy);
+      expect(apps).toHaveLength(PAYLOADS.length);
+      expect(AlertQueue.parse((await send('GET', '/queue')).json).items).toEqual([]);
+      expect(logs.output()).not.toContain('DatabaseError');
+      expect(logs.output()).not.toContain('Request failed');
+    });
+  });
 });
