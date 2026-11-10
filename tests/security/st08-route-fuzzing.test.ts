@@ -33,6 +33,22 @@ const METHODS_WITH_BODY = new Set(['POST', 'PUT', 'DELETE']);
 const ROUTES_DIR = fileURLToPath(new URL('../../apps/gateway/src/routes/', import.meta.url));
 
 /** The routes each route task implements, fuzzed again with their real handlers in place. */
+const T28_ROUTES: readonly HandledRouteName[] = [
+  'dashboardToday',
+  'week',
+  'listApps',
+  'updateApp',
+  'listRules',
+  'createRule',
+  'updateRule',
+  'deleteRule',
+  'listGoals',
+  'createGoal',
+  'updateGoal',
+  'deleteGoal',
+  'goalProgress',
+];
+
 const T29_ROUTES: readonly HandledRouteName[] = [
   'batteryNow',
   'batteryHealthTrend',
@@ -193,7 +209,14 @@ describe('ST08 route fuzzing', () => {
   );
 
   it.todo('[T27] ingest routes pass the fuzzing check');
-  it.todo('[T28] dashboard, reports, apps, rules and goals routes pass the fuzzing check');
+  it.each(routesNamed(T28_ROUTES))(
+    'dashboard, reports, apps, rules and goals routes pass the fuzzing check with their handlers: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
   it.each(routesNamed(T29_ROUTES))(
     'battery and system routes pass the fuzzing check with their handlers: $name',
     async (route) => {

@@ -25,7 +25,7 @@ A PR number labeled `security`. Read `docs/SECURITY.md` in full (threats A1–A1
    - **Data:** SQL injection in every parameter, cross-schema reads with another service's role, secrets or titles in logs and error messages
    - **Web:** script in window titles, CSP violations, `dangerouslySetInnerHTML`
    - **CI/CD:** unpinned actions or images, excess `permissions`, `pull_request_target`, `continue-on-error`, new ignore entries without a reason and an expiry date
-   - **Dependencies:** install scripts, licenses, maintenance and known advisories
+   - **Dependencies:** popularity, maintenance, licenses and known advisories
 4. Check that nothing weakens an existing control: ports, CORS, Host, CSP, hooks or scanners.
 
 ## Comment and report
