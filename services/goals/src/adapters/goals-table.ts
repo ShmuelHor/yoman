@@ -1,7 +1,11 @@
+import { parseRow, parseRows } from '@yoman/service-kit/sql';
 import { Goal, type GoalInput } from '@yoman/shared/goals';
+import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { type Queryable, selectRow, selectRows } from './sql.js';
+import type { GoalsDatabase } from './database.js';
+
+type Db = Kysely<GoalsDatabase>;
 
 /** A stored goal, folded back into the contract's shape and checked against it. */
 const GoalRow = z
@@ -26,32 +30,52 @@ const GoalRow = z
 const CountRow = z.object({ count: z.coerce.number().int().min(0) });
 const IdRow = z.object({ id: z.string() });
 
-function goalValues(input: GoalInput): unknown[] {
-  const target = input.target.kind === 'app' ? input.target.appId : input.target.category;
-  return [input.type, input.target.kind, target, input.minutes, input.days];
+const COLUMNS = ['id', 'type', 'target_kind', 'target', 'minutes', 'days'] as const;
+
+function goalValues(input: GoalInput): {
+  type: string;
+  target_kind: string;
+  target: string;
+  minutes: number;
+  days: number[];
+} {
+  return {
+    type: input.type,
+    target_kind: input.target.kind,
+    target: input.target.kind === 'app' ? input.target.appId : input.target.category,
+    minutes: input.minutes,
+    days: [...input.days],
+  };
 }
 
-export function listGoals(db: Queryable, limit: number): Promise<Goal[]> {
-  return selectRows(
-    db,
+export async function listGoals(db: Db, limit: number): Promise<Goal[]> {
+  return parseRows(
     GoalRow,
-    'SELECT id, type, target_kind, target, minutes, days FROM goals ORDER BY created_at, id LIMIT $1',
-    [limit],
+    await db
+      .selectFrom('goals')
+      .select(COLUMNS)
+      .orderBy('created_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
 }
 
-export async function countGoals(db: Queryable): Promise<number> {
-  const row = await selectRow(db, CountRow, 'SELECT count(*) AS count FROM goals');
+export async function countGoals(db: Db): Promise<number> {
+  const row = parseRow(
+    CountRow,
+    await db
+      .selectFrom('goals')
+      .select((eb) => eb.fn.countAll().as('count'))
+      .executeTakeFirst(),
+  );
   return row?.count ?? 0;
 }
 
-export async function createGoal(db: Queryable, input: GoalInput): Promise<Goal> {
-  const goal = await selectRow(
-    db,
+export async function createGoal(db: Db, input: GoalInput): Promise<Goal> {
+  const goal = parseRow(
     GoalRow,
-    `INSERT INTO goals (type, target_kind, target, minutes, days)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id, type, target_kind, target, minutes, days`,
-    goalValues(input),
+    await db.insertInto('goals').values(goalValues(input)).returning(COLUMNS).executeTakeFirst(),
   );
   if (goal === null) {
     throw new Error('INSERT returned no row');
@@ -59,17 +83,22 @@ export async function createGoal(db: Queryable, input: GoalInput): Promise<Goal>
   return goal;
 }
 
-export function updateGoal(db: Queryable, id: string, input: GoalInput): Promise<Goal | null> {
-  return selectRow(
-    db,
+export async function updateGoal(db: Db, id: string, input: GoalInput): Promise<Goal | null> {
+  return parseRow(
     GoalRow,
-    `UPDATE goals SET type = $2, target_kind = $3, target = $4, minutes = $5, days = $6
-     WHERE id = $1 RETURNING id, type, target_kind, target, minutes, days`,
-    [id, ...goalValues(input)],
+    await db
+      .updateTable('goals')
+      .set(goalValues(input))
+      .where('id', '=', id)
+      .returning(COLUMNS)
+      .executeTakeFirst(),
   );
 }
 
-export async function deleteGoal(db: Queryable, id: string): Promise<boolean> {
-  const row = await selectRow(db, IdRow, 'DELETE FROM goals WHERE id = $1 RETURNING id', [id]);
+export async function deleteGoal(db: Db, id: string): Promise<boolean> {
+  const row = parseRow(
+    IdRow,
+    await db.deleteFrom('goals').where('id', '=', id).returning('id').executeTakeFirst(),
+  );
   return row !== null;
 }
