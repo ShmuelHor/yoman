@@ -57,6 +57,15 @@ object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
 
 The other web headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` and a `Permissions-Policy` that turns off camera, microphone, geolocation, payment and USB. Any change to the policy updates this section in the same PR.
 
+### Content Security Policy (gateway)
+The gateway (`apps/gateway/src/core/security-headers.ts`) serves only JSON, so its policy allows nothing. A response that a browser is tricked into rendering as a page can load and run nothing. It is sent on every response, errors included, and ST07 checks it.
+
+```
+default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+```
+
+The other gateway headers: `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin` and `Cache-Control: no-store`, because responses carry personal activity data. Any change to the policy updates this section in the same PR.
+
 ## 3. Automated security tests (`tests/security/`)
 
 Task T05 creates every test as `it.todo` with the ID of the responsible task.
