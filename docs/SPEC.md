@@ -80,7 +80,7 @@
 | battery | `/sys/class/power_supply/BAT*`: energy_full, energy_full_design, cycle_count, power_now, capacity, status | 60 s | Devices without a battery: the service is off |
 | pressure | `/proc/pressure/{cpu,memory,io}`, the `some avg10` and `full avg10` values | 5 s | Very cheap |
 | processes | `/proc/[pid]/{stat,status,io,cgroup}` (never `cmdline` or `environ`) | **Only under load** (PSI above the threshold), at most every 15 s, + every 5 min | The top 10 processes by CPU, RSS and IO (`io` holds byte counters only). Only `comm` is sent. cgroup → container name mapping |
-| thermal | `/sys/class/thermal`, `/sys/class/hwmon` | 30 s | CPU temperature and CPU throttling |
+| thermal | `/sys/class/thermal`, `/sys/class/hwmon`, `/sys/devices/system/cpu/cpu*/thermal_throttle` | 30 s | CPU temperature and CPU throttling |
 | apps | inotify on `.desktop` directories (apt, snap, flatpak, `~/.local`) + `gsettings monitor org.gnome.desktop.notifications application-children` | Event | No polling |
 
 ### 4.2 Actuators
