@@ -28,7 +28,7 @@ Remote takeover of the machine is out of scope. Anything that does not serve one
 | A3 | **A malicious website sends requests to localhost** (CSRF) | `HttpOnly; SameSite=Strict` cookie, a CSRF token on every state-changing request, `Origin` check, CORS for 4710 only | T19 | ST05, ST06 |
 | A4 | **DNS rebinding** | `Host` allowlist: only `127.0.0.1:4711` and `localhost:4711`, otherwise 421 | T19 | ST04 |
 | A5 | **A local process impersonates the agent** | Bearer `AGENT_TOKEN` (32 bytes), `.env` at `0600`, comparison with `timingSafeEqual` | T02, T19 | ST03, ST15 |
-| A6 | **XSS through a window title** (title = external input) | React escaping only, a lint rule banning `dangerouslySetInnerHTML`, CSP `default-src 'self'` with no inline | T11, T26 | ST07, ST13 |
+| A6 | **XSS through a window title** (title = external input) | React escaping only, a lint rule banning `dangerouslySetInnerHTML`, CSP `script-src 'self'` with no inline script | T11, T26 | ST07, ST13 |
 | A7 | **Command injection in the muter** | `execFile` with an args array only. app-id validated against `^[a-zA-Z0-9._-]{1,128}$` | T34 | ST14 |
 | A8 | **SQL injection** | Parameterized queries only. A lint rule banning template strings inside `query()` | T09 | ST12 |
 | A9 | **A compromised service reads another service's data** | A DB user per service, with privileges on its own schema only. `REVOKE ALL ON SCHEMA public` | T10 | ST16 |
@@ -47,14 +47,15 @@ Remote takeover of the machine is out of scope. Anything that does not serve one
 The web container (`apps/web/nginx/security-headers.conf`) sends this policy on every response, errors included. ST07 checks it.
 
 ```
-default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self';
 connect-src 'self' http://127.0.0.1:4711 http://localhost:4711;
 object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
 ```
 
 | Directive | Why |
 |---|---|
-| `default-src`, `script-src`, `style-src`, `img-src`, `font-src` `'self'` | Same-origin files only. No inline script or style and no `eval`, so an injected title cannot run (A6) |
+| `default-src`, `script-src`, `img-src`, `font-src` `'self'` | Same-origin files only. No inline script and no `eval`, so an injected title cannot run (A6) |
+| `style-src 'self' 'unsafe-inline'` | The UI is built on MUI, whose Emotion engine injects `<style>` rules at runtime, and a static nginx server cannot hand out a per-response nonce. Inline style cannot run code, `script-src` is unchanged, and React still escapes every title, so a title cannot inject markup to style in the first place (A6) |
 | `connect-src 'self' http://127.0.0.1:4711 http://localhost:4711` | The page talks only to the gateway on loopback, under the two host names the gateway's `Host` allowlist accepts (A4) |
 | `object-src 'none'`, `base-uri 'none'` | No plugins, and no `<base>` tag that could redirect relative URLs |
 | `form-action 'self'` | Forms submit only to the web origin |

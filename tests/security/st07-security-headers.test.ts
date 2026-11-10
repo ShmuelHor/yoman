@@ -167,16 +167,20 @@ describe('ST07 security headers', () => {
       },
     );
 
-    it('web CSP allows no inline code, eval, wildcards or data: URLs (SECURITY A6)', async () => {
+    it('web CSP allows no inline script, eval, wildcards or data: URLs (SECURITY A6)', async () => {
       const response = await fetch(`${baseUrl}/`);
       const csp = parseCsp(response.headers.get('content-security-policy'));
-      const sources = [...csp.values()].flat();
+      // style-src is checked on its own below.
+      const sources = [...csp]
+        .filter(([directive]) => directive !== 'style-src')
+        .flatMap(([, values]) => values);
 
       for (const banned of ["'unsafe-inline'", "'unsafe-eval'", "'unsafe-hashes'", '*', 'data:']) {
         expect(sources).not.toContain(banned);
       }
       expect(csp.get('script-src')).toEqual(["'self'"]);
-      expect(csp.get('style-src')).toEqual(["'self'"]);
+      // MUI's Emotion injects <style> rules at runtime; inline style runs no code.
+      expect(csp.get('style-src')).toEqual(["'self'", "'unsafe-inline'"]);
       expect(csp.get('object-src')).toEqual(["'none'"]);
       expect(csp.get('base-uri')).toEqual(["'none'"]);
       // The page may call only itself and the loopback gateway.
