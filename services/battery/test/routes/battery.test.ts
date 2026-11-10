@@ -19,6 +19,8 @@ const DRAW_W = 10;
 const HEAVY_W = 20;
 const TEN_MINUTES_S = 600;
 const TREND_DAYS = 7;
+/** About 87 bytes of JSON each, so over 1 MiB in all. */
+const SESSIONS_OVER_ONE_MIB = 15_000;
 
 function stored(clock: string, overrides: Partial<BatterySample> = {}): StoredSample {
   const sample = batterySample(clock, overrides);
@@ -127,6 +129,20 @@ describe('battery routes', () => {
         { appId: 'firefox', averageW: HEAVY_W, seconds: TEN_MINUTES_S },
         { appId: 'code', averageW: DRAW_W, seconds: TEN_MINUTES_S },
       ]);
+    });
+
+    it('accepts a timeline larger than the default 1 MiB body limit', async () => {
+      subject = createTestService();
+      const first = sessions[0] ?? { appId: 'code', start: range.from, end: range.to };
+      const timeline = Array.from({ length: SESSIONS_OVER_ONE_MIB }, () => first);
+
+      const response = await subject.service.app.inject({
+        method: 'POST',
+        url: '/power-by-app',
+        payload: { ...range, sessions: timeline },
+      });
+
+      expect(response.statusCode).toBe(HTTP_OK);
     });
 
     it.each([

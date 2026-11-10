@@ -79,6 +79,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     app.route({
       method: route.method,
       url: route.url,
+      ...(route.bodyLimit === undefined ? {} : { bodyLimit: route.bodyLimit }),
       handler: async (request, reply) => {
         const { params, query, body } = request;
         const result = await route.handle({ params, query, body }, request.log);
