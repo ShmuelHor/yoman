@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { i18n } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { createMemoryRouter } from 'react-router';
@@ -63,30 +64,22 @@ describe('app router', () => {
   });
 
   it('flips the layout direction when the language is switched', async () => {
-    renderApp('/');
-    const [language] = screen.getAllByRole('combobox');
-    if (language === undefined) {
-      throw new Error('no language picker');
-    }
+    const user = userEvent.setup();
+    const instance = renderApp('/');
 
-    await act(async () => {
-      fireEvent.change(language, { target: { value: 'en' } });
-    });
+    await user.click(screen.getByRole('combobox', { name: instance.t('language.label') }));
+    await user.click(screen.getByRole('option', { name: instance.t('language.en') }));
 
     expect([root.lang, root.dir]).toEqual(['en', 'ltr']);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Welcome');
   });
 
-  it('switches the color theme from the shell', () => {
-    renderApp('/');
-    const [, theme] = screen.getAllByRole('combobox');
-    if (theme === undefined) {
-      throw new Error('no theme picker');
-    }
+  it('switches the color theme from the shell', async () => {
+    const user = userEvent.setup();
+    const instance = renderApp('/');
 
-    act(() => {
-      fireEvent.change(theme, { target: { value: 'dark' } });
-    });
+    await user.click(screen.getByRole('combobox', { name: instance.t('theme.label') }));
+    await user.click(screen.getByRole('option', { name: instance.t('theme.dark') }));
 
     expect(root.getAttribute('data-theme')).toBe('dark');
   });
