@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const WEB_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const SRC_DIR = join(WEB_DIR, 'src');
 /** The single file allowed to hold color literals (docs/DESIGN.md). */
-const TOKENS_FILE = 'src/theme/tokens.css';
+const TOKENS_FILE = 'src/theme/color-tokens.ts';
 const SCANNED = /\.(css|ts|tsx|html)$/u;
 
 /** `#abc`, `#abcd`, `#aabbcc` and `#aabbccdd`, plus the rgb()/hsl() color functions. */

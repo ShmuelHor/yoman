@@ -17,6 +17,9 @@ function fakeSystemTheme(initiallyDark: boolean): { setDark: (dark: boolean) => 
         media: query,
         addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
         removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+        // MUI's provider still watches the system theme through the legacy API.
+        addListener: (listener: () => void) => listeners.add(listener),
+        removeListener: (listener: () => void) => listeners.delete(listener),
       }) as unknown as MediaQueryList,
   );
   return {

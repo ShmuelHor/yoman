@@ -1,0 +1,17 @@
+language js
+
+// Layouts must flip with `dir` (SPEC §6, DESIGN.md rule 6). Styles live in sx
+// and styled objects, where Biome's CSS rule useLogicalProperties cannot see
+// them, so this bans the physical left/right properties and values there.
+// Grit treats regex groups as captures, hence one anchored alternative per name.
+or {
+  JsPropertyObjectMember(name=$name) where {
+    $name <: r"^['\"]?marginLeft['\"]?$|^['\"]?marginRight['\"]?$|^['\"]?paddingLeft['\"]?$|^['\"]?paddingRight['\"]?$|^['\"]?left['\"]?$|^['\"]?right['\"]?$|^['\"]?ml['\"]?$|^['\"]?mr['\"]?$|^['\"]?pl['\"]?$|^['\"]?pr['\"]?$|^['\"]?borderLeft\w*['\"]?$|^['\"]?borderRight\w*['\"]?$|^['\"]?borderTopLeftRadius['\"]?$|^['\"]?borderTopRightRadius['\"]?$|^['\"]?borderBottomLeftRadius['\"]?$|^['\"]?borderBottomRightRadius['\"]?$|^['\"]?margin-left['\"]?$|^['\"]?margin-right['\"]?$|^['\"]?padding-left['\"]?$|^['\"]?padding-right['\"]?$|^['\"]?border-left[\w-]*['\"]?$|^['\"]?border-right[\w-]*['\"]?$|^['\"]?border-top-left-radius['\"]?$|^['\"]?border-top-right-radius['\"]?$|^['\"]?border-bottom-left-radius['\"]?$|^['\"]?border-bottom-right-radius['\"]?$",
+    register_diagnostic(span=$name, message="Physical left/right styles do not flip with dir. Use the logical property (marginInlineStart, paddingInlineEnd, insetInlineStart, ...).")
+  },
+  JsPropertyObjectMember(name=$name, value=$value) where {
+    $name <: r"^['\"]?textAlign['\"]?$|^['\"]?text-align['\"]?$|^['\"]?float['\"]?$|^['\"]?clear['\"]?$|^['\"]?justifySelf['\"]?$",
+    $value <: r"^['\"]left['\"]$|^['\"]right['\"]$",
+    register_diagnostic(span=$value, message="Physical left/right values do not flip with dir. Use start or end (inline-start or inline-end for float).")
+  }
+}

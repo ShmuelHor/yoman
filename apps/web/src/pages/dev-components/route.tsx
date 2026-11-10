@@ -1,4 +1,9 @@
-import { useState } from 'react';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { DataGrid, type GridColDef } from '@mui/x-data-grid';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AlertCard } from '../../components/alert-card.js';
@@ -11,14 +16,16 @@ import { Switch } from '../../components/switch.js';
 import { Tag } from '../../components/tag.js';
 import { directionOf, Language } from '../../i18n/languages.js';
 import type { PageRoute } from '../../router/page-route.js';
+import { LocaleProvider } from '../../theme/locale-provider.js';
 import type { ResolvedTheme } from '../../theme/theme.js';
-import './dev-components.css';
 
 const PATH = 'dev/components';
 const NAMESPACE = 'dev-components';
 /** Far after every product page, so it never competes for an order. */
 const ORDER = 1000;
 const THEMES: readonly ResolvedTheme[] = ['light', 'dark'];
+const PANEL_MIN_WIDTH_PX = 360;
+const GRID_HEIGHT_PX = 200;
 
 /** Sample values, formatted per language through Intl like real data will be. */
 const SAMPLE = {
@@ -27,6 +34,12 @@ const SAMPLE = {
   minutesMore: 47,
   drainShare: 0.3,
   focusMinutesLeft: 47,
+  day: '2026-11-10T00:00:00',
+  apps: [
+    { id: 1, app: 'Code', category: 'work', minutes: 184 },
+    { id: 2, app: 'Firefox', category: 'work', minutes: 96 },
+    { id: 3, app: 'Slack', category: 'comms', minutes: 41 },
+  ],
 } as const;
 
 interface PanelProps {
@@ -34,10 +47,55 @@ interface PanelProps {
   readonly theme: ResolvedTheme;
 }
 
+function Section({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: ReactNode;
+}): React.JSX.Element {
+  return (
+    <Stack spacing={3} useFlexGap>
+      <Typography variant="label" component="h3">
+        {title}
+      </Typography>
+      <Stack direction="row" spacing={3} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+        {children}
+      </Stack>
+    </Stack>
+  );
+}
+
+function SampleGrid({ language }: { readonly language: Language }): React.JSX.Element {
+  const { t } = useTranslation(NAMESPACE, { lng: language });
+  const columns: GridColDef[] = [
+    { field: 'app', headerName: t('dataGrid.app'), flex: 1 },
+    {
+      field: 'category',
+      headerName: t('dataGrid.category'),
+      flex: 1,
+      valueFormatter: (value: 'work' | 'comms'): string => t(`dataGrid.${value}`),
+    },
+    {
+      field: 'minutes',
+      headerName: t('dataGrid.minutes'),
+      type: 'number',
+      flex: 1,
+      valueFormatter: (value: number): string => new Intl.NumberFormat(language).format(value),
+    },
+  ];
+  return (
+    <Box sx={{ blockSize: GRID_HEIGHT_PX, inlineSize: '100%' }}>
+      <DataGrid rows={SAMPLE.apps} columns={columns} hideFooter disableColumnMenu />
+    </Box>
+  );
+}
+
 function Gallery({ language }: { readonly language: Language }): React.JSX.Element {
   const { t } = useTranslation(NAMESPACE, { lng: language });
   const [focusOn, setFocusOn] = useState(true);
   const [quietOn, setQuietOn] = useState(false);
+  const [day, setDay] = useState<Date | null>(new Date(SAMPLE.day));
   const number = new Intl.NumberFormat(language);
   const percent = new Intl.NumberFormat(language, { style: 'percent' });
   const hours = new Intl.NumberFormat(language, {
@@ -51,68 +109,88 @@ function Gallery({ language }: { readonly language: Language }): React.JSX.Eleme
       <FocusBanner>
         {t('focusBanner', { minutes: number.format(SAMPLE.focusMinutesLeft) })}
       </FocusBanner>
-      <h3>{t('section.buttons')}</h3>
-      <div className="dev-components__row">
+      <Section title={t('section.buttons')}>
         <Button variant="primary">{t('button.primary')}</Button>
         <Button>{t('button.secondary')}</Button>
         <Button disabled>{t('button.disabled')}</Button>
-      </div>
-      <h3>{t('section.input')}</h3>
-      <Input label={t('input.label')} placeholder={t('input.placeholder')} />
-      <h3>{t('section.switch')}</h3>
-      <div className="dev-components__row">
+      </Section>
+      <Section title={t('section.input')}>
+        <Input label={t('input.label')} placeholder={t('input.placeholder')} />
+      </Section>
+      <Section title={t('section.switch')}>
         <Switch checked={focusOn} onChange={setFocusOn} label={t('switch.on')} />
         <Switch checked={quietOn} onChange={setQuietOn} label={t('switch.off')} />
-      </div>
-      <h3>{t('section.tags')}</h3>
-      <div className="dev-components__row">
+      </Section>
+      <Section title={t('section.tags')}>
         <Tag>{t('tag.default')}</Tag>
         <Tag variant="anomaly">{t('tag.anomaly')}</Tag>
-      </div>
-      <h3>{t('section.navTabs')}</h3>
-      <div className="dev-components__row">
+      </Section>
+      <Section title={t('section.navTabs')}>
         <NavTab to={`/${PATH}`}>{t('navTab.current')}</NavTab>
         <NavTab to="/">{t('navTab.other')}</NavTab>
-      </div>
-      <h3>{t('section.cards')}</h3>
-      <div className="dev-components__cards">
-        <Card
-          size="hero"
-          label={t('card.heroLabel')}
-          value={hours.format(SAMPLE.screenHours)}
-          context={t('card.heroContext', { minutes: number.format(SAMPLE.minutesMore) })}
-        />
-        <Card
-          label={t('card.secondaryLabel')}
-          value={percent.format(SAMPLE.batteryShare)}
-          context={t('card.secondaryContext')}
-        />
-      </div>
-      <h3>{t('section.alert')}</h3>
-      <AlertCard title={t('alert.title')}>
-        {t('alert.body', { share: percent.format(SAMPLE.drainShare) })}
-      </AlertCard>
+      </Section>
+      <Section title={t('section.cards')}>
+        <Stack spacing={3} useFlexGap sx={{ inlineSize: '100%' }}>
+          <Card
+            size="hero"
+            label={t('card.heroLabel')}
+            value={hours.format(SAMPLE.screenHours)}
+            context={t('card.heroContext', { minutes: number.format(SAMPLE.minutesMore) })}
+          />
+          <Card
+            label={t('card.secondaryLabel')}
+            value={percent.format(SAMPLE.batteryShare)}
+            context={t('card.secondaryContext')}
+          />
+        </Stack>
+      </Section>
+      <Section title={t('section.alert')}>
+        <AlertCard title={t('alert.title')}>
+          {t('alert.body', { share: percent.format(SAMPLE.drainShare) })}
+        </AlertCard>
+      </Section>
+      <Section title={t('section.dataGrid')}>
+        <SampleGrid language={language} />
+      </Section>
+      <Section title={t('section.datePicker')}>
+        <DatePicker label={t('datePicker.label')} value={day} onChange={setDay} />
+      </Section>
     </>
   );
 }
 
 /**
- * One language in one theme. `data-theme` on the panel switches every token
- * inside it, so both themes render side by side whatever the app theme is.
+ * One language in one theme. `data-theme` on the panel switches every color
+ * variable inside it, so both themes render side by side whatever the app
+ * theme is, and LocaleProvider lays it out in the panel's own direction.
  */
 function Panel({ language, theme }: PanelProps): React.JSX.Element {
   const { t } = useTranslation('common', { lng: language });
   const { t: tPage } = useTranslation(NAMESPACE, { lng: language });
   return (
-    <section
-      className="dev-components__panel"
-      data-theme={theme}
-      lang={language}
-      dir={directionOf(language)}
-    >
-      <h2>{tPage('panel', { language: t(`language.${language}`), theme: t(`theme.${theme}`) })}</h2>
-      <Gallery language={language} />
-    </section>
+    <LocaleProvider language={language}>
+      <Stack
+        component="section"
+        data-theme={theme}
+        lang={language}
+        dir={directionOf(language)}
+        spacing={3}
+        useFlexGap
+        sx={{
+          padding: 6,
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          bgcolor: 'background.default',
+          color: 'text.primary',
+        }}
+      >
+        <Typography variant="h2">
+          {tPage('panel', { language: t(`language.${language}`), theme: t(`theme.${theme}`) })}
+        </Typography>
+        <Gallery language={language} />
+      </Stack>
+    </LocaleProvider>
   );
 }
 
@@ -121,15 +199,21 @@ function DevComponentsPage(): React.JSX.Element {
   const { t } = useTranslation(NAMESPACE);
   return (
     <>
-      <h1>{t('title')}</h1>
-      <p>{t('intro')}</p>
-      <div className="dev-components__grid">
+      <Typography variant="h1">{t('title')}</Typography>
+      <Typography>{t('intro')}</Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(auto-fit, minmax(${PANEL_MIN_WIDTH_PX}px, 1fr))`,
+          gap: 6,
+        }}
+      >
         {Language.options.flatMap((language) =>
           THEMES.map((theme) => (
             <Panel key={`${language}-${theme}`} language={language} theme={theme} />
           )),
         )}
-      </div>
+      </Box>
     </>
   );
 }
