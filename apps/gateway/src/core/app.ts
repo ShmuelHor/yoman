@@ -1,5 +1,6 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, {
   type FastifyBaseLogger,
@@ -26,7 +27,7 @@ import {
 } from './errors.js';
 import { ALLOWED_ORIGINS, isAllowedHost, isAllowedOrigin } from './origins.js';
 import type { HandlerMap } from './route-handler.js';
-import { SECURITY_HEADERS } from './security-headers.js';
+import { CACHE_CONTROL, HELMET_OPTIONS } from './security-headers.js';
 import type { ServiceClient } from './service-client.js';
 import { createSessionStore, type SessionStore } from './web-sessions.js';
 
@@ -50,9 +51,11 @@ export interface GatewayOptions {
   readonly rateLimits?: { readonly global?: RateLimit; readonly ingest?: RateLimit };
 }
 
-function registerRequestGuards(app: FastifyInstance): void {
+async function registerRequestGuards(app: FastifyInstance): Promise<void> {
+  // Before the guards below, so a rejected request carries the security headers too (ST07).
+  await app.register(helmet, HELMET_OPTIONS);
   app.addHook('onSend', async (_request, reply, payload) => {
-    void reply.headers(SECURITY_HEADERS);
+    void reply.header('cache-control', CACHE_CONTROL);
     return payload;
   });
   // First, before routing, CORS and the rate limit: a rebinding attempt gets nothing (SECURITY A4).
@@ -110,7 +113,7 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   registerErrorHandlers(app);
-  registerRequestGuards(app);
+  await registerRequestGuards(app);
 
   await app.register(cors, {
     origin: [...ALLOWED_ORIGINS],
