@@ -1,2 +1,29 @@
-# Stub from T10. The focus service task adds its service here.
-services: {}
+# The focus service (T18). Internal only: it publishes no port and sits on the
+# internal `core` network, where only the gateway reaches it (SECURITY A2).
+# The hardening matches x-service-defaults in the root docker-compose.yml; YAML
+# anchors do not cross included files, so it is repeated.
+services:
+  focus:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE: focus
+    # The node user of the base image (see docker/Dockerfile.service).
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    mem_limit: 128m
+    cpus: 0.5
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      FOCUS_DB_PASSWORD: ${FOCUS_DB_PASSWORD:?run npm run setup}
+      # The zone `focus until HH:MM` is read in, for example Asia/Jerusalem.
+      TZ: ${TZ:-UTC}
+    networks: [core]
+    depends_on:
+      postgres:
+        condition: service_healthy
