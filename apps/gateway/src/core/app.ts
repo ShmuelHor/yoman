@@ -14,6 +14,7 @@ import {
 } from 'fastify-type-provider-zod';
 
 import { createTokenVerifier } from './agent-token.js';
+import { registerApiDocs } from './api-docs.js';
 import { CSRF_HEADER } from './authenticate.js';
 import { INGEST_RATE_LIMIT, type RateLimit, registerContractRoutes } from './contract-routes.js';
 import {
@@ -49,6 +50,8 @@ export interface GatewayOptions {
   readonly handlers?: HandlerMap;
   readonly sessions?: SessionStore;
   readonly rateLimits?: { readonly global?: RateLimit; readonly ingest?: RateLimit };
+  /** Serve the OpenAPI document and Swagger UI under `/docs`. Development only. */
+  readonly apiDocs?: boolean;
 }
 
 async function registerRequestGuards(app: FastifyInstance): Promise<void> {
@@ -128,6 +131,9 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
     ...(options.rateLimits?.global ?? GLOBAL_RATE_LIMIT),
     errorResponseBuilder: () => new RateLimitedError(),
   });
+  if (options.apiDocs === true) {
+    await registerApiDocs(app);
+  }
 
   // Polled by Docker; it carries no data, so it needs no credential and no rate limit.
   app.get('/health', { logLevel: 'warn', config: { rateLimit: false } }, async () => ({

@@ -11,6 +11,7 @@ describe('loadConfig', () => {
       host: '127.0.0.1',
       port: 8080,
       logLevel: 'info',
+      development: false,
       agentToken: AGENT_TOKEN,
     });
     expect(config.serviceUrls.battery.href).toBe('http://battery:8080/');
@@ -35,6 +36,12 @@ describe('loadConfig', () => {
 
     expect(config).toMatchObject({ host: '0.0.0.0', port: 9000, logLevel: 'warn' });
     expect(config.serviceUrls.focus.href).toBe('http://127.0.0.1:9100/');
+  });
+
+  it('turns on development features only for NODE_ENV=development', () => {
+    expect(loadConfig({ AGENT_TOKEN, NODE_ENV: 'development' }).development).toBe(true);
+    expect(loadConfig({ AGENT_TOKEN, NODE_ENV: 'production' }).development).toBe(false);
+    expect(() => loadConfig({ AGENT_TOKEN, NODE_ENV: 'dev' })).toThrow('NODE_ENV');
   });
 
   it('requires the agent token', () => {
