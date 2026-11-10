@@ -302,7 +302,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **What:**
   - Tokens exactly as in DESIGN.md, and every component from DESIGN.md
   - A `/dev/components` page in both modes and both languages
-  - A CI check that there are no hex values outside `tokens.css`
+  - A CI check that there are no hex values outside `apps/web/src/theme/color-tokens.ts`
 
 **Gate G2:**
 - [x] Every service is healthy
