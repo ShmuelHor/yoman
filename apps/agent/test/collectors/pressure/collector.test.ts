@@ -4,7 +4,10 @@ import {
   createPressureCollector,
   PRESSURE_INTERVAL_MS,
 } from '../../../src/collectors/pressure/collector.js';
-import { SNAPSHOT_EVERY_MS } from '../../../src/collectors/pressure/domain/snapshot-schedule.js';
+import {
+  SNAPSHOT_EVERY_MS,
+  SNAPSHOT_UNDER_LOAD_MS,
+} from '../../../src/collectors/pressure/domain/snapshot-schedule.js';
 import { CLOCK_TICKS_PER_SECOND } from '../../../src/collectors/pressure/domain/top-processes.js';
 import { createLogger } from '../../../src/core/logger.js';
 import type { Collector, CollectorContext } from '../../../src/core/plugin.js';
@@ -15,6 +18,7 @@ const START = new Date('2026-11-09T08:00:00.000Z');
 const BUSY = { cpu: 55.5 };
 const UPTIME_SEC = 1_000;
 const TEN_SECONDS = 10 * CLOCK_TICKS_PER_SECOND;
+const LOADED_TICKS = 4;
 const PLENTY_OF_MEMORY = { availablePct: 50 };
 
 interface Clock {
@@ -124,21 +128,27 @@ describe('pressure collector', () => {
     expect(ticks).toEqual([['pressure', 'processes'], ['pressure'], ['pressure', 'processes']]);
   });
 
-  it('takes a process snapshot on every tick under load', async () => {
+  it('takes a process snapshot every 15 seconds under load', async () => {
     // Arrange
     const ctx = context();
     await collect(collector, ctx);
     await tree.setPressure(BUSY);
+    const ticks: string[][] = [];
 
-    // Act
-    time.advance(PRESSURE_INTERVAL_MS);
-    const first = await collect(collector, ctx);
-    time.advance(PRESSURE_INTERVAL_MS);
-    const second = await collect(collector, ctx);
+    // Act: the load starts 5 minutes after the first snapshot, then lasts four ticks.
+    time.advance(SNAPSHOT_EVERY_MS / 2);
+    for (let tick = 0; tick < LOADED_TICKS; tick += 1) {
+      ticks.push(kinds(await collect(collector, ctx)));
+      time.advance(PRESSURE_INTERVAL_MS);
+    }
 
     // Assert
-    expect(kinds(first)).toEqual(['pressure', 'processes']);
-    expect(kinds(second)).toEqual(['pressure', 'processes']);
+    expect(ticks).toEqual([
+      ['pressure', 'processes'],
+      ['pressure'],
+      ['pressure'],
+      ['pressure', 'processes'],
+    ]);
   });
 
   it('names the process that used the CPU since the last snapshot', async () => {
@@ -151,7 +161,7 @@ describe('pressure collector', () => {
     await tree.setProcess({ pid: 42, comm: 'cargo', cpuTicks: TEN_SECONDS, rssPages: 1, rssKb: 4 });
 
     // Act
-    time.advance(PRESSURE_INTERVAL_MS);
+    time.advance(SNAPSHOT_UNDER_LOAD_MS);
     const samples = await collect(collector, ctx);
 
     // Assert
@@ -177,7 +187,7 @@ describe('pressure collector', () => {
     await collect(collector, ctx);
 
     // Act
-    time.advance(PRESSURE_INTERVAL_MS);
+    time.advance(SNAPSHOT_UNDER_LOAD_MS);
     const samples = await collect(collector, ctx);
 
     // Assert
@@ -218,6 +228,18 @@ describe('pressure collector', () => {
         { pid: 1, comm: 'systemd' },
       ],
     });
+  });
+
+  it('never reads the IO counters of a kernel thread', async () => {
+    // Arrange
+    await tree.setProcess({ pid: 2, comm: 'kworker/0:1', kernelThread: true, cpuTicks: 5 });
+    await tree.makeUnreadable({ pid: 2, file: 'io' });
+
+    // Act
+    const samples = await collect(collector, context());
+
+    // Assert
+    expect(samples[1]).toMatchObject({ processes: [{ pid: 2, comm: 'kworker/0:1' }, { pid: 1 }] });
   });
 
   it('sends no process snapshot when uptime is unreadable', async () => {

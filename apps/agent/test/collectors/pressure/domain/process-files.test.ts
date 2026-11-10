@@ -8,6 +8,8 @@ import {
 
 const PID = '4321';
 const COMM_LIMIT = 64;
+/** `PF_KTHREAD | PF_NOFREEZE`, as a kworker shows them. */
+const KTHREAD_FLAGS = '2129984';
 const COUNTER_DIGITS = 15;
 const KERNEL_PID_LIMIT = '4194304';
 
@@ -22,6 +24,7 @@ describe('parseProcessStat', () => {
     expect(parseProcessStat(stat('node'))).toEqual({
       pid: 4321,
       comm: 'node',
+      kernelThread: false,
       cpuTicks: 150,
       startTicks: 5000,
       rssPages: 2048,
@@ -31,6 +34,14 @@ describe('parseProcessStat', () => {
   it('keeps spaces and parentheses that a process put in its own name', () => {
     // Act / Assert
     expect(parseProcessStat(stat('Web (Content) 1'))?.comm).toBe('Web (Content) 1');
+  });
+
+  it('recognizes a kernel thread by its PF_KTHREAD flag', () => {
+    // Arrange
+    const kworker = stat('kworker/0:1').replace(' 4194304 ', ` ${KTHREAD_FLAGS} `);
+
+    // Act / Assert
+    expect(parseProcessStat(kworker)?.kernelThread).toBe(true);
   });
 
   it('masks control characters in the name', () => {

@@ -12,7 +12,15 @@ import {
 type WithPid<T> = Partial<T> & { readonly pid: number };
 
 function counters(values: WithPid<ProcessCounters>): ProcessCounters {
-  return { comm: `p${values.pid}`, cpuTicks: 0, startTicks: 0, rssPages: 0, ioBytes: 0, ...values };
+  return {
+    comm: `p${values.pid}`,
+    kernelThread: false,
+    cpuTicks: 0,
+    startTicks: 0,
+    rssPages: 0,
+    ioBytes: 0,
+    ...values,
+  };
 }
 
 function usage(values: WithPid<ProcessUsage>): ProcessUsage {
