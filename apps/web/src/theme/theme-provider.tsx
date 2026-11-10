@@ -2,7 +2,7 @@ import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import {
   createContext,
   type ReactNode,
-  useContext,
+  use,
   useEffect,
   useMemo,
   useState,
@@ -71,17 +71,17 @@ export function ThemeProvider({
 
   const value = useMemo(() => ({ preference, resolved, setPreference }), [preference, resolved]);
   return (
-    <ThemeContext.Provider value={value}>
+    <ThemeContext value={value}>
       <MuiThemeProvider theme={appTheme} colorSchemeNode={null} storageManager={null}>
         <AppBaseline />
         {children}
       </MuiThemeProvider>
-    </ThemeContext.Provider>
+    </ThemeContext>
   );
 }
 
 export function useTheme(): ThemeState {
-  const state = useContext(ThemeContext);
+  const state = use(ThemeContext);
   if (state === undefined) {
     throw new Error('useTheme must be used inside ThemeProvider');
   }
