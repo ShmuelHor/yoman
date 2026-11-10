@@ -24,9 +24,12 @@ type PartOf<C, Part extends 'params' | 'query' | 'body'> = C extends {
   ? z.output<Schema>
   : undefined;
 
-/** What a handler returns: the input of the response schema, which the gateway parses. */
+/**
+ * What a handler returns: the output type of the response schema, which the
+ * serializer checks (`safeEncode`) before anything is sent.
+ */
 type ResultOf<C extends RouteContract> = C['response'] extends z.ZodType
-  ? z.input<C['response']>
+  ? z.output<C['response']>
   : undefined;
 
 export type RouteHandler<K extends RouteName> = (

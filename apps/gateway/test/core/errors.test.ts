@@ -1,4 +1,6 @@
+import { validatorCompiler } from 'fastify-type-provider-zod';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import {
   BadRequestError,
@@ -15,6 +17,31 @@ describe('toGatewayError', () => {
     const error = new ValidationError([{ path: 'body.minutes', message: 'Too big' }]);
 
     expect(toGatewayError(error)).toBe(error);
+  });
+
+  it('maps a Zod schema validation failure to field paths under the contract part name', () => {
+    const validate = validatorCompiler({
+      schema: z.strictObject({ samples: z.array(z.strictObject({ appId: z.string() })) }),
+      method: 'GET',
+      url: '/v1/test',
+      httpPart: 'querystring',
+    });
+    const result = validate({ samples: [{ appId: 7 }] });
+    if (typeof result !== 'object' || !('error' in result)) {
+      throw new Error('the fixture must be rejected');
+    }
+    const thrown = Object.assign(new Error('querystring/samples/0/appId must be string'), {
+      statusCode: STATUS.BAD_REQUEST,
+      validation: result.error,
+      validationContext: 'querystring',
+    });
+
+    const error = toGatewayError(thrown);
+
+    expect(error).toBeInstanceOf(ValidationError);
+    expect(toErrorBody(error).error.issues).toEqual([
+      { path: 'query.samples.0.appId', message: expect.any(String) },
+    ]);
   });
 
   it('maps a framework 413 to PAYLOAD_TOO_LARGE', () => {
