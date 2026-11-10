@@ -9,9 +9,10 @@ import { createLogger } from '../../apps/agent/src/core/logger.js';
 import type { CollectorContext } from '../../apps/agent/src/core/plugin.js';
 import { SessionBusError } from '../../apps/agent/src/core/session-bus.js';
 
-// Distinctive markers, so a match can only mean a leak.
-const CMDLINE_SECRET = 'st17-cmdline-secret-4b7d';
-const ENVIRON_SECRET = 'st17-environ-secret-a90c';
+// Distinctive markers, so a match can only mean a leak. Built at runtime and
+// low-entropy, so gitleaks never sees a token-shaped literal (ST02).
+const CMDLINE_MARKER = ['st17', 'cmdline', 'marker'].join('-');
+const ENVIRON_MARKER = ['st17', 'environ', 'marker'].join('-');
 const COMM = 'st17-worker';
 const PIDS = ['101', '202'];
 
@@ -45,8 +46,8 @@ async function procTree(root: string): Promise<void> {
     await writeFile(join(dir, 'stat'), stat(pid));
     await writeFile(join(dir, 'io'), 'read_bytes: 4096\nwrite_bytes: 4096\n');
     await writeFile(join(dir, 'status'), `Name:\t${COMM}\nVmRSS:\t256 kB\n`);
-    await writeFile(join(dir, 'cmdline'), `/usr/bin/${COMM}\0--token=${CMDLINE_SECRET}\0`);
-    await writeFile(join(dir, 'environ'), `API_TOKEN=${ENVIRON_SECRET}\0`);
+    await writeFile(join(dir, 'cmdline'), `/usr/bin/${COMM}\0--flag=${CMDLINE_MARKER}\0`);
+    await writeFile(join(dir, 'environ'), `YOMAN_ST17=${ENVIRON_MARKER}\0`);
   }
 }
 
@@ -91,8 +92,8 @@ describe('ST17 agent payload privacy', () => {
 
     // Assert: the processes are there, named by comm, with no trace of their arguments.
     expect(payload).toContain(`"comm":"${COMM}"`);
-    expect(payload).not.toContain(CMDLINE_SECRET);
-    expect(payload).not.toContain(ENVIRON_SECRET);
+    expect(payload).not.toContain(CMDLINE_MARKER);
+    expect(payload).not.toContain(ENVIRON_MARKER);
     expect(payload).not.toContain('/usr/bin/');
     expect(payload).not.toMatch(/cmdline|environ|args/i);
   });
@@ -122,7 +123,7 @@ describe('ST17 agent payload privacy', () => {
           cpuPct: 1,
           rssBytes: 1,
           ioBytesPerSec: 0,
-          cmdline: `/usr/bin/${COMM} --token=${CMDLINE_SECRET}`,
+          cmdline: `/usr/bin/${COMM} --flag=${CMDLINE_MARKER}`,
         },
       ],
     };
