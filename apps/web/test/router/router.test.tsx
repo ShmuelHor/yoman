@@ -15,7 +15,7 @@ import { pageRoutes } from '../../src/router/pages.js';
 import { buildRoutes } from '../../src/router/router.js';
 
 function Week(): React.JSX.Element {
-  const { t } = useTranslation('welcome');
+  const { t } = useTranslation('today');
   return <p>week page: {t('title')}</p>;
 }
 
@@ -27,10 +27,10 @@ const WEEK_ORDER = 1;
 const DEV_TOOL_ORDER = 2;
 const pages: readonly PageRoute[] = [
   ...pageRoutes,
-  { path: 'week', namespace: 'welcome', order: WEEK_ORDER, Component: Week },
+  { path: 'week', namespace: 'today', order: WEEK_ORDER, Component: Week },
   {
     path: 'dev/tool',
-    namespace: 'welcome',
+    namespace: 'today',
     order: DEV_TOOL_ORDER,
     devOnly: true,
     Component: DevTool,
@@ -57,7 +57,7 @@ describe('app router', () => {
     const instance = renderApp('/');
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-      instance.t('title', { ns: 'welcome', lng: 'he' }),
+      instance.t('title', { ns: 'today', lng: 'he' }),
     );
     expect(screen.getAllByRole('link')).toHaveLength(navPages(pages).length);
     expect([root.lang, root.dir]).toEqual(['he', 'rtl']);
@@ -71,7 +71,7 @@ describe('app router', () => {
     await user.click(screen.getByRole('option', { name: instance.t('language.en') }));
 
     expect([root.lang, root.dir]).toEqual(['en', 'ltr']);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Welcome');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Today');
   });
 
   it('switches the color theme from the shell', async () => {
