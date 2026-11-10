@@ -1,0 +1,36 @@
+{
+  "appName": "Yoman",
+  "action": { "openDashboard": "Open dashboard" },
+  "batteryLow": {
+    "title": "Battery low",
+    "body": "{{percent}}% left. Plug in the charger soon."
+  },
+  "batteryCritical": {
+    "title": "Battery almost empty",
+    "body": "{{percent}}% left. Plug in the charger now."
+  },
+  "batteryPluggedFull": {
+    "title": "Battery full for a long time",
+    "body": "Plugged in at 100% for {{hours}} hours. Unplug the charger to protect the battery."
+  },
+  "pressureIncident": {
+    "title": "The computer is choking",
+    "body": "{{resource}} pressure peaked at {{peak}}%. Heaviest: {{culprit}}."
+  },
+  "memoryCritical": {
+    "title": "Memory almost full",
+    "body": "Only {{availablePct}}% of memory is available."
+  },
+  "thermal": {
+    "title": "The CPU is hot",
+    "body": "The CPU temperature reached {{celsius}}°C."
+  },
+  "memoryLeak": {
+    "title": "Possible memory leak",
+    "body": "{{comm}} grows by {{mbPerHour}} MB per hour."
+  },
+  "goalBreach": {
+    "title": "Goal alert",
+    "body": "{{target}}: {{minutesUsed}} of {{targetMinutes}} minutes today."
+  }
+}
