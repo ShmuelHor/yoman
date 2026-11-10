@@ -74,14 +74,14 @@
 ### 4.1 Collectors
 | Collector | Source | Frequency | Notes |
 |---|---|---|---|
-| window | D-Bus `org.gnome.Shell.Extensions.Windows` (Window Calls): `List` → the window with `focus=true` | 5 s | `wm_class`, `title`, `pid`. The title is stored only if the setting allows it |
+| window | D-Bus `org.gnome.Shell.Extensions.Windows` (Window Calls): `List` → the window with `focus=true` | 5 s | `wm_class`, `title`, `pid`. The title is stored only if the setting allows it. The app ID is `wm_class` with each run of disallowed characters replaced by `-` (case kept, at most 128), so values that differ only in punctuation or case are different apps |
 | idle | D-Bus `org.gnome.Mutter.IdleMonitor.GetIdletime` | 5 s | idle ≥ 120 s = away from the computer |
 | lock | D-Bus `org.gnome.ScreenSaver` signal `ActiveChanged` | Event | While locked, sampling stops completely |
 | battery | `/sys/class/power_supply/BAT*`: energy_full, energy_full_design, cycle_count, power_now, capacity, status | 60 s | Devices without a battery: the service is off |
 | pressure | `/proc/pressure/{cpu,memory,io}`, the `some avg10` and `full avg10` values | 5 s | Very cheap |
-| processes | `/proc/[pid]/{stat,status,cgroup}` | **Only under load** (PSI above the threshold) + every 5 min | The top 10 processes by CPU, RSS and IO. cgroup → container name mapping |
+| processes | `/proc/[pid]/{stat,status,io,cgroup}` (never `cmdline` or `environ`) | **Only under load** (PSI above the threshold), at most every 15 s, + every 5 min | The top 10 processes by CPU, RSS and IO (`io` holds byte counters only). Only `comm` is sent. cgroup → container name mapping |
 | thermal | `/sys/class/thermal`, `/sys/class/hwmon` | 30 s | CPU temperature and CPU throttling |
-| app-discovery | inotify on `.desktop` directories (apt, snap, flatpak, `~/.local`) + `gsettings monitor org.gnome.desktop.notifications application-children` | Event | No polling |
+| apps | inotify on `.desktop` directories (apt, snap, flatpak, `~/.local`) + `gsettings monitor org.gnome.desktop.notifications application-children` | Event | No polling |
 
 ### 4.2 Actuators
 | Actuator | Implementation |
@@ -138,13 +138,14 @@ All of them: Fastify + TypeScript, `GET /health`, JSON logging (pino), config va
 - **API:** `POST /samples`, `GET /health-trend?days`, `GET /now`, `POST /power-by-app` (`from`, `to` and the session timeline in the body)
 
 ### system
-- **Entities:** `pressure_samples` (kept for 7 days), `incidents` (type, start, end, peak, culprits jsonb), `process_snapshots`
+- **Entities:** `pressure_samples` and `process_snapshots` (both kept for 7 days), `incidents` (type, start, end, peak, culprits jsonb). Thermal samples are not stored, only the incidents they open
 - **Logic:**
   - An incident opens when `some avg10` exceeds the threshold for **more than 15 s**. Defaults: memory 10%, cpu 40%, io 30%
   - Available memory below 5% with swap active = critical
   - Temperature above 95°C or throttling = important
-  - **Memory leak:** a process's RSS grows steadily by more than 1GB per hour
-- **API:** `POST /samples`, `GET /incidents?from&to`, `GET /culprits?days`, `GET /timeline?date`
+  - **Memory leak:** a process's RSS grows steadily by more than 1 GiB per hour
+  - Default alert levels: a pressure incident is normal, a memory leak is important. `alert_policy` in focus can change them
+- **API:** `POST /samples` (the gateway sends the current thresholds from the settings in the body), `GET /incidents?from&to`, `GET /culprits?days`, `GET /timeline?date`
 
 ### focus
 - **Entities:** `profiles` (name, muted apps, exceptions, mute new apps by default), `schedules`, `focus_sessions`, `queued_alerts`, `alert_policy` (alert type → level)
