@@ -76,7 +76,7 @@ Zod is the only validation library in the repo.
 - **Logs:** never log titles, cmdlines, tokens, cookies or passwords. Use the pino redaction in service-kit or agent core.
 - **Agent:** send process `comm` only, never `cmdline`. Never require the `docker` group. Save GNOME settings before changing them, and make them restorable after a crash. Never touch system apps.
 - **Files:** `.env` and state files `0600`, their directories `0700`.
-- **Dependencies:** justify every new one in the PR. It must be maintained, permissively licensed, and have no install scripts. Pin Actions to a SHA and images to a digest.
+- **Dependencies:** prefer a popular, well-maintained library over hand-written infrastructure code (UI kit, query builder, retries, dates, HTTP plumbing). Justify every new one in the PR. It must be maintained, permissively licensed, and have no install scripts. Pin Actions to a SHA and images to a digest.
 - **Containers:** non-root, read-only rootfs, `cap_drop: [ALL]`, `no-new-privileges`, memory limits. No docker.sock mounts.
 
 ## Language
@@ -99,11 +99,11 @@ This repo is a portfolio piece. Code should read like it was written by a strong
 ## Product rules
 - **Boundaries:** web and agent talk only to the gateway. Services never call each other and never read another service's schema. The gateway orchestrates and owns only `gateway.settings`.
 - **Battery budget:** the agent stays ≤ 0.5% CPU and ≤ 60MB RSS. No new polling without updating SPEC §4.1. Everything pauses while the screen is locked.
-- **Design:** colors, fonts, radii and spacing come only from `apps/web/src/theme/tokens.css`. No hex values elsewhere, no gradients or shadows.
+- **Design:** the UI is built with MUI. Colors, fonts, radii and spacing come only from the theme tokens (`apps/web/src/theme/`), mapped into the MUI theme. No hex values elsewhere, no gradients or shadows.
 - **i18n:** every user-facing string goes in both `he` and `en` (Hebrew is the default). CSS uses logical properties only. Dates and numbers go through `Intl`.
 
 ## Stack
-Node 22 + TypeScript (strict) · npm workspaces · Biome (lint + format, GritQL rules in `biome-plugins/`) · Fastify · zod · pino · PostgreSQL 16 (node-pg-migrate) · vitest · fast-check · Playwright · React 18 + Vite + TanStack Query + react-i18next + MSW · dbus-next (agent) · Docker Engine + Compose v2 · GitHub Actions · cosign · syft · Trivy · Semgrep · CodeQL · gitleaks · ZAP.
+Node 22 + TypeScript (strict) · npm workspaces · Biome (lint + format, GritQL rules in `biome-plugins/`) · Fastify (fastify-type-provider-zod, helmet, sensible) · zod · pino · PostgreSQL 16 (node-pg-migrate, Kysely) · date-fns · p-retry · vitest · fast-check · Playwright · React 18 + Vite + MUI (Emotion, MUI X Charts) + react-hook-form + TanStack Query + react-i18next + MSW · dbus-next (agent) · Docker Engine + Compose v2 · GitHub Actions · cosign · syft · Trivy · Semgrep · CodeQL · gitleaks · ZAP.
 
 ## Commands
 ```
