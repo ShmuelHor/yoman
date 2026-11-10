@@ -1,9 +1,14 @@
+import { tz } from '@date-fns/tz';
 import type { Goal, GoalProgressItem, GoalStatus, GoalTarget } from '@yoman/shared/goals';
 import { LIMITS } from '@yoman/shared/limits';
+import { getDay, parseISO } from 'date-fns';
 
 import type { Breach } from './breach-alert.js';
 
 const SECONDS_PER_MINUTE = 60;
+
+/** Calendar dates carry no zone; reading them as UTC keeps their arithmetic clear of DST. */
+const calendar = tz('UTC');
 
 /** A day's usage in seconds, by app id and by category. */
 export interface DayUsage {
@@ -15,7 +20,7 @@ export const EMPTY_USAGE: DayUsage = { apps: new Map(), categories: new Map() };
 
 /** 0 is Sunday. A `LocalDate` names a calendar day, so it is read as UTC to stay zone-free. */
 export function weekdayOf(date: string): number {
-  return new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return getDay(parseISO(date, { in: calendar }));
 }
 
 export function appliesOn(goal: Goal, date: string): boolean {
