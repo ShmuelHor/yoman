@@ -5,6 +5,7 @@ import { BatteryNow, HealthTrend, PowerByApp } from '@yoman/shared/battery';
 import { Goal, GoalList, GoalProgress } from '@yoman/shared/goals';
 import { DayReport, WeeklySummary, WeekReport } from '@yoman/shared/reports';
 import { App, AppList, Rule, RuleList } from '@yoman/shared/sessions';
+import { CulpritList, IncidentList, SystemTimeline } from '@yoman/shared/system';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SampleResult as BatterySampleResult } from '../../services/battery/src/contracts.js';
@@ -15,6 +16,8 @@ import { SessionBatchResult, TopAppList } from '../../services/reports/src/contr
 import { createReportsService } from '../../services/reports/src/service.js';
 import { SampleResult, SessionList } from '../../services/sessions/src/contracts.js';
 import { createSessionsService } from '../../services/sessions/src/service.js';
+import { SampleResult as SystemSampleResult } from '../../services/system/src/contracts.js';
+import { createSystemService } from '../../services/system/src/service.js';
 import {
   type DisposablePostgres,
   dockerAvailable,
@@ -636,9 +639,182 @@ describe('ST12 SQL injection', () => {
       expect(logs.output()).not.toContain('Request failed');
     });
   });
-  it.todo(
-    '[T17] system-service: SQL injection payloads in every parameter cause no DB error and no leak',
-  );
+  // `describe(name, { skip })` rather than `describe.skipIf`, so Biome scopes the hooks per suite.
+  describe('system-service', { skip: !available }, () => {
+    const SECOND_MS = 1_000;
+    const SAMPLE_INTERVAL_MS = 5_000;
+    const SUSTAINED_SAMPLES = 6;
+    const HIGH_CPU = 60;
+    const thresholds = { memory: 10, cpu: 40, io: 30 };
+    const process = { pid: PID, comm: 'node', cpuPct: 97, rssBytes: 1_000, ioBytesPerSec: 0 };
+    let postgres: DisposablePostgres | undefined;
+    let service: ReturnType<typeof createSystemService> | undefined;
+    const logs = captureLogs();
+
+    const DAY_MS = 86_400_000;
+    const HOUR_MS = 3_600_000;
+    /**
+     * 01:00 UTC today: inside the 7 days the service keeps samples for, and on
+     * one UTC day, the zone the service counts the timeline in by default.
+     */
+    const BASE_MS = Math.floor(Date.now() / DAY_MS) * DAY_MS + HOUR_MS;
+    const TODAY = new Date(BASE_MS).toISOString().slice(0, 'YYYY-MM-DD'.length);
+
+    /** A moment per payload, so every batch is new to the watermarks. */
+    function ts(minute: number, offsetMs = 0): string {
+      return new Date(BASE_MS + minute * MINUTE_MS + offsetMs).toISOString();
+    }
+
+    function pressure(time: string, cpu = 1): object {
+      return {
+        kind: 'pressure',
+        ts: time,
+        cpu: { some: cpu, full: 0 },
+        memory: { some: 1, full: 0 },
+        io: { some: 1, full: 0 },
+        memAvailablePct: 50,
+        swapActive: false,
+      };
+    }
+
+    beforeAll(async () => {
+      postgres = await startPostgres();
+      service = createSystemService({
+        env: {
+          HOST: '127.0.0.1',
+          PORT: String(await freePort()),
+          DB_HOST: postgres.host,
+          DB_PORT: String(postgres.port),
+          SYSTEM_DB_PASSWORD: postgres.passwords.system,
+          LOG_LEVEL: 'info',
+        },
+        logStream: logs.stream,
+        handleSignals: false,
+      });
+      // The real migrations, run as the service's own least-privilege role.
+      await service.start();
+    }, STARTUP_TIMEOUT_MS);
+
+    afterAll(async () => {
+      try {
+        await service?.stop();
+      } finally {
+        await postgres?.stop();
+      }
+    }, STARTUP_TIMEOUT_MS);
+
+    /** Every answer, accepted or rejected, is below 500 and carries no DB detail. */
+    async function send(
+      method: 'GET' | 'POST',
+      url: string,
+      payload?: object,
+    ): Promise<{ status: number; json: unknown }> {
+      if (service === undefined) {
+        throw new Error('The service did not start');
+      }
+      const response = await service.app.inject({
+        method,
+        url,
+        ...(payload === undefined ? {} : { payload }),
+      });
+      expect(response.statusCode, `${method} ${url}`).toBeLessThan(HTTP_INTERNAL);
+      expect(response.body).not.toMatch(LEAK);
+      const json: unknown = response.body === '' ? undefined : JSON.parse(response.body);
+      return { status: response.statusCode, json };
+    }
+
+    it('stores injected process names and containers verbatim as incident culprits', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      for (const [minute, payload] of PAYLOADS.entries()) {
+        const run = Array.from({ length: SUSTAINED_SAMPLES }, (_, index) =>
+          pressure(ts(minute, index * SAMPLE_INTERVAL_MS), HIGH_CPU),
+        );
+        const culprits = {
+          kind: 'processes',
+          ts: ts(minute, SECOND_MS),
+          processes: [{ ...process, comm: payload, container: payload }],
+        };
+        const calm = pressure(ts(minute, SUSTAINED_SAMPLES * SAMPLE_INTERVAL_MS));
+        const batch = { thresholds, samples: [...run, culprits, calm] };
+
+        const result = SystemSampleResult.parse((await send('POST', '/samples', batch)).json);
+        expect(result.alerts.map((alert) => alert.params)).toMatchObject([
+          { comm: stored(payload) },
+        ]);
+      }
+      const range = `from=${ts(0)}&to=${ts(PAYLOADS.length)}`;
+      const listed = IncidentList.parse((await send('GET', `/incidents?${range}`)).json);
+
+      expect(listed.items.map((incident) => incident.culprits[0]?.comm)).toEqual(
+        PAYLOADS.map(stored),
+      );
+      expect(listed.items.map((incident) => incident.culprits[0]?.container)).toEqual(
+        PAYLOADS.map((payload) => stored(payload).trim()),
+      );
+    });
+
+    it('rejects injection in every other sample field and in the thresholds', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const time = ts(PAYLOADS.length);
+      for (const payload of PAYLOADS) {
+        const bad = [
+          { thresholds: { ...thresholds, cpu: payload }, samples: [pressure(time)] },
+          { thresholds, samples: [{ ...pressure(time), kind: payload }] },
+          { thresholds, samples: [{ ...pressure(time), ts: payload }] },
+          { thresholds, samples: [{ ...pressure(time), cpu: { some: payload, full: 0 } }] },
+          { thresholds, samples: [{ ...pressure(time), swapActive: payload }] },
+          {
+            thresholds,
+            samples: [{ kind: 'processes', ts: time, processes: [{ ...process, pid: payload }] }],
+          },
+          {
+            thresholds,
+            samples: [
+              { kind: 'processes', ts: time, processes: [{ ...process, cmdline: payload }] },
+            ],
+          },
+          {
+            thresholds,
+            samples: [{ kind: 'thermal', ts: time, cpuTempC: payload, throttled: false }],
+          },
+        ];
+        for (const body of bad) {
+          expect((await send('POST', '/samples', body)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+    });
+
+    it('rejects injection in every query parameter', { timeout: REQUEST_TIMEOUT_MS }, async () => {
+      const valid = ts(0);
+      for (const payload of PAYLOADS) {
+        const value = encodeURIComponent(payload);
+        const urls = [
+          `/incidents?from=${value}&to=${valid}`,
+          `/incidents?from=${valid}&to=${value}`,
+          `/culprits?days=${value}`,
+          `/timeline?date=${value}`,
+        ];
+        for (const url of urls) {
+          expect((await send('GET', url)).status).toBe(HTTP_BAD_REQUEST);
+        }
+      }
+    });
+
+    it('still ranks culprits and draws the timeline, and logs no database error', {
+      timeout: REQUEST_TIMEOUT_MS,
+    }, async () => {
+      const culprits = CulpritList.parse((await send('GET', '/culprits?days=7')).json);
+      const timeline = SystemTimeline.parse((await send('GET', `/timeline?date=${TODAY}`)).json);
+
+      expect(culprits.items).toHaveLength(PAYLOADS.length);
+      expect(timeline.incidents).toHaveLength(PAYLOADS.length);
+      expect(timeline.points.length).toBeGreaterThan(PAYLOADS.length);
+      expect(logs.output()).not.toContain('DatabaseError');
+      expect(logs.output()).not.toContain('Request failed');
+    });
+  });
   it.todo(
     '[T18] focus-service: SQL injection payloads in every parameter cause no DB error and no leak',
   );

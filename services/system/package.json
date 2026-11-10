@@ -1,0 +1,22 @@
+{
+  "name": "@yoman/system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turns pressure, process and thermal samples into incidents, culprits and alerts.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --root ../.. services/system"
+  },
+  "dependencies": {
+    "@yoman/service-kit": "0.0.0",
+    "@yoman/shared": "0.0.0",
+    "pg": "8.23.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
