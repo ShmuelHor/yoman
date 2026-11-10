@@ -52,7 +52,9 @@ export function createService<Schema extends z.ZodObject = z.ZodObject<Record<ne
   options: ServiceOptions<Schema>,
 ): Service<z.output<Schema>> {
   const config = loadConfig(options.name, options.env ?? process.env, options.config);
-  const loggerOptions = buildLoggerOptions(options.name, config.logLevel);
+  // A `logStream` (tests) wins over pretty development output.
+  const pretty = config.development && options.logStream === undefined;
+  const loggerOptions = buildLoggerOptions(options.name, config.logLevel, pretty);
   const log =
     options.logStream === undefined ? pino(loggerOptions) : pino(loggerOptions, options.logStream);
   const db = createPool(config.db, options.name);

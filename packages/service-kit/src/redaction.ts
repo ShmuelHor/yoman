@@ -57,10 +57,21 @@ export function serializeError(error: unknown): Record<string, unknown> {
   return { type: typeof error };
 }
 
-export function buildLoggerOptions(name: string, level: string): LoggerOptions {
+/**
+ * Human-readable lines for a developer's terminal. The transport runs in a
+ * worker thread on lines that were already redacted. `pino-pretty` is a dev
+ * dependency, so the production image cannot load it.
+ */
+const PRETTY_TRANSPORT = {
+  target: 'pino-pretty',
+  options: { colorize: true, translateTime: 'SYS:HH:MM:ss.l', ignore: 'pid,hostname' },
+};
+
+export function buildLoggerOptions(name: string, level: string, pretty = false): LoggerOptions {
   return {
     name,
     level,
+    ...(pretty ? { transport: PRETTY_TRANSPORT } : {}),
     redact: { paths: [...REDACT_PATHS], censor: CENSOR },
     serializers: { req: serializeRequest, err: serializeError },
   };
