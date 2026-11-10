@@ -1,5 +1,4 @@
 import { sessionFixture } from '@yoman/shared/fixtures/data';
-import { requestFixtures } from '@yoman/shared/fixtures/requests';
 import { responseFixtures } from '@yoman/shared/fixtures/responses';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,7 +8,7 @@ import { handlers } from '../../../src/routes/battery/index.js';
 import { STATUS } from '../../harness.js';
 import { routeHarness } from '../route-harness.js';
 
-const range = requestFixtures.batteryPowerByApp.query ?? {};
+const range = { from: '2026-11-08T09:00:00.000Z', to: '2026-11-08T10:00:00.000Z' };
 const rangeQuery = new URLSearchParams(range).toString();
 
 describe('battery routes', () => {

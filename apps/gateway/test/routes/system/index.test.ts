@@ -1,4 +1,3 @@
-import { requestFixtures } from '@yoman/shared/fixtures/requests';
 import { responseFixtures } from '@yoman/shared/fixtures/responses';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,8 +7,8 @@ import { handlers } from '../../../src/routes/system/index.js';
 import { STATUS } from '../../harness.js';
 import { routeHarness } from '../route-harness.js';
 
-const range = requestFixtures.systemIncidents.query ?? {};
-const date = requestFixtures.systemTimeline.query?.date ?? '';
+const range = { from: '2026-11-08T09:00:00.000Z', to: '2026-11-08T10:00:00.000Z' };
+const date = '2026-11-08';
 
 describe('system routes', () => {
   let app: FastifyInstance | undefined;
