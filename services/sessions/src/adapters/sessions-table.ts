@@ -1,11 +1,15 @@
+import { parseRow, parseRows, pgArray, toPgText, unnest } from '@yoman/service-kit/sql';
 import type { TimeRangeQuery } from '@yoman/shared/common';
 import type { Session } from '@yoman/shared/sessions';
+import { type Kysely, sql } from 'kysely';
 import { z } from 'zod';
 
 import type { CategorizedSubject, CategoryChange } from '../domain/categorize.js';
 import type { Span } from '../domain/merge-samples.js';
 import type { CategorizedSpan, StoredSpan } from '../use-cases/store.js';
-import { type Queryable, selectRow, selectRows, toPgText } from './sql.js';
+import type { SessionsDatabase } from './database.js';
+
+type Db = Kysely<SessionsDatabase>;
 
 const SessionRow = z.object({
   id: z.string(),
@@ -24,6 +28,7 @@ const SubjectRow = z.object({
 });
 
 const IdRow = z.object({ id: z.string() });
+const SESSION_COLUMNS = ['id', 'app_id', 'start_at', 'end_at', 'title'] as const;
 const WatermarkRow = z.object({ recorded_until: z.date() });
 
 function toSession(row: SessionRow): Session {
@@ -40,12 +45,15 @@ function toSession(row: SessionRow): Session {
  * Blocks other batches (not readers) until the transaction ends, so the open
  * session is continued by one batch at a time and never duplicated.
  */
-export async function lockOpenSession(db: Queryable): Promise<Span | null> {
-  await db.query('LOCK TABLE sessions IN SHARE ROW EXCLUSIVE MODE');
-  const row = await selectRow(
-    db,
+export async function lockOpenSession(db: Db): Promise<Span | null> {
+  await sql`LOCK TABLE sessions IN SHARE ROW EXCLUSIVE MODE`.execute(db);
+  const row = parseRow(
     SessionRow,
-    'SELECT id, app_id, start_at, end_at, title FROM sessions WHERE NOT closed',
+    await db
+      .selectFrom('sessions')
+      .select(SESSION_COLUMNS)
+      .where('closed', '=', false)
+      .executeTakeFirst(),
   );
   if (row === null) {
     return null;
@@ -60,33 +68,41 @@ export async function lockOpenSession(db: Queryable): Promise<Span | null> {
   };
 }
 
-export async function recordedUntil(db: Queryable): Promise<number | null> {
-  const row = await selectRow(db, WatermarkRow, 'SELECT recorded_until FROM sample_watermark');
+export async function recordedUntil(db: Db): Promise<number | null> {
+  const row = parseRow(
+    WatermarkRow,
+    await db.selectFrom('sample_watermark').select('recorded_until').executeTakeFirst(),
+  );
   return row === null ? null : row.recorded_until.getTime();
 }
 
-export async function setRecordedUntil(db: Queryable, tsMs: number): Promise<void> {
-  await db.query(
-    `INSERT INTO sample_watermark (recorded_until) VALUES ($1)
-     ON CONFLICT (id) DO UPDATE SET recorded_until = EXCLUDED.recorded_until`,
-    [new Date(tsMs)],
-  );
+export async function setRecordedUntil(db: Db, tsMs: number): Promise<void> {
+  await db
+    .insertInto('sample_watermark')
+    .values({ recorded_until: new Date(tsMs) })
+    .onConflict((conflict) =>
+      conflict
+        .column('id')
+        .doUpdateSet((eb) => ({ recorded_until: eb.ref('excluded.recorded_until') })),
+    )
+    .execute();
 }
 
-async function insertSpan(db: Queryable, span: CategorizedSpan): Promise<string> {
-  const row = await selectRow(
-    db,
+async function insertSpan(db: Db, span: CategorizedSpan): Promise<string> {
+  const row = parseRow(
     IdRow,
-    `INSERT INTO sessions (app_id, start_at, end_at, title, category, closed)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [
-      span.appId,
-      new Date(span.startMs),
-      new Date(span.endMs),
-      span.title,
-      span.category,
-      span.closed,
-    ],
+    await db
+      .insertInto('sessions')
+      .values({
+        app_id: span.appId,
+        start_at: new Date(span.startMs),
+        end_at: new Date(span.endMs),
+        title: span.title,
+        category: span.category,
+        closed: span.closed,
+      })
+      .returning('id')
+      .executeTakeFirst(),
   );
   if (row === null) {
     throw new Error('INSERT returned no row');
@@ -94,21 +110,24 @@ async function insertSpan(db: Queryable, span: CategorizedSpan): Promise<string>
   return row.id;
 }
 
-async function updateSpan(db: Queryable, id: string, span: CategorizedSpan): Promise<void> {
-  await db.query(
-    'UPDATE sessions SET end_at = $2, title = $3, category = $4, closed = $5 WHERE id = $1',
-    [id, new Date(span.endMs), span.title, span.category, span.closed],
-  );
+async function updateSpan(db: Db, id: string, span: CategorizedSpan): Promise<void> {
+  await db
+    .updateTable('sessions')
+    .set({
+      end_at: new Date(span.endMs),
+      title: span.title,
+      category: span.category,
+      closed: span.closed,
+    })
+    .where('id', '=', id)
+    .execute();
 }
 
 /**
  * In order: a closed span must be written before the next one opens (one open
  * at most). The result holds the title as stored, so the reply matches the row.
  */
-export async function saveSpans(
-  db: Queryable,
-  spans: readonly CategorizedSpan[],
-): Promise<StoredSpan[]> {
+export async function saveSpans(db: Db, spans: readonly CategorizedSpan[]): Promise<StoredSpan[]> {
   const saved: StoredSpan[] = [];
   for (const original of spans) {
     const span = { ...original, title: toPgText(original.title) };
@@ -124,29 +143,33 @@ export async function saveSpans(
 
 /** Sessions overlapping `[from, to)`. An open session counts up to its last sample. */
 export async function listSessions(
-  db: Queryable,
+  db: Db,
   range: TimeRangeQuery,
   limit: number,
 ): Promise<Session[]> {
-  const rows = await selectRows(
-    db,
+  const rows = parseRows(
     SessionRow,
-    `SELECT id, app_id, start_at, end_at, title FROM sessions
-     WHERE start_at < $2 AND end_at >= $1 ORDER BY start_at, id LIMIT $3`,
-    [range.from, range.to, limit],
+    await db
+      .selectFrom('sessions')
+      .select(SESSION_COLUMNS)
+      .where('start_at', '<', new Date(range.to))
+      .where('end_at', '>=', new Date(range.from))
+      .orderBy('start_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
   return rows.map(toSession);
 }
 
-export async function sessionsEndingSince(
-  db: Queryable,
-  cutoff: Date,
-): Promise<CategorizedSubject[]> {
-  const rows = await selectRows(
-    db,
+export async function sessionsEndingSince(db: Db, cutoff: Date): Promise<CategorizedSubject[]> {
+  const rows = parseRows(
     SubjectRow,
-    'SELECT id, app_id, title, category FROM sessions WHERE end_at >= $1',
-    [cutoff],
+    await db
+      .selectFrom('sessions')
+      .select(['id', 'app_id', 'title', 'category'])
+      .where('end_at', '>=', cutoff)
+      .execute(),
   );
   return rows.map((row) => ({
     id: row.id,
@@ -156,13 +179,22 @@ export async function sessionsEndingSince(
   }));
 }
 
-export async function setCategories(
-  db: Queryable,
-  changes: readonly CategoryChange[],
-): Promise<void> {
-  await db.query(
-    `UPDATE sessions AS s SET category = c.category
-     FROM unnest($1::uuid[], $2::text[]) AS c(id, category) WHERE s.id = c.id`,
-    [changes.map((change) => change.id), changes.map((change) => change.category)],
-  );
+export async function setCategories(db: Db, changes: readonly CategoryChange[]): Promise<void> {
+  await db
+    .updateTable('sessions as s')
+    .from(
+      unnest<{ id: string; category: string | null }, 'c'>('c', {
+        id: pgArray(
+          'uuid',
+          changes.map((change) => change.id),
+        ),
+        category: pgArray(
+          'text',
+          changes.map((change) => change.category),
+        ),
+      }),
+    )
+    .set((eb) => ({ category: eb.ref('c.category') }))
+    .whereRef('s.id', '=', 'c.id')
+    .execute();
 }

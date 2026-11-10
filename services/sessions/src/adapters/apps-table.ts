@@ -1,42 +1,62 @@
+import { parseRow, parseRows, pgArray, toPgText, unnest } from '@yoman/service-kit/sql';
 import { App, type AppUpdate } from '@yoman/shared/sessions';
+import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { type Queryable, selectRow, selectRows, toPgText } from './sql.js';
+import type { SessionsDatabase } from './database.js';
+
+type Db = Kysely<SessionsDatabase>;
 
 const CategoryRow = z.object({ id: z.string(), category: z.string() });
+const APP_COLUMNS = ['id', 'name', 'icon', 'category'] as const;
 
 /** New apps are named after their `wm_class` until the user renames them. */
-export async function ensureApps(db: Queryable, ids: readonly string[]): Promise<void> {
-  await db.query(
-    `INSERT INTO apps (id, name) SELECT id, id FROM unnest($1::text[]) AS t(id)
-     ON CONFLICT (id) DO NOTHING`,
-    [[...ids]],
-  );
+export async function ensureApps(db: Db, ids: readonly string[]): Promise<void> {
+  await db
+    .insertInto('apps')
+    .columns(['id', 'name'])
+    .expression((eb) =>
+      eb
+        .selectFrom(unnest<{ id: string }, 't'>('t', { id: pgArray('text', ids) }))
+        .select(['t.id', 't.id as name']),
+    )
+    .onConflict((conflict) => conflict.column('id').doNothing())
+    .execute();
 }
 
-export async function appCategories(db: Queryable): Promise<Map<string, string | null>> {
-  const rows = await selectRows(
-    db,
+export async function appCategories(db: Db): Promise<Map<string, string | null>> {
+  const rows = parseRows(
     CategoryRow,
-    'SELECT id, category FROM apps WHERE category IS NOT NULL',
+    await db
+      .selectFrom('apps')
+      .select(['id', 'category'])
+      .where('category', 'is not', null)
+      .execute(),
   );
   return new Map(rows.map((row) => [row.id, row.category]));
 }
 
-export function listApps(db: Queryable, limit: number): Promise<App[]> {
-  return selectRows(
-    db,
+export async function listApps(db: Db, limit: number): Promise<App[]> {
+  return parseRows(
     App,
-    `SELECT id, name, icon, category FROM apps ORDER BY name, id LIMIT $1`,
-    [limit],
+    await db
+      .selectFrom('apps')
+      .select(APP_COLUMNS)
+      .orderBy('name')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
 }
 
-export function updateApp(db: Queryable, id: string, update: AppUpdate): Promise<App | null> {
-  return selectRow(
-    db,
+export async function updateApp(db: Db, id: string, update: AppUpdate): Promise<App | null> {
+  return parseRow(
     App,
-    `UPDATE apps SET name = $2, category = $3 WHERE id = $1 RETURNING id, name, icon, category`,
-    [id, toPgText(update.name), update.category],
+    await db
+      .updateTable('apps')
+      .set({ name: toPgText(update.name), category: update.category })
+      .where('id', '=', id)
+      .returning(APP_COLUMNS)
+      .executeTakeFirst(),
   );
 }

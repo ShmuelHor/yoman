@@ -1,37 +1,73 @@
+import { parseRow, parseRows, toPgText } from '@yoman/service-kit/sql';
 import { Rule, type RuleInput } from '@yoman/shared/sessions';
+import type { Kysely } from 'kysely';
 import { z } from 'zod';
 
-import { type Queryable, selectRow, selectRows, toPgText } from './sql.js';
+import type { SessionsDatabase } from './database.js';
+
+type Db = Kysely<SessionsDatabase>;
 
 /** `count(*)` is a bigint, which pg returns as a string. */
 const CountRow = z.object({ count: z.coerce.number().int().min(0) });
 const IdRow = z.object({ id: z.string() });
 
-function ruleValues(input: RuleInput): unknown[] {
-  return [input.field, input.match, toPgText(input.pattern), input.category, input.priority];
+const RULE_COLUMNS = [
+  'id',
+  'field',
+  'match_type as match',
+  'pattern',
+  'category',
+  'priority',
+] as const;
+
+function ruleValues(input: RuleInput): {
+  field: string;
+  match_type: string;
+  pattern: string;
+  category: string;
+  priority: number;
+} {
+  return {
+    field: input.field,
+    match_type: input.match,
+    pattern: toPgText(input.pattern),
+    category: input.category,
+    priority: input.priority,
+  };
 }
 
-export function listRules(db: Queryable, limit: number): Promise<Rule[]> {
-  return selectRows(
-    db,
+export async function listRules(db: Db, limit: number): Promise<Rule[]> {
+  return parseRows(
     Rule,
-    `SELECT id, field, match_type AS match, pattern, category, priority FROM category_rules ORDER BY priority DESC, id LIMIT $1`,
-    [limit],
+    await db
+      .selectFrom('category_rules')
+      .select(RULE_COLUMNS)
+      .orderBy('priority', 'desc')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
   );
 }
 
-export async function countRules(db: Queryable): Promise<number> {
-  const row = await selectRow(db, CountRow, 'SELECT count(*) AS count FROM category_rules');
+export async function countRules(db: Db): Promise<number> {
+  const row = parseRow(
+    CountRow,
+    await db
+      .selectFrom('category_rules')
+      .select((eb) => eb.fn.countAll().as('count'))
+      .executeTakeFirst(),
+  );
   return row?.count ?? 0;
 }
 
-export async function createRule(db: Queryable, input: RuleInput): Promise<Rule> {
-  const rule = await selectRow(
-    db,
+export async function createRule(db: Db, input: RuleInput): Promise<Rule> {
+  const rule = parseRow(
     Rule,
-    `INSERT INTO category_rules (field, match_type, pattern, category, priority)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id, field, match_type AS match, pattern, category, priority`,
-    ruleValues(input),
+    await db
+      .insertInto('category_rules')
+      .values(ruleValues(input))
+      .returning(RULE_COLUMNS)
+      .executeTakeFirst(),
   );
   if (rule === null) {
     throw new Error('INSERT returned no row');
@@ -39,20 +75,22 @@ export async function createRule(db: Queryable, input: RuleInput): Promise<Rule>
   return rule;
 }
 
-export function updateRule(db: Queryable, id: string, input: RuleInput): Promise<Rule | null> {
-  return selectRow(
-    db,
+export async function updateRule(db: Db, id: string, input: RuleInput): Promise<Rule | null> {
+  return parseRow(
     Rule,
-    `UPDATE category_rules
-     SET field = $2, match_type = $3, pattern = $4, category = $5, priority = $6
-     WHERE id = $1 RETURNING id, field, match_type AS match, pattern, category, priority`,
-    [id, ...ruleValues(input)],
+    await db
+      .updateTable('category_rules')
+      .set(ruleValues(input))
+      .where('id', '=', id)
+      .returning(RULE_COLUMNS)
+      .executeTakeFirst(),
   );
 }
 
-export async function deleteRule(db: Queryable, id: string): Promise<boolean> {
-  const row = await selectRow(db, IdRow, 'DELETE FROM category_rules WHERE id = $1 RETURNING id', [
-    id,
-  ]);
+export async function deleteRule(db: Db, id: string): Promise<boolean> {
+  const row = parseRow(
+    IdRow,
+    await db.deleteFrom('category_rules').where('id', '=', id).returning('id').executeTakeFirst(),
+  );
   return row !== null;
 }
