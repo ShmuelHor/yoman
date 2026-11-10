@@ -49,6 +49,15 @@ const T28_ROUTES: readonly HandledRouteName[] = [
   'goalProgress',
 ];
 
+const T29_ROUTES: readonly HandledRouteName[] = [
+  'batteryNow',
+  'batteryHealthTrend',
+  'batteryPowerByApp',
+  'systemIncidents',
+  'systemCulprits',
+  'systemTimeline',
+];
+
 interface HandledRoute extends ContractRoute {
   readonly name: HandledRouteName;
 }
@@ -208,7 +217,14 @@ describe('ST08 route fuzzing', () => {
       await fuzzRoute(handled, route);
     },
   );
-  it.todo('[T29] battery and system routes pass the fuzzing check');
+  it.each(routesNamed(T29_ROUTES))(
+    'battery and system routes pass the fuzzing check with their handlers: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
   it.todo('[T30] focus routes pass the fuzzing check');
   it.todo('[T31] settings routes pass the fuzzing check');
 });

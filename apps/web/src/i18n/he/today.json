@@ -1,0 +1,29 @@
+{
+  "title": "היום",
+  "error": "לא ניתן היה לטעון את נתוני היום.",
+  "degraded": "חלק מהנתונים אינם זמינים כרגע. ייתכן שהמוצג חלקי.",
+  "unavailable": "לא זמין",
+  "duration": "{{hours}} שע׳ {{minutes}} דק׳",
+  "active": { "label": "זמן פעיל" },
+  "streak": { "label": "רצף הריכוז הארוך ביותר" },
+  "battery": {
+    "label": "סוללה",
+    "value": "{{percent}}%",
+    "status": {
+      "charging": "בטעינה",
+      "discharging": "על סוללה",
+      "full": "מלאה",
+      "not-charging": "לא נטענת",
+      "unknown": "לא ידוע"
+    }
+  },
+  "timeline": { "label": "לאן הלך הזמן" },
+  "topApps": { "label": "האפליקציות המובילות" },
+  "category": {
+    "work": "עבודה",
+    "social": "חברתי",
+    "comms": "תקשורת",
+    "fun": "בידור",
+    "idle": "אחר"
+  }
+}
