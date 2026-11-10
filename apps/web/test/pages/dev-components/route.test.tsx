@@ -1,21 +1,27 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, within } from '@testing-library/react';
+import { cleanup, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { bundledResources } from '../../../src/i18n/bundled.js';
 import { createI18n } from '../../../src/i18n/i18n.js';
 import { route } from '../../../src/pages/dev-components/route.js';
+import { renderWithTheme } from '../../support/render-with-theme.js';
 
 const PANEL_COUNT = 4;
+const HEBREW_PANEL = 0;
+const ENGLISH_PANEL = 2;
+/** Four full galleries take seconds to mount in happy-dom. */
+const RENDER_TIMEOUT_MS = 30_000;
 
 function renderPage(): void {
   const instance = createI18n(bundledResources, document.createElement('html'));
   const router = createMemoryRouter([{ path: '*', Component: route.Component }], {
     initialEntries: ['/dev/components'],
   });
-  render(
+  renderWithTheme(
     <I18nextProvider i18n={instance}>
       <RouterProvider router={router} />
     </I18nextProvider>,
@@ -27,20 +33,29 @@ function panels(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>('section[data-theme]')];
 }
 
-describe('/dev/components', () => {
-  afterEach(cleanup);
+function panel(index: number): ReturnType<typeof within> {
+  const element = panels()[index];
+  if (element === undefined) {
+    throw new Error(`no panel ${index}`);
+  }
+  return within(element);
+}
+
+describe('/dev/components', { timeout: RENDER_TIMEOUT_MS }, () => {
+  // Mounted once for every test, since mounting is the slow part. Each test
+  // only reads, except the toggle test, which touches a switch no other test reads.
+  beforeAll(renderPage, RENDER_TIMEOUT_MS);
+  afterAll(cleanup);
 
   it('is a dev-only page at /dev/components', () => {
     expect(route).toMatchObject({ path: 'dev/components', devOnly: true });
   });
 
   it('shows the gallery in Hebrew and English, each in light and dark', () => {
-    renderPage();
-
-    const attributes = panels().map((panel) => [
-      panel.getAttribute('lang'),
-      panel.getAttribute('dir'),
-      panel.getAttribute('data-theme'),
+    const attributes = panels().map((element) => [
+      element.getAttribute('lang'),
+      element.getAttribute('dir'),
+      element.getAttribute('data-theme'),
     ]);
     expect(attributes).toEqual([
       ['he', 'rtl', 'light'],
@@ -51,38 +66,27 @@ describe('/dev/components', () => {
   });
 
   it('renders every component in every panel, in the panel language', () => {
-    renderPage();
-
-    const all = panels();
-    expect(all).toHaveLength(PANEL_COUNT);
-    const english = all[2];
-    if (english === undefined) {
-      throw new Error('no English panel');
-    }
-    const panel = within(english);
-    expect(panel.getByRole('button', { name: 'Start focus' })).toBeDefined();
-    expect(panel.getByRole('textbox', { name: 'App name' })).toBeDefined();
-    expect(panel.getAllByRole('switch')).toHaveLength(2);
-    expect(panel.getByText('Unusual')).toBeDefined();
-    expect(panel.getByRole('link', { name: 'Components' })).toBeDefined();
-    expect(panel.getByRole('region', { name: 'Screen time today' })).toBeDefined();
-    expect(panel.getByRole('region', { name: 'Unusual battery drain' })).toBeDefined();
-    expect(panel.getByRole('status').textContent).toBe('Focus mode · 47 min left');
+    expect(panels()).toHaveLength(PANEL_COUNT);
+    const english = panel(ENGLISH_PANEL);
+    expect(english.getByRole('button', { name: 'Start focus' })).toBeDefined();
+    expect(english.getByRole('textbox', { name: 'App name' })).toBeDefined();
+    expect(english.getAllByRole('switch')).toHaveLength(2);
+    expect(english.getByText('Unusual')).toBeDefined();
+    expect(english.getByRole('link', { name: 'Components' })).toBeDefined();
+    expect(english.getByRole('region', { name: 'Screen time today' })).toBeDefined();
+    expect(english.getByRole('region', { name: 'Unusual battery drain' })).toBeDefined();
+    expect(english.getByRole('status').textContent).toBe('Focus mode · 47 min left');
   });
 
-  it('lets the sample switches be toggled', () => {
-    renderPage();
-    const [first] = panels();
-    if (first === undefined) {
-      throw new Error('no panel');
-    }
-    const [focus] = within(first).getAllByRole('switch');
+  it('lets the sample switches be toggled', async () => {
+    const user = userEvent.setup();
+    const [focus] = panel(HEBREW_PANEL).getAllByRole('switch');
     if (focus === undefined) {
       throw new Error('no switch');
     }
 
-    fireEvent.click(focus);
+    await user.click(focus);
 
-    expect(focus.getAttribute('aria-checked')).toBe('false');
+    expect(focus).toHaveProperty('checked', false);
   });
 });
