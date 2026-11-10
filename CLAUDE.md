@@ -52,7 +52,7 @@ Merge only when CI is green, the latest review says `Verdict: approved`, and eve
 
 ### Review budget
 - One full review per PR (plus a security review only for security-critical areas: gateway, agent muter and collectors, CD). Only `blocking:` findings are fixed before merge; suggestions go into a follow-up issue.
-- After fixes, a **lean re-review** of only the fix commits records the `Verdict: approved`. Use a cheaper model for reviews and routine tasks. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
+- After fixes, a **lean re-review** of only the fix commits records the `Verdict: approved`. Workers run on Sonnet; code reviews and re-reviews run on Opus. Then tick the task in `docs/TASKS.md` through its own small `chore(tasks)` PR, batched per wave, and run the wave gate once the whole wave is merged.
 
 ### Coordinator sessions
 - Coordinators and every agent talk to the user only in Hebrew. Everything in the repo stays English (see Language).

@@ -13,7 +13,7 @@
 - [ ] No `shell: true` and no commands built from strings
 - [ ] SQL uses parameters only
 - [ ] No new ports, and no CORS, Host or CSP changes without updating SECURITY.md
-- [ ] New dependencies are justified below, maintained, permissively licensed and have no install scripts
+- [ ] New dependencies are justified below, popular, maintained, permissively licensed and at their latest stable version
 - [ ] Security tests owned by this task are real tests, not `it.todo`
 - [ ] New files are created with the permissions in SECURITY.md §5
 
