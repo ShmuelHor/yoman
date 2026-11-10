@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
+
 import { escapeMarkup, plainText } from '../../../../src/actuators/notifier/domain/markup.js';
+
+/** Hebrew text, written as escapes because Hebrew is allowed only in translation files. */
+const HEBREW = '\u05E9\u05DC\u05D5\u05DD';
 
 describe('escapeMarkup', () => {
   it('escapes markup so a tag shows as text', () => {
@@ -9,7 +13,7 @@ describe('escapeMarkup', () => {
   });
 
   it('leaves plain text and Hebrew untouched', () => {
-    expect(escapeMarkup('נותרו 15%')).toBe('נותרו 15%');
+    expect(escapeMarkup(`${HEBREW} 15%`)).toBe(`${HEBREW} 15%`);
   });
 });
 
@@ -23,6 +27,6 @@ describe('plainText', () => {
   });
 
   it('keeps ordinary text, including Hebrew', () => {
-    expect(plainText('Code - עבודה')).toBe('Code - עבודה');
+    expect(plainText(`Code - ${HEBREW}`)).toBe(`Code - ${HEBREW}`);
   });
 });
