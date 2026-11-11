@@ -77,14 +77,17 @@ export interface ErrorBody {
     readonly code: ErrorCode;
     readonly message: string;
     readonly issues?: readonly FieldIssue[];
+    /** Ties the response to the service's log lines. */
+    readonly requestId?: string;
   };
 }
 
-export function toErrorBody(error: AppError): ErrorBody {
+export function toErrorBody(error: AppError, requestId?: string): ErrorBody {
   return {
     error: {
       code: error.code,
       message: error.message,
+      ...(requestId === undefined ? {} : { requestId }),
       ...(error.issues === undefined ? {} : { issues: error.issues }),
     },
   };
