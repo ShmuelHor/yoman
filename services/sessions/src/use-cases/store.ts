@@ -29,6 +29,16 @@ export interface SessionsTransaction {
   readonly setRecordedUntil: (tsMs: number) => Promise<void>;
   /** Inserts spans without an id and updates the others, in order. */
   readonly saveSpans: (spans: readonly CategorizedSpan[]) => Promise<StoredSpan[]>;
+  /**
+   * Closed sessions overlapping `[fromMs, toMs]`, oldest first, with the
+   * category they are stored under. Lets a retried batch hand back what the
+   * first attempt closed.
+   */
+  readonly closedSpansOverlapping: (
+    fromMs: number,
+    toMs: number,
+    limit: number,
+  ) => Promise<StoredSpan[]>;
   readonly listSessions: (range: TimeRangeQuery, limit: number) => Promise<Session[]>;
   readonly sessionsEndingSince: (cutoff: Date) => Promise<CategorizedSubject[]>;
   readonly setCategories: (changes: readonly CategoryChange[]) => Promise<void>;

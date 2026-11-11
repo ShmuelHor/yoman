@@ -32,6 +32,8 @@ const METHODS_WITH_BODY = new Set(['POST', 'PUT', 'DELETE']);
 /** The gateway's route modules, loaded as `startGateway` loads them. */
 const ROUTES_DIR = fileURLToPath(new URL('../../apps/gateway/src/routes/', import.meta.url));
 
+const T27_ROUTES: readonly HandledRouteName[] = ['ingest'];
+
 /** The routes each route task implements, fuzzed again with their real handlers in place. */
 const T28_ROUTES: readonly HandledRouteName[] = [
   'dashboardToday',
@@ -208,7 +210,14 @@ describe('ST08 route fuzzing', () => {
     },
   );
 
-  it.todo('[T27] ingest routes pass the fuzzing check');
+  it.each(routesNamed(T27_ROUTES))(
+    'ingest route passes the fuzzing check with its handler: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
   it.each(routesNamed(T28_ROUTES))(
     'dashboard, reports, apps, rules and goals routes pass the fuzzing check with their handlers: $name',
     async (route) => {

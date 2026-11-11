@@ -68,7 +68,13 @@ async function main(): Promise<void> {
     shutdown('SIGTERM');
   });
 
-  await agent.start();
+  try {
+    await agent.start();
+  } catch (error: unknown) {
+    // A partial start may have muted apps or opened the bus: release them before failing.
+    await agent.stop();
+    throw error;
+  }
 }
 
 main().catch((error: unknown) => {

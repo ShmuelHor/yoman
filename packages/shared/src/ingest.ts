@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Alert } from './alerts.js';
 import { AppId, Bytes, Comm, Label, Percent, Pid, ServiceName, Timestamp } from './common.js';
+import { MuteDirective } from './focus.js';
 import { LIMITS } from './limits.js';
 
 /** The focused window, idle time and lock state, every 5 s (SPEC §4.1, §5 sessions). */
@@ -96,5 +97,7 @@ export const IngestResult = z.strictObject({
   deliver: z.array(Alert).max(LIMITS.listSize),
   queued: z.int().min(0).max(LIMITS.listSize),
   degraded: z.array(ServiceName).max(ServiceName.options.length),
+  /** Absent when the gateway has no mute decision (for example focus is degraded). */
+  mute: MuteDirective.optional(),
 });
 export type IngestResult = z.infer<typeof IngestResult>;

@@ -5,7 +5,7 @@ import { muteOnReply } from '../../src/sender/mute-handler.js';
 const BASE: IngestResult = { accepted: 1, deliver: [], queued: 0, degraded: [] };
 
 describe('muteOnReply', () => {
-  it('does nothing for a reply without mute commands', async () => {
+  it('does nothing for a reply without a mute directive', async () => {
     const run = vi.fn();
 
     await muteOnReply('muter', run).handle(BASE);
@@ -13,22 +13,26 @@ describe('muteOnReply', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('passes valid mute commands to the muter', async () => {
+  it('passes the mute directive to the muter as it is', async () => {
     const run = vi.fn().mockResolvedValue(undefined);
-    const reply = { ...BASE, mute: { mute: ['org.gnome.Calendar'], restore: [] } };
+    const mute = {
+      mute: ['org.gnome.Calendar'],
+      restore: ['slack'],
+      endsAt: '2026-11-08T11:00:00.000Z',
+      systemApps: ['org.gnome.Settings'],
+    };
 
-    await muteOnReply('muter', run).handle(reply);
+    await muteOnReply('muter', run).handle({ ...BASE, mute });
 
-    expect(run).toHaveBeenCalledWith(expect.objectContaining({ mute: ['org.gnome.Calendar'] }));
+    expect(run).toHaveBeenCalledWith(mute);
   });
 
-  it('ignores a mute field that fails its schema', async () => {
-    const run = vi.fn();
+  it('passes an empty directive through, so the muter can restore everything', async () => {
+    const run = vi.fn().mockResolvedValue(undefined);
+    const mute = { mute: [], restore: [], systemApps: [] };
 
-    const reply = { ...BASE, mute: 'everything' };
+    await muteOnReply('muter', run).handle({ ...BASE, mute });
 
-    await muteOnReply('muter', run).handle(reply);
-
-    expect(run).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledWith(mute);
   });
 });
