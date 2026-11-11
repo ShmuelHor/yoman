@@ -11,7 +11,7 @@ export interface SendAttemptDeps {
   readonly buffer: Pick<SampleBuffer, 'read' | 'ack'>;
   readonly client: IngestClient;
   readonly agentVersion: string;
-  readonly logger: Pick<AgentLogger, 'debug' | 'warn' | 'error'>;
+  readonly logger: Pick<AgentLogger, 'debug' | 'info' | 'warn' | 'error'>;
   readonly replyHandlers: readonly ReplyHandler[];
   readonly maxBatchBytes?: number;
 }
@@ -88,7 +88,11 @@ async function onAccepted(
  * acked only after a 2xx (SPEC §4.3); on anything else the samples stay and
  * the result tells the sender when to try again.
  */
-export async function sendAttempt(deps: SendAttemptDeps, limit: number): Promise<AttemptResult> {
+export async function sendAttempt(
+  deps: SendAttemptDeps,
+  limit: number,
+  requestId?: string,
+): Promise<AttemptResult> {
   const { batch, more } = await readFittingBatch(deps, limit);
   if (batch.samples.length === 0) {
     // Drops files that held only invalid lines or nothing at all.
@@ -96,10 +100,11 @@ export async function sendAttempt(deps: SendAttemptDeps, limit: number): Promise
     return { kind: 'empty' };
   }
   const samples = [...batch.samples];
+  deps.logger.info({ batch: samples.length }, 'send cycle started');
 
   let reply: Awaited<ReturnType<IngestClient['post']>>;
   try {
-    reply = await deps.client.post({ agentVersion: deps.agentVersion, samples });
+    reply = await deps.client.post({ agentVersion: deps.agentVersion, samples }, requestId);
   } catch (error: unknown) {
     if (error instanceof IngestRequestError) {
       deps.logger.warn({ code: error.code }, 'ingest request failed; samples stay buffered');

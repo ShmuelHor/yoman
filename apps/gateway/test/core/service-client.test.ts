@@ -11,6 +11,7 @@ import {
   orDegraded,
   SERVICE_TIMEOUT_MS,
   type ServiceClient,
+  scopeToRequest,
 } from '../../src/core/service-client.js';
 import { STATUS } from '../harness.js';
 
@@ -104,6 +105,39 @@ describe('createServiceClient', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('forwards the request id of the scoped request as x-request-id', async () => {
+    const seen: RequestInit[] = [];
+    const { client } = clientWith(async (_url, init) => {
+      seen.push(init);
+      return json({ seconds: ANSWER });
+    });
+
+    await scopeToRequest(client, 'req-7f3a').call('goals', {
+      method: 'GET',
+      path: '/goals',
+      response: Total,
+    });
+
+    expect(seen[0]?.headers).toMatchObject({ 'x-request-id': 'req-7f3a' });
+  });
+
+  it('logs the request id with a failed service call', async () => {
+    const { client, log } = clientWith(() => Promise.reject(new TypeError('fetch failed')));
+
+    await failureOf(
+      scopeToRequest(client, 'req-91bc').call('battery', {
+        method: 'GET',
+        path: '/now',
+        response: Total,
+      }),
+    );
+
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ reqId: 'req-91bc', service: 'battery' }),
+      'battery call failed',
+    );
+  });
+
   it('defaults to a 3 s timeout', () => {
     expect(SERVICE_TIMEOUT_MS).toBe(SPEC_TIMEOUT_MS);
   });
@@ -126,8 +160,8 @@ describe('createServiceClient', () => {
       statusCode: STATUS.UNAVAILABLE,
     });
     expect(log.warn).toHaveBeenCalledWith(
-      { service: 'battery', path: '/now', reason: 'timeout' },
-      'Service call failed',
+      { service: 'battery', path: '/now', reason: 'timeout', timeoutMs: 1 },
+      'battery timed out after 1ms',
     );
   });
 
@@ -153,7 +187,7 @@ describe('createServiceClient', () => {
     expect(error).toMatchObject({ service: 'focus', reason: 'status' });
     expect(log.warn).toHaveBeenCalledWith(
       { service: 'focus', path: '/state', reason: 'status', status: STATUS.INTERNAL },
-      'Service call failed',
+      'focus call failed',
     );
   });
 

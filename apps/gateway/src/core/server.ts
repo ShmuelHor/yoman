@@ -3,6 +3,7 @@ import type { DestinationStream, Logger } from 'pino';
 
 import { buildGateway } from './app.js';
 import { type Environment, loadConfig } from './config.js';
+import { installCrashHandlers } from './crash-handlers.js';
 import { createLogger } from './logger.js';
 import { loadRouteHandlers } from './route-loader.js';
 import { createServiceClient } from './service-client.js';
@@ -54,7 +55,7 @@ function installSignalHandlers(log: Logger, stop: () => Promise<void>): void {
 /** Validates the environment, loads the route modules and listens. */
 export async function startGateway(options: StartOptions): Promise<RunningGateway> {
   const config = loadConfig(options.env ?? process.env);
-  const log = createLogger(config.logLevel, options.logStream, config.development);
+  const log = createLogger(config.logLevel, options.logStream, config.logFormat === 'pretty');
   try {
     const app = await buildGateway({
       logger: log,
@@ -71,6 +72,7 @@ export async function startGateway(options: StartOptions): Promise<RunningGatewa
     await app.listen({ host: config.host, port: config.port });
     if (options.handleSignals !== false) {
       installSignalHandlers(log, stop);
+      installCrashHandlers(log);
     }
     return { app, log, stop };
   } catch (error: unknown) {

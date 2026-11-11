@@ -9,6 +9,7 @@ import {
   NotFoundError,
   toErrorBody,
 } from './errors.js';
+import { REQUEST_ID_HEADER, REQUEST_ID_LOG_LABEL, resolveRequestId } from './request-id.js';
 import type { Route } from './route.js';
 
 const HTTP_OK = 200;
@@ -46,20 +47,57 @@ function toAppError(error: unknown): AppError {
   return new InternalError();
 }
 
-export function buildApp(options: AppOptions): FastifyInstance {
-  const app = Fastify({ loggerInstance: options.logger });
+/** Server errors are errors, client mistakes are warnings, everything else is routine. */
+function levelOf(status: number): 'info' | 'warn' | 'error' {
+  if (status >= HTTP_INTERNAL) {
+    return 'error';
+  }
+  return status >= HTTP_BAD_REQUEST ? 'warn' : 'info';
+}
 
+/**
+ * One line per request: method, route, status and duration, with `reqId` from
+ * the request's child logger. The route is the pattern (`/apps/:id`), never the
+ * URL, so ids and query strings stay out of the line.
+ */
+function registerRequestLog(app: FastifyInstance): void {
+  app.addHook('onSend', async (request, reply, payload) => {
+    void reply.header(REQUEST_ID_HEADER, request.id);
+    return payload;
+  });
+  app.addHook('onResponse', async (request, reply) => {
+    const status = reply.statusCode;
+    const route = request.routeOptions.url ?? 'unmatched';
+    const durationMs = Math.round(reply.elapsedTime);
+    request.log[levelOf(status)](
+      { method: request.method, route, status, durationMs },
+      `${request.method} ${route} ${status} ${durationMs}ms`,
+    );
+  });
+}
+
+export function buildApp(options: AppOptions): FastifyInstance {
+  const app = Fastify({
+    loggerInstance: options.logger,
+    // Replaced by the single line above, which also carries the route pattern.
+    disableRequestLogging: true,
+    genReqId: resolveRequestId,
+    requestIdLogLabel: REQUEST_ID_LOG_LABEL,
+  });
+  registerRequestLog(app);
+
+  // The one place a failure is logged in full, once, and turned into a client body.
   app.setErrorHandler((error, request, reply) => {
     const appError = toAppError(error);
     if (appError.statusCode >= HTTP_INTERNAL) {
       request.log.error({ err: error }, 'Request failed');
     }
-    return reply.status(appError.statusCode).send(toErrorBody(appError));
+    return reply.status(appError.statusCode).send(toErrorBody(appError, request.id));
   });
 
-  app.setNotFoundHandler((_request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
     const error = new NotFoundError();
-    return reply.status(error.statusCode).send(toErrorBody(error));
+    return reply.status(error.statusCode).send(toErrorBody(error, request.id));
   });
 
   // Polled every few seconds by Docker, so successful checks stay out of the log.

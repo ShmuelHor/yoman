@@ -46,7 +46,11 @@ describe('GET /v1/week', () => {
 
     expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
     expect(response.json()).toEqual({
-      error: { code: 'SERVICE_UNAVAILABLE', message: 'Service unavailable' },
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Service unavailable',
+        requestId: expect.any(String),
+      },
     });
   });
 });

@@ -44,7 +44,11 @@ describe('ST10 body limit', () => {
 
     expect(response.statusCode).toBe(STATUS.PAYLOAD_TOO_LARGE);
     expect(response.json()).toEqual({
-      error: { code: 'PAYLOAD_TOO_LARGE', message: 'Payload too large' },
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Payload too large',
+        requestId: expect.any(String),
+      },
     });
   });
 

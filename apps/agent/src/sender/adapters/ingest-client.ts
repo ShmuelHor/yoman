@@ -48,7 +48,8 @@ export class IngestRequestError extends Error {
 }
 
 export interface IngestClient {
-  post(batch: IngestBatch): Promise<IngestHttpReply>;
+  /** `requestId` goes out as `x-request-id`, so the gateway and services log under the same id. */
+  post(batch: IngestBatch, requestId?: string): Promise<IngestHttpReply>;
 }
 
 function isTimeout(error: unknown): boolean {
@@ -90,12 +91,16 @@ export function createIngestClient(options: IngestClientOptions): IngestClient {
   const authorization = `Bearer ${token.data}`;
 
   return {
-    async post(batch): Promise<IngestHttpReply> {
+    async post(batch, requestId): Promise<IngestHttpReply> {
       let response: Response;
       try {
         response = await fetchFn(url, {
           method: routes.ingest.method,
-          headers: { authorization, 'content-type': 'application/json' },
+          headers: {
+            authorization,
+            'content-type': 'application/json',
+            ...(requestId === undefined ? {} : { 'x-request-id': requestId }),
+          },
           body: JSON.stringify(batch),
           redirect: 'error',
           signal: AbortSignal.timeout(timeoutMs),

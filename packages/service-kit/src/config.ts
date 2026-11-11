@@ -10,11 +10,15 @@ const baseSchema = z.object({
   // Anything but an explicit `development` runs as production: fail closed.
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  // Unset means pretty in development and JSON everywhere else.
+  LOG_FORMAT: z.enum(['pretty', 'json']).optional(),
   DB_HOST: z.string().min(1).default('postgres'),
   DB_PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_DB_PORT),
   // infra/postgres/init creates every role and schema in the `postgres` database.
   DB_NAME: z.string().min(1).default('postgres'),
 });
+
+export type LogFormat = 'pretty' | 'json';
 
 export interface DatabaseConfig {
   readonly host: string;
@@ -30,8 +34,10 @@ export interface ServiceConfig<Extra> {
   readonly host: string;
   readonly port: number;
   readonly logLevel: string;
-  /** `NODE_ENV=development`: pretty logs. Never set in the image. */
+  /** `NODE_ENV=development`: development features. Never set in the image. */
   readonly development: boolean;
+  /** `LOG_FORMAT`: one readable line per entry, or JSON for filtering and `pino-pretty`. */
+  readonly logFormat: LogFormat;
   readonly db: DatabaseConfig;
   /** The service's own variables, validated by the schema it passed to `createService`. */
   readonly service: Extra;
@@ -90,6 +96,7 @@ export function loadConfig<Extra extends z.ZodObject = z.ZodObject<Record<never,
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
     development: data.NODE_ENV === 'development',
+    logFormat: data.LOG_FORMAT ?? (data.NODE_ENV === 'development' ? 'pretty' : 'json'),
     db: {
       host: data.DB_HOST,
       port: data.DB_PORT,

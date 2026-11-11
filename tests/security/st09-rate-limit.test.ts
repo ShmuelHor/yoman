@@ -54,7 +54,7 @@ describe('ST09 rate limit', () => {
 
     expect(limited.statusCode).toBe(STATUS.TOO_MANY_REQUESTS);
     expect(limited.json()).toEqual({
-      error: { code: 'RATE_LIMITED', message: 'Too many requests' },
+      error: { code: 'RATE_LIMITED', message: 'Too many requests', requestId: expect.any(String) },
     });
     expect(limited.headers['retry-after']).toBeDefined();
 

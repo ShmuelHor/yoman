@@ -138,6 +138,8 @@ describe('GET /v1/dashboard/today', () => {
     });
 
     expect(response.statusCode).toBe(STATUS.INTERNAL);
-    expect(response.json()).toEqual({ error: { code: 'INTERNAL', message: 'Internal error' } });
+    expect(response.json()).toEqual({
+      error: { code: 'INTERNAL', message: 'Internal error', requestId: expect.any(String) },
+    });
   });
 });

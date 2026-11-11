@@ -7,6 +7,7 @@ import { buildApp } from '../src/app.js';
 import type { Pingable } from '../src/database.js';
 import { ConflictError } from '../src/errors.js';
 import { defineRoute, HTTP_NO_CONTENT, type Route } from '../src/route.js';
+import { recordingLogger } from './log-capture.js';
 
 const STATUS = {
   OK: 200,
@@ -122,13 +123,17 @@ describe('routes', () => {
       payload: '{"name": "secret-fragment',
     });
     expect(response.statusCode).toBe(STATUS.BAD_REQUEST);
-    expect(response.json()).toEqual({ error: { code: 'BAD_REQUEST', message: 'Bad request' } });
+    expect(response.json()).toEqual({
+      error: { code: 'BAD_REQUEST', message: 'Bad request', requestId: expect.any(String) },
+    });
   });
 
   it('turns a response that breaks its schema into a 500', async () => {
     const response = await build().inject({ method: 'GET', url: '/broken' });
     expect(response.statusCode).toBe(STATUS.INTERNAL);
-    expect(response.json()).toEqual({ error: { code: 'INTERNAL', message: 'Internal error' } });
+    expect(response.json()).toEqual({
+      error: { code: 'INTERNAL', message: 'Internal error', requestId: expect.any(String) },
+    });
   });
 
   it('never shows an unexpected error message to the client', async () => {
@@ -141,7 +146,7 @@ describe('routes', () => {
     const response = await build().inject({ method: 'PUT', url: '/conflict' });
     expect(response.statusCode).toBe(STATUS.CONFLICT);
     expect(response.json()).toEqual({
-      error: { code: 'CONFLICT', message: 'Rule already exists' },
+      error: { code: 'CONFLICT', message: 'Rule already exists', requestId: expect.any(String) },
     });
   });
 
@@ -154,7 +159,9 @@ describe('routes', () => {
   it('answers unknown routes with a typed 404', async () => {
     const response = await build().inject({ method: 'GET', url: '/nope' });
     expect(response.statusCode).toBe(STATUS.NOT_FOUND);
-    expect(response.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    expect(response.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'Not found', requestId: expect.any(String) },
+    });
   });
 });
 
@@ -169,5 +176,58 @@ describe('/health', () => {
     const response = await build(down).inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
     expect(response.json()).toEqual({ status: 'unavailable', checks: { database: 'down' } });
+  });
+});
+
+describe('request tracing', () => {
+  it('echoes a well-formed x-request-id and tags the request line with it', async () => {
+    const { logger, lines } = recordingLogger();
+    app = buildApp({ logger, routes, db: up });
+    const response = await app.inject({
+      method: 'POST',
+      url: '/apps/7',
+      headers: { 'x-request-id': 'req-7f3a' },
+      payload: { name: 'Firefox', category: 'web' },
+    });
+    expect(response.headers['x-request-id']).toBe('req-7f3a');
+    const line = lines.find((entry) => entry.route === '/apps/:id');
+    expect(line).toMatchObject({
+      reqId: 'req-7f3a',
+      method: 'POST',
+      status: STATUS.OK,
+      msg: expect.stringMatching(/^POST \/apps\/:id 200 \d+ms$/),
+    });
+  });
+
+  it('replaces a malformed x-request-id with a generated one', async () => {
+    const response = await build().inject({
+      method: 'GET',
+      url: '/broken',
+      headers: { 'x-request-id': 'bad id\twith "quotes"' },
+    });
+    expect(response.headers['x-request-id']).toMatch(/^req-[0-9a-f]{12}$/);
+  });
+
+  it('puts the request id in the error body and logs the failure once with its stack', async () => {
+    const { logger, lines } = recordingLogger();
+    app = buildApp({ logger, routes, db: up });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/throws',
+      headers: { 'x-request-id': 'req-c2d8' },
+    });
+    expect(response.json()).toMatchObject({ error: { requestId: 'req-c2d8' } });
+    const failures = lines.filter((entry) => entry.msg === 'Request failed');
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ reqId: 'req-c2d8', level: 50 });
+  });
+
+  it('logs client mistakes as warnings without the rejected URL parameters', async () => {
+    const { logger, lines } = recordingLogger();
+    app = buildApp({ logger, routes, db: up });
+    await app.inject({ method: 'POST', url: '/apps/abc?title=secret', payload: {} });
+    const line = lines.find((entry) => entry.status === STATUS.BAD_REQUEST);
+    expect(line).toMatchObject({ level: 40, route: '/apps/:id' });
+    expect(JSON.stringify(line)).not.toContain('secret');
   });
 });

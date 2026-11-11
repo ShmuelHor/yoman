@@ -40,7 +40,9 @@ describe('ST03 authentication', () => {
       const response = await app.inject(validRequest(route, { host: GATEWAY_HOST }));
 
       expect(response.statusCode).toBe(STATUS.UNAUTHORIZED);
-      expect(response.json()).toEqual({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+      expect(response.json()).toEqual({
+        error: { code: 'UNAUTHORIZED', message: 'Unauthorized', requestId: expect.any(String) },
+      });
     },
   );
 

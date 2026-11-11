@@ -13,6 +13,7 @@ describe('loadConfig', () => {
       port: 8080,
       logLevel: 'info',
       development: false,
+      logFormat: 'json',
       db: {
         host: 'postgres',
         port: 5432,
@@ -32,6 +33,16 @@ describe('loadConfig', () => {
       DB_PORT: '6543',
     });
     expect({ port: config.port, dbPort: config.db.port }).toEqual({ port: 9001, dbPort: 6543 });
+  });
+
+  it('defaults LOG_FORMAT to pretty in development and json elsewhere, and lets it be set', () => {
+    const base = { SESSIONS_DB_PASSWORD: SECRET };
+    const format = (env: Record<string, string>): string =>
+      loadConfig('sessions', { ...base, ...env }).logFormat;
+    expect(format({ NODE_ENV: 'development' })).toBe('pretty');
+    expect(format({ NODE_ENV: 'development', LOG_FORMAT: 'json' })).toBe('json');
+    expect(format({ LOG_FORMAT: 'pretty' })).toBe('pretty');
+    expect(() => format({ LOG_FORMAT: 'xml' })).toThrow(/LOG_FORMAT/);
   });
 
   it('names the missing password variable', () => {

@@ -49,7 +49,9 @@ describe('apps routes', () => {
     });
 
     expect(response.statusCode).toBe(HTTP_NOT_FOUND);
-    expect(response.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'App not found' } });
+    expect(response.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'App not found', requestId: expect.any(String) },
+    });
   });
 
   it('rejects an app id outside the allowed characters', async () => {

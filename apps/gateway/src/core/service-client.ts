@@ -24,6 +24,8 @@ export interface ServiceRequest<T> {
   readonly path: `/${string}`;
   readonly query?: Readonly<Record<string, string>>;
   readonly body?: unknown;
+  /** Sent as `x-request-id`, so the service's log lines carry the caller's trace. */
+  readonly requestId?: string;
   /** Every reply is parsed: a service's answer is untrusted until it matches its contract. */
   readonly response: ZodType<T>;
 }
@@ -35,6 +37,11 @@ export interface ServiceClient {
    * `NotFoundError` or `ConflictError` when the service answers 404 or 409.
    */
   readonly call: <T>(service: ServiceName, request: ServiceRequest<T>) => Promise<T>;
+}
+
+/** A client whose every call carries the request id of the request being served. */
+export function scopeToRequest(client: ServiceClient, requestId: string): ServiceClient {
+  return { call: (service, request) => client.call(service, { requestId, ...request }) };
 }
 
 export type FetchFunction = (input: URL, init: RequestInit) => Promise<Response>;
@@ -75,12 +82,16 @@ export function createServiceClient(options: ServiceClientOptions): ServiceClien
 
   const fail = (
     service: ServiceName,
-    path: string,
+    request: ServiceRequest<unknown>,
     reason: ServiceFailure,
     details: Record<string, unknown> = {},
   ): ServiceUnavailableError => {
     // The path only: queries can carry user filters, and bodies are never logged.
-    options.log.warn({ service, path, reason, ...details }, 'Service call failed');
+    const timeout = reason === 'timeout' ? { timeoutMs } : {};
+    options.log.warn(
+      { service, path: request.path, reason, reqId: request.requestId, ...timeout, ...details },
+      reason === 'timeout' ? `${service} timed out after ${timeoutMs}ms` : `${service} call failed`,
+    );
     return new ServiceUnavailableError(service, reason);
   };
 
@@ -89,7 +100,10 @@ export function createServiceClient(options: ServiceClientOptions): ServiceClien
     const hasBody = request.body !== undefined;
     const response = await fetchFn(url, {
       method: request.method,
-      headers: hasBody ? { 'content-type': 'application/json' } : {},
+      headers: {
+        ...(hasBody ? { 'content-type': 'application/json' } : {}),
+        ...(request.requestId === undefined ? {} : { 'x-request-id': request.requestId }),
+      },
       ...(hasBody ? { body: JSON.stringify(request.body) } : {}),
       redirect: 'error',
       signal: AbortSignal.timeout(timeoutMs),
@@ -108,7 +122,7 @@ export function createServiceClient(options: ServiceClientOptions): ServiceClien
     try {
       reply = await exchange(buildUrl(options.urls[service], request.path, request.query), request);
     } catch (error: unknown) {
-      throw fail(service, request.path, failureOf(error));
+      throw fail(service, request, failureOf(error));
     }
     if (reply.status === HTTP_NOT_FOUND) {
       throw new NotFoundError();
@@ -117,12 +131,12 @@ export function createServiceClient(options: ServiceClientOptions): ServiceClien
       throw new ConflictError();
     }
     if (!reply.ok) {
-      throw fail(service, request.path, 'status', { status: reply.status });
+      throw fail(service, request, 'status', { status: reply.status });
     }
     const parsed = request.response.safeParse(reply.payload);
     if (!parsed.success) {
       const paths = parsed.error.issues.map((issue) => issue.path.join('.'));
-      throw fail(service, request.path, 'invalid-response', { paths });
+      throw fail(service, request, 'invalid-response', { paths });
     }
     return parsed.data;
   };

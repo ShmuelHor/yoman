@@ -104,6 +104,7 @@ export function createNotifier(): Actuator<NotifyRequest> {
         return;
       }
       shown.add(id);
+      context.logger.info({ actuator: NOTIFIER_NAME, alertType: alert.type }, 'notification shown');
     },
     async stop(): Promise<void> {
       const active = unsubscribes;
