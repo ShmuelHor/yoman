@@ -13,6 +13,8 @@ function bind(db: Kysely<SessionsDatabase>): SessionsTransaction {
     recordedUntil: () => sessions.recordedUntil(db),
     setRecordedUntil: (tsMs) => sessions.setRecordedUntil(db, tsMs),
     saveSpans: (spans) => sessions.saveSpans(db, spans),
+    closedSpansOverlapping: (fromMs, toMs, limit) =>
+      sessions.closedSpansOverlapping(db, fromMs, toMs, limit),
     listSessions: (range, limit) => sessions.listSessions(db, range, limit),
     sessionsEndingSince: (cutoff) => sessions.sessionsEndingSince(db, cutoff),
     setCategories: (changes) => sessions.setCategories(db, changes),

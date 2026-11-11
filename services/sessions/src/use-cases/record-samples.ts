@@ -4,7 +4,7 @@ import { LIMITS } from '@yoman/shared/limits';
 import type { ClosedSession, SampleResult } from '../contracts.js';
 import { resolveCategory } from '../domain/categorize.js';
 import { type ActivitySample, mergeSamples } from '../domain/merge-samples.js';
-import type { CategorizedSpan, SessionsStore, StoredSpan } from './store.js';
+import type { CategorizedSpan, SessionsStore, SessionsTransaction, StoredSpan } from './store.js';
 
 function toActivity(sample: WindowSample): ActivitySample {
   return {
@@ -30,6 +30,36 @@ function toClosedSession(span: StoredSpan): ClosedSession {
 }
 
 /**
+ * The sessions a retried batch closed the first time. Its samples are all
+ * `late`, so nothing new closes, yet the gateway still has to hand those
+ * sessions to reports and goals if the first attempt failed after this
+ * service committed. Reports counts a session id once, so over-returning is
+ * harmless; under-returning would lose time.
+ *
+ * An idle sample ends its session `idleMs` before itself, so the range starts
+ * there rather than at the sample.
+ */
+async function replayedClosures(
+  tx: SessionsTransaction,
+  samples: readonly WindowSample[],
+  excluded: ReadonlySet<string>,
+  room: number,
+): Promise<ClosedSession[]> {
+  if (samples.length === 0) {
+    return [];
+  }
+  const fromMs = Math.min(...samples.map((sample) => Date.parse(sample.ts) - sample.idleMs));
+  const toMs = Math.max(...samples.map((sample) => Date.parse(sample.ts)));
+  const spans = await tx.closedSpansOverlapping(fromMs, toMs, LIMITS.ingestSamples);
+  // The reply holds at most `ingestSamples` sessions. Oldest first, so what a wide range
+  // pulls in beyond `room` is the newest, which are the least likely to be this batch's own.
+  return spans
+    .filter((span) => !excluded.has(span.id))
+    .slice(0, Math.max(0, room))
+    .map(toClosedSession);
+}
+
+/**
  * Merges a batch into the stored sessions in one transaction: continues the
  * open session, stores new ones under their category, and returns the
  * sessions the batch closed.
@@ -48,8 +78,18 @@ export function recordSamples(
     if (accepted > 0 && recordedUntilMs !== null) {
       await tx.setRecordedUntil(recordedUntilMs);
     }
+    // Any late sample may be a retry, so the sessions it closed are returned again.
+    const replay = (closed: readonly ClosedSession[]): Promise<ClosedSession[]> =>
+      late === 0
+        ? Promise.resolve([])
+        : replayedClosures(
+            tx,
+            samples,
+            new Set(closed.map(({ session }) => session.id)),
+            LIMITS.ingestSamples - closed.length,
+          );
     if (spans.length === 0) {
-      return { accepted, late, closed: [] };
+      return { accepted, late, closed: await replay([]) };
     }
 
     await tx.ensureApps([...new Set(spans.map((span) => span.appId))]);
@@ -67,6 +107,7 @@ export function recordSamples(
     );
 
     const saved = await tx.saveSpans(categorized);
-    return { accepted, late, closed: saved.filter((span) => span.closed).map(toClosedSession) };
+    const closed = saved.filter((span) => span.closed).map(toClosedSession);
+    return { accepted, late, closed: [...closed, ...(await replay(closed))] };
   });
 }
