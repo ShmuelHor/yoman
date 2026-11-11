@@ -29,7 +29,7 @@ export const NOTIFY_KEYS = {
   degraded: 'common:notify.degraded',
 } as const;
 
-/** The toast stays small: a burst of failures must not bury the page. */
+/** How many toasts raised before the toast host connects are kept; later ones are dropped. */
 const MAX_BUFFERED = 20;
 
 /** A response that lists unavailable services (`degraded`, SPEC §5). */
@@ -40,6 +40,11 @@ export function isDegraded(data: unknown): boolean {
   return DegradedResponse.safeParse(data).success;
 }
 
+/**
+ * Creates the app's notifier. Toasts are translated with `i18n` when they are
+ * raised. Until the toast host calls `connect`, up to `MAX_BUFFERED` toasts are
+ * held and shown on connect, so a failure during startup is not lost.
+ */
 export function createNotifier(i18n: Pick<i18n, 't'>): Notifier {
   let enqueue: Enqueue | undefined;
   const buffered: Array<() => void> = [];
