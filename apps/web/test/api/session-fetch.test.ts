@@ -8,7 +8,10 @@ const BASE = 'http://127.0.0.1:4711';
 const OK = 200;
 const UNAUTHORIZED = 401;
 const FORBIDDEN = 403;
-const CSRF = 'x'.repeat(32);
+const CSRF_LENGTH = 32;
+const CSRF = 'x'.repeat(CSRF_LENGTH);
+const SERVER_ERROR = 500;
+const CALLS_PER_REJECTED_REQUEST = 4;
 
 const today = {
   data: { reports: null, battery: null, openIncidents: null, focus: null },
@@ -88,7 +91,7 @@ describe('gateway session bootstrap', () => {
     await expect(api.request('dashboardToday')).rejects.toMatchObject({ status: UNAUTHORIZED });
 
     // session, call, session, call
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(CALLS_PER_REJECTED_REQUEST);
   });
 
   it('sends the CSRF token on writes only', async () => {
@@ -107,7 +110,7 @@ describe('gateway session bootstrap', () => {
     const gateway = fakeGateway();
     const failing = vi.fn<typeof fetch>(async (input, init) =>
       failing.mock.calls.length === 1
-        ? new Response('{}', { status: 500 })
+        ? new Response('{}', { status: SERVER_ERROR })
         : gateway.fetch(input, init),
     );
     const api = createGatewayClient(location, failing);
