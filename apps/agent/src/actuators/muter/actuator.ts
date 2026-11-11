@@ -56,6 +56,7 @@ export function createMuter(options: MuterOptions): Actuator<MuteRequest> {
         );
         continue;
       }
+      context.logger.info({ actuator: MUTER_NAME, appId }, 'app restored');
       const { [appId]: _restored, ...rest } = state.originals;
       state = { ...state, originals: rest };
       await saveMuteState(statePath, state);
@@ -121,6 +122,7 @@ export function createMuter(options: MuterOptions): Actuator<MuteRequest> {
           await saveMuteState(statePath, state);
         }
         await writeShowBanners(options.run, appId, 'false');
+        context.logger.info({ actuator: MUTER_NAME, appId }, 'app muted');
       } catch (error: unknown) {
         context.logger.warn(
           { actuator: MUTER_NAME, appId, reason: errorName(error) },

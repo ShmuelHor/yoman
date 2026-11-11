@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ConfigError, loadAgentConfig, parseAgentConfig } from '../../src/core/config.js';
 
-const DEFAULTS = { gatewayUrl: 'http://127.0.0.1:4711', logLevel: 'info' };
+const DEFAULTS = { gatewayUrl: 'http://127.0.0.1:4711', logLevel: 'info', logFormat: 'pretty' };
 
 describe('parseAgentConfig', () => {
   it('fills every default from an empty object', () => {
@@ -13,7 +13,11 @@ describe('parseAgentConfig', () => {
 
   it('accepts explicit values', () => {
     const config = parseAgentConfig('{"gatewayUrl":"http://127.0.0.1:9000","logLevel":"debug"}');
-    expect(config).toEqual({ gatewayUrl: 'http://127.0.0.1:9000', logLevel: 'debug' });
+    expect(config).toEqual({
+      gatewayUrl: 'http://127.0.0.1:9000',
+      logLevel: 'debug',
+      logFormat: 'pretty',
+    });
   });
 
   it.each([
@@ -71,5 +75,10 @@ describe('loadAgentConfig', () => {
 
   it('surfaces read errors other than a missing file', async () => {
     await expect(loadAgentConfig(root)).rejects.toThrow();
+  });
+
+  it('accepts json logs and rejects an unknown format', () => {
+    expect(parseAgentConfig('{"logFormat":"json"}').logFormat).toBe('json');
+    expect(() => parseAgentConfig('{"logFormat":"xml"}')).toThrow(/logFormat/);
   });
 });

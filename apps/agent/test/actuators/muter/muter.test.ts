@@ -107,6 +107,21 @@ describe('muter', () => {
     expect(gs.values.get(schema('discord'))).toBe('true');
   });
 
+  it('logs each mute and restore with the app id only', async () => {
+    const gs = fakeGsettings();
+    const { logger, logs } = recordingLogger();
+    const ctx = { logger, sessionBus: undefined as never };
+    const subject = muter(gs.run);
+
+    await subject.run(request({ mute: ['slack'] }), ctx);
+    await subject.run(request({ restore: ['slack'] }), ctx);
+
+    expect(logs).toEqual([
+      expect.objectContaining({ msg: 'app muted', actuator: 'muter', appId: 'slack' }),
+      expect.objectContaining({ msg: 'app restored', actuator: 'muter', appId: 'slack' }),
+    ]);
+  });
+
   it('restores everything on startup after a crash mid-focus', async () => {
     const gs = fakeGsettings();
     const { logger } = recordingLogger();

@@ -9,7 +9,7 @@ import {
   SEND_INTERVAL_MS,
 } from '../../src/sender/domain/schedule.js';
 import type { ReplyHandler } from '../../src/sender/reply-handlers.js';
-import { createSender, type Sender } from '../../src/sender/sender.js';
+import { type CycleLogger, createSender, type Sender } from '../../src/sender/sender.js';
 import { recordingLogger } from '../support/logs.js';
 import { VirtualTimers } from './virtual-timers.js';
 
@@ -23,6 +23,8 @@ const FOUR_MINUTES = 240_000;
 const ONE_HOUR = 3_600_000;
 const SHORT_OUTAGE = 3;
 const LONG_OUTAGE = 20;
+
+const CYCLE_MS = 41;
 
 const SAMPLE = {
   kind: 'thermal',
@@ -125,6 +127,60 @@ describe('createSender', () => {
     );
   });
 
+  it('names each send cycle and logs its batch, duration and retries under that id', async () => {
+    const recorded = recordingLogger();
+    logs = recorded.logs;
+    let clock = 0;
+    const ticks = [0, CYCLE_MS];
+    sender = createSender({
+      buffer,
+      client: { post: async () => ({ status: STATUS_OK, retryAfter: null, body: OK_REPLY }) },
+      agentVersion: AGENT_VERSION,
+      logger: recorded.logger,
+      replyHandlers: [],
+      newCycleId: () => 'req-7f3a',
+      now: () => ticks[clock++] ?? CYCLE_MS,
+    });
+
+    sender.start();
+    await sender.whenIdle();
+
+    expect(logs).toContainEqual(
+      expect.objectContaining({ msg: 'send cycle started', reqId: 'req-7f3a', batch: 1 }),
+    );
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        msg: `send cycle done ${CYCLE_MS}ms`,
+        reqId: 'req-7f3a',
+        durationMs: CYCLE_MS,
+        retries: 0,
+        result: 'sent',
+      }),
+    );
+  });
+
+  it('sends the cycle id to the gateway as the request id of every attempt', async () => {
+    const requestIds: (string | undefined)[] = [];
+    sender = createSender({
+      buffer,
+      client: {
+        post: async (_batch, requestId) => {
+          requestIds.push(requestId);
+          return { status: STATUS_OK, retryAfter: null, body: OK_REPLY };
+        },
+      },
+      agentVersion: AGENT_VERSION,
+      logger: recordingLogger().logger,
+      replyHandlers: [],
+      newCycleId: () => 'req-7f3a',
+    });
+
+    sender.start();
+    await sender.whenIdle();
+
+    expect(requestIds).toEqual(['req-7f3a']);
+  });
+
   it('never waits more than 10 minutes between attempts', async () => {
     steps.push(...unreachable(LONG_OUTAGE));
     sender.start();
@@ -215,7 +271,8 @@ describe('createSender', () => {
 
   it('logs an unexpected error and keeps the loop alive', async () => {
     const logs: unknown[] = [];
-    const failing = {
+    const failing: CycleLogger & { child(): CycleLogger } = {
+      child: () => failing,
       debug: (): void => undefined,
       info: (): void => undefined,
       error: (fields: unknown): void => void logs.push(fields),

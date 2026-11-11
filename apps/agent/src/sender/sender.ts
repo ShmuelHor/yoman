@@ -11,10 +11,18 @@ import {
   nextBatchLimit,
   planNextDelayMs,
 } from './domain/schedule.js';
+import { createRequestId } from './request-id.js';
 import { type SendAttemptDeps, sendAttempt } from './send-attempt.js';
 
+/** What a send cycle logs through. */
+export type CycleLogger = Pick<AgentLogger, 'debug' | 'info' | 'warn' | 'error'>;
+
 export interface SenderOptions extends SendAttemptDeps {
-  readonly logger: Pick<AgentLogger, 'debug' | 'info' | 'warn' | 'error'>;
+  /** Each cycle logs through `child({ reqId })`, so its lines carry the cycle id. */
+  readonly logger: CycleLogger & { child(bindings: { reqId: string }): CycleLogger };
+  /** Names a send cycle; it goes to the gateway as `x-request-id`. Defaults to a random id. */
+  readonly newCycleId?: () => string;
+  readonly now?: () => number;
 }
 
 export type SenderState = 'idle' | 'running' | 'paused' | 'stopped';
@@ -37,6 +45,13 @@ export interface Sender {
   readonly state: SenderState;
 }
 
+/** What one send cycle logs under, and what it reports when it ends. */
+interface CycleContext {
+  readonly reqId: string;
+  readonly logger: CycleLogger;
+  retries: number;
+}
+
 /** A failed attempt, thrown so p-retry backs off and tries again. */
 class SendFailed extends Error {
   override readonly name = 'SendFailed';
@@ -49,7 +64,8 @@ class SendFailed extends Error {
  * slow gateway never queues a burst of requests.
  */
 export function createSender(options: SenderOptions): Sender {
-  const { logger } = options;
+  const newCycleId = options.newCycleId ?? ((): string => createRequestId());
+  const now = options.now ?? Date.now;
   // Fail at startup, not on every send, if the version cannot pass the contract.
   IngestBatch.shape.agentVersion.parse(options.agentVersion);
 
@@ -63,25 +79,29 @@ export function createSender(options: SenderOptions): Sender {
   let cancel = new AbortController();
   let limit: number = LIMITS.ingestSamples;
 
-  async function attempt(): Promise<AnsweredAttempt> {
+  async function attempt(cycle: CycleContext): Promise<AnsweredAttempt> {
     try {
-      const result = await sendAttempt(options, limit);
+      const result = await sendAttempt({ ...options, logger: cycle.logger }, limit, cycle.reqId);
       if (result.kind !== 'failed') {
         return result;
       }
     } catch (error: unknown) {
       // The buffer itself failed (disk full, permissions): retry on the backoff.
       const name = error instanceof Error ? error.name : typeof error;
-      logger.error({ error: name }, 'send attempt failed');
+      cycle.logger.error({ error: name }, 'send attempt failed');
     }
     throw new SendFailed('the batch was not delivered');
   }
 
-  async function sendWithBackoff(signal: AbortSignal): Promise<AnsweredAttempt> {
+  async function sendWithBackoff(
+    signal: AbortSignal,
+    cycle: CycleContext,
+  ): Promise<AnsweredAttempt> {
+    const { logger } = cycle;
     let failures = 0;
     const answered = await pRetry(
       () => {
-        const inFlight = attempt();
+        const inFlight = attempt(cycle);
         request = inFlight.catch(() => undefined);
         return inFlight;
       },
@@ -97,26 +117,43 @@ export function createSender(options: SenderOptions): Sender {
         },
       },
     );
+    cycle.retries = failures;
     if (failures > 0) {
       logger.info({ failures }, 'gateway reachable again');
     }
     return answered;
   }
 
+  /** One line when a cycle that had something to send ends: how long, how many retries, how. */
+  function logCycleDone(cycle: CycleContext, result: AnsweredAttempt, startedAt: number): void {
+    if (result.kind === 'empty') {
+      return;
+    }
+    const durationMs = now() - startedAt;
+    cycle.logger.info(
+      { durationMs, retries: cycle.retries, result: result.kind },
+      `send cycle done ${durationMs}ms`,
+    );
+  }
+
   async function run(signal: AbortSignal): Promise<void> {
     let result: AnsweredAttempt;
+    const reqId = newCycleId();
+    const cycle: CycleContext = { reqId, logger: options.logger.child({ reqId }), retries: 0 };
+    const startedAt = now();
     try {
-      result = await sendWithBackoff(signal);
+      result = await sendWithBackoff(signal, cycle);
     } catch (error: unknown) {
       if (signal.aborted) {
         return;
       }
       // Nothing may end the loop: a cycle nobody awaits would reject unhandled.
       const name = error instanceof Error ? error.name : typeof error;
-      logger.error({ error: name }, 'send cycle failed');
+      cycle.logger.error({ error: name }, 'send cycle failed');
       arm(FIRST_BACKOFF_MS, signal);
       return;
     }
+    logCycleDone(cycle, result, startedAt);
     limit = nextBatchLimit(limit, LIMITS.ingestSamples, result);
     if (state === 'running' && !signal.aborted) {
       arm(planNextDelayMs(result), signal);
