@@ -1,11 +1,12 @@
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RouterProvider } from '@tanstack/react-router';
 import type { i18n } from 'i18next';
 import type { ReactNode } from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
-import { type createBrowserRouter, RouterProvider } from 'react-router';
 import { DEFAULT_LANGUAGE, Language } from '../i18n/languages.js';
 import type { Notifier } from '../notify/notifier.js';
 import { NotifierProvider } from '../notify/notifier-provider.js';
+import type { AppRouter } from '../router/router.js';
 import { LocaleProvider } from '../theme/locale-provider.js';
 import { ThemeProvider } from '../theme/theme-provider.js';
 import { RootErrorBoundary } from './error-boundaries.js';
@@ -14,7 +15,7 @@ interface AppProps {
   readonly i18n: i18n;
   readonly queryClient: QueryClient;
   readonly notifier: Notifier;
-  readonly router: ReturnType<typeof createBrowserRouter>;
+  readonly router: AppRouter;
 }
 
 /** Keeps the MUI direction and locale in step with the UI language. */

@@ -136,6 +136,15 @@ npm test                # unit tests with coverage thresholds
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks them
 in the `commit-msg` hook today, and CI will check every commit in a pull request (planned).
 
+## Run
+
+```bash
+npm start       # creates .env if missing, builds and starts the stack, waits until it is healthy, prints the web URL, then runs the agent in this terminal
+npm stop        # stops the stack (the data stays in the Docker volume)
+```
+
+`npm start` needs Docker Engine with Compose v2. Ctrl+C stops the agent, and the stack keeps running until `npm stop`. To run only the agent against a running stack: `npm run agent:dev`. The agent reads `AGENT_TOKEN` from `.env` (that key only) or from its environment, and `~/.config/yoman/agent.json` for optional settings (`gatewayUrl`, `logLevel`, `logFormat`).
+
 ## Logs
 
 Every container prints one readable line per request, tied together by a request id (`reqId`): the agent, the gateway and each service log the same id for one request. Set `LOG_FORMAT=json` in `.env` for JSON lines instead (the default is `pretty`). Titles, command lines, tokens and cookies are never logged.
@@ -150,7 +159,7 @@ docker compose logs -f --no-log-prefix gateway | npx pino-pretty --minimumLevel 
 
 Errors only with the default format: `docker compose logs -f | grep -E 'ERROR|WARN'`. A failed API answer carries its id in `error.requestId` and the `x-request-id` header; use it with `grep`.
 
-The agent runs in its own terminal for now (`npm run agent:dev`). Once it runs as a systemd user unit, follow it with `journalctl --user -u yoman-agent -f`.
+`npm start` runs the agent in its own terminal for now (or `npm run agent:dev` alone). Once it runs as a systemd user unit, follow it with `journalctl --user -u yoman-agent -f`.
 
 ## Roadmap
 

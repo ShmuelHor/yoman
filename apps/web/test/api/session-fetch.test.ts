@@ -39,10 +39,12 @@ function fakeGateway(): {
     calls.push(`${init?.method ?? 'GET'} ${url}`);
     seen.push(headers);
     if (url === '/v1/session') {
-      valid = true;
+      // The browser stores the session cookie only when the request allows credentials.
+      valid = init?.credentials === 'include';
       return json(OK, { csrfToken: CSRF, expiresAt: '2030-01-01T00:00:00.000Z' });
     }
-    if (!valid) {
+    // A browser sends the cookie only with `credentials: 'include'`, so without it the call is anonymous.
+    if (!valid || init?.credentials !== 'include') {
       return json(UNAUTHORIZED, { code: 'unauthorized' });
     }
     if (init?.method === 'PUT' && headers.get('x-csrf-token') !== CSRF) {
