@@ -1,9 +1,20 @@
-import type { ComponentType } from 'react';
+import type { AnyRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 /**
- * What every `pages/<name>/route.tsx` exports as `route`. Pages register
+ * What every `pages/<name>/route.tsx` exports as `page`. Pages register
  * themselves this way, so adding a page never edits a shared file.
+ *
+ * The page pattern (copy `pages/today`):
+ * 1. Create the TanStack route in the page's own file with
+ *    `createRoute({ getParentRoute: () => rootRoute, path, component, ... })`.
+ *    Params and search are typed per route there: declare search with a Zod
+ *    schema in `validateSearch` (give every field a default or `.catch`, so a
+ *    hand-edited URL never breaks the page) and read it with `route.useSearch()`.
+ * 2. Start the page's data in `loader`: `prefetch(context.queryClient,
+ *    someQuery(context.client))` with the page's query-options factories. The
+ *    page still renders its states with `useQuery`.
+ * 3. Export `page: PageRoute` with the route and its registry metadata.
  */
 export interface PageRoute {
   /** `/` for the index page, otherwise a relative segment such as `week`. */
@@ -17,7 +28,14 @@ export interface PageRoute {
    * never linked from the navigation.
    */
   readonly devOnly?: boolean;
-  readonly Component: ComponentType;
+  /** The page's TanStack route, whose path is `hrefOf(page)`. */
+  readonly route: AnyRoute;
+}
+
+function isRoute(value: unknown): boolean {
+  return (
+    typeof value === 'object' && value !== null && 'options' in value && 'addChildren' in value
+  );
 }
 
 const PageRouteSchema = z.object({
@@ -25,10 +43,17 @@ const PageRouteSchema = z.object({
   namespace: z.string().regex(/^[a-z][a-z0-9-]*$/u),
   order: z.number().int(),
   devOnly: z.boolean().default(false),
-  Component: z.custom<ComponentType>((value) => typeof value === 'function'),
+  route: z.custom<AnyRoute>(isRoute),
 });
 
-const PageModule = z.object({ route: PageRouteSchema });
+const RouteOptions = z.looseObject({ path: z.string().optional() });
+
+/** The `path` the route was created with; its `path` property is only set once it joins a tree. */
+function routePath(route: AnyRoute): string | undefined {
+  return RouteOptions.parse(route.options).path;
+}
+
+const PageModule = z.object({ page: PageRouteSchema });
 
 /**
  * Turns the glob of page modules into a route list sorted by `order`. A page
@@ -39,9 +64,13 @@ export function collectPageRoutes(modules: Readonly<Record<string, unknown>>): P
   const pages = Object.entries(modules).map(([file, module]) => {
     const parsed = PageModule.safeParse(module);
     if (!parsed.success) {
-      throw new Error(`${file} must export a valid \`route\`: ${parsed.error.message}`);
+      throw new Error(`${file} must export a valid \`page\`: ${parsed.error.message}`);
     }
-    return { file, route: parsed.data.route };
+    const { page } = parsed.data;
+    if (routePath(page.route) !== hrefOf(page)) {
+      throw new Error(`${file}: the route path must be ${hrefOf(page)}, as in \`page.path\``);
+    }
+    return { file, route: page };
   });
   assertUnique(pages, 'path');
   assertUnique(pages, 'order');
