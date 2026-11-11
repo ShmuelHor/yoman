@@ -88,6 +88,9 @@ describe('toErrorBody', () => {
         issues: [{ path: 'query.date', message: 'Invalid date' }],
       },
     });
+    expect(toErrorBody(new InternalError(), 'req-1')).toEqual({
+      error: { code: 'INTERNAL', message: 'Internal error', requestId: 'req-1' },
+    });
     expect(toErrorBody(new InternalError())).toEqual({
       error: { code: 'INTERNAL', message: 'Internal error' },
     });

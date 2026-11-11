@@ -22,6 +22,8 @@ const GatewayEnvironment = z.object({
   // Anything but an explicit `development` runs as production: fail closed.
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  // Unset means pretty in development and JSON everywhere else.
+  LOG_FORMAT: z.enum(['pretty', 'json']).optional(),
   AGENT_TOKEN: z
     .string()
     .min(MIN_TOKEN_LENGTH)
@@ -35,14 +37,17 @@ const GatewayEnvironment = z.object({
   FOCUS_URL: serviceUrl('focus'),
 });
 
+export type LogFormat = 'pretty' | 'json';
 export type LogLevel = z.output<typeof GatewayEnvironment>['LOG_LEVEL'];
 
 export interface GatewayConfig {
   readonly host: string;
   readonly port: number;
   readonly logLevel: LogLevel;
-  /** `NODE_ENV=development`: API docs and pretty logs. Never set in the image. */
+  /** `NODE_ENV=development`: API docs. Never set in the image. */
   readonly development: boolean;
+  /** `LOG_FORMAT`: one readable line per entry, or JSON for filtering and `pino-pretty`. */
+  readonly logFormat: LogFormat;
   readonly agentToken: string;
   readonly serviceUrls: Readonly<Record<ServiceName, URL>>;
 }
@@ -65,6 +70,7 @@ export function loadConfig(env: Environment): GatewayConfig {
     port: data.PORT,
     logLevel: data.LOG_LEVEL,
     development: data.NODE_ENV === 'development',
+    logFormat: data.LOG_FORMAT ?? (data.NODE_ENV === 'development' ? 'pretty' : 'json'),
     agentToken: data.AGENT_TOKEN,
     serviceUrls: {
       sessions: data.SESSIONS_URL,

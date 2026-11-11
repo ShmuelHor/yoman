@@ -68,7 +68,9 @@ describe('buildGateway', () => {
     const response = await app.inject({ method: 'GET', url: '/v1/nope', headers: agentHeaders });
 
     expect(response.statusCode).toBe(STATUS.NOT_FOUND);
-    expect(response.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+    expect(response.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'Not found', requestId: expect.any(String) },
+    });
   });
 
   it('does not answer HEAD on GET routes', async () => {
@@ -94,7 +96,7 @@ describe('buildGateway', () => {
 
     expect(response.statusCode).toBe(STATUS.NOT_IMPLEMENTED);
     expect(response.json()).toEqual({
-      error: { code: 'NOT_IMPLEMENTED', message: 'Not implemented' },
+      error: { code: 'NOT_IMPLEMENTED', message: 'Not implemented', requestId: expect.any(String) },
     });
   });
 
@@ -224,7 +226,9 @@ describe('buildGateway', () => {
 
       expect(response.statusCode).toBe(STATUS.INTERNAL);
       expect(response.body).not.toContain('leaked internals');
-      expect(response.json()).toEqual({ error: { code: 'INTERNAL', message: 'Internal error' } });
+      expect(response.json()).toEqual({
+        error: { code: 'INTERNAL', message: 'Internal error', requestId: expect.any(String) },
+      });
     });
 
     it('answers 503 when a handler hits an unavailable service', async () => {
@@ -239,7 +243,11 @@ describe('buildGateway', () => {
 
       expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
       expect(response.json()).toEqual({
-        error: { code: 'SERVICE_UNAVAILABLE', message: 'Service unavailable' },
+        error: {
+          code: 'SERVICE_UNAVAILABLE',
+          message: 'Service unavailable',
+          requestId: expect.any(String),
+        },
       });
     });
 
@@ -274,6 +282,7 @@ describe('buildGateway', () => {
           code: 'VALIDATION_FAILED',
           message: 'Request validation failed',
           issues: [{ path: 'query.start', message: expect.any(String) }],
+          requestId: expect.any(String),
         },
       });
       expect(week).not.toHaveBeenCalled();
@@ -336,7 +345,11 @@ describe('buildGateway', () => {
     expect(atLimit.statusCode).toBe(STATUS.BAD_REQUEST);
     expect(overLimit.statusCode).toBe(STATUS.PAYLOAD_TOO_LARGE);
     expect(overLimit.json()).toEqual({
-      error: { code: 'PAYLOAD_TOO_LARGE', message: 'Payload too large' },
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Payload too large',
+        requestId: expect.any(String),
+      },
     });
   });
 
@@ -361,7 +374,11 @@ describe('buildGateway', () => {
       expect(first.statusCode).toBe(STATUS.NOT_IMPLEMENTED);
       expect(second.statusCode).toBe(STATUS.TOO_MANY_REQUESTS);
       expect(second.json()).toEqual({
-        error: { code: 'RATE_LIMITED', message: 'Too many requests' },
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests',
+          requestId: expect.any(String),
+        },
       });
       expect(second.headers['retry-after']).toBeDefined();
       expect(third.statusCode).toBe(STATUS.NOT_IMPLEMENTED);
