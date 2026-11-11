@@ -5,6 +5,7 @@ import type { z } from 'zod';
 
 import { buildApp } from './app.js';
 import { type Environment, loadConfig, type ServiceConfig } from './config.js';
+import { installCrashHandlers } from './crash-handlers.js';
 import { createPool } from './database.js';
 import { runMigrations } from './migrations.js';
 import { buildLoggerOptions } from './redaction.js';
@@ -52,14 +53,18 @@ export function createService<Schema extends z.ZodObject = z.ZodObject<Record<ne
   options: ServiceOptions<Schema>,
 ): Service<z.output<Schema>> {
   const config = loadConfig(options.name, options.env ?? process.env, options.config);
-  // A `logStream` (tests) wins over pretty development output.
-  const pretty = config.development && options.logStream === undefined;
+  // A `logStream` (tests) wins over the pretty transport.
+  const pretty = config.logFormat === 'pretty' && options.logStream === undefined;
   const loggerOptions = buildLoggerOptions(options.name, config.logLevel, pretty);
   const log =
     options.logStream === undefined ? pino(loggerOptions) : pino(loggerOptions, options.logStream);
   const db = createPool(config.db, options.name);
   // An idle client losing its connection must not crash the process.
   db.on('error', (error) => log.error({ err: error }, 'Idle database client failed'));
+
+  if (options.handleSignals !== false) {
+    installCrashHandlers(log);
+  }
 
   const deps: ServiceDeps<z.output<Schema>> = { db, config, log };
   const routes = typeof options.routes === 'function' ? options.routes(deps) : options.routes;

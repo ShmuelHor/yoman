@@ -57,7 +57,7 @@ describe('ST05 CSRF and Origin', () => {
 
         expect(response.statusCode, attempt).toBe(STATUS.FORBIDDEN);
         expect(response.json(), attempt).toEqual({
-          error: { code: 'FORBIDDEN', message: 'Forbidden' },
+          error: { code: 'FORBIDDEN', message: 'Forbidden', requestId: expect.any(String) },
         });
       }
     },

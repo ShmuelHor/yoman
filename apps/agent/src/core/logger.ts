@@ -24,20 +24,25 @@ function isPrettyFactory(value: unknown): value is PrettyFactory {
 }
 
 /**
- * pino-pretty is a dev dependency, so it is loaded only when asked for. The
- * stream sits behind pino's own redaction, which has already run by then.
+ * pino-pretty is loaded only when asked for. The stream sits behind pino's own
+ * redaction, which has already run by then. One line per entry, `reqId` included.
  */
 function prettyStream(destination: DestinationStream | undefined): DestinationStream {
   const loaded: unknown = createRequire(import.meta.url)('pino-pretty');
   if (!isPrettyFactory(loaded)) {
     throw new Error('pino-pretty did not export a factory');
   }
-  return loaded({ colorize: true, sync: true, ...(destination ? { destination } : {}) });
+  return loaded({
+    colorize: true,
+    singleLine: true,
+    sync: true,
+    ...(destination ? { destination } : {}),
+  });
 }
 
 export interface LoggerOptions {
   readonly level: LogLevel;
-  /** Human-readable lines for development. Never set in production: it needs a dev dependency. */
+  /** One readable line per entry (`logFormat: pretty`) instead of JSON. */
   readonly pretty?: boolean;
   /** Defaults to stdout, which journald captures for the systemd user unit. */
   readonly destination?: DestinationStream;

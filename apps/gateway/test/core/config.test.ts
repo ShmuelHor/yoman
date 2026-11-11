@@ -12,6 +12,7 @@ describe('loadConfig', () => {
       port: 8080,
       logLevel: 'info',
       development: false,
+      logFormat: 'json',
       agentToken: AGENT_TOKEN,
     });
     expect(config.serviceUrls.battery.href).toBe('http://battery:8080/');
@@ -36,6 +37,15 @@ describe('loadConfig', () => {
 
     expect(config).toMatchObject({ host: '0.0.0.0', port: 9000, logLevel: 'warn' });
     expect(config.serviceUrls.focus.href).toBe('http://127.0.0.1:9100/');
+  });
+
+  it('defaults LOG_FORMAT to pretty in development and json elsewhere, and lets it be set', () => {
+    const format = (env: Record<string, string>): string =>
+      loadConfig({ AGENT_TOKEN, ...env }).logFormat;
+    expect(format({ NODE_ENV: 'development' })).toBe('pretty');
+    expect(format({ NODE_ENV: 'development', LOG_FORMAT: 'json' })).toBe('json');
+    expect(format({ LOG_FORMAT: 'pretty' })).toBe('pretty');
+    expect(() => format({ LOG_FORMAT: 'xml' })).toThrow(/LOG_FORMAT/);
   });
 
   it('turns on development features only for NODE_ENV=development', () => {

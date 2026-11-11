@@ -14,10 +14,15 @@ const GatewayUrl = z.url({ protocol: /^http$/, hostname: /^127\.0\.0\.1$/ }).ref
 export const LogLevel = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']);
 export type LogLevel = z.infer<typeof LogLevel>;
 
+/** Readable lines for a terminal, or JSON for filtering and `journalctl`. */
+export const LogFormat = z.enum(['pretty', 'json']);
+export type LogFormat = z.infer<typeof LogFormat>;
+
 /** `~/.config/yoman/agent.json`. Every key is optional; unknown keys are rejected. */
 export const AgentConfig = z.strictObject({
   gatewayUrl: GatewayUrl.default(DEFAULT_GATEWAY_URL),
   logLevel: LogLevel.default('info'),
+  logFormat: LogFormat.default('pretty'),
 });
 export type AgentConfig = z.infer<typeof AgentConfig>;
 

@@ -136,14 +136,17 @@ export interface ErrorBody {
     readonly code: ErrorCode;
     readonly message: string;
     readonly issues?: readonly FieldIssue[];
+    /** Ties the response to every log line of the request, in every service. */
+    readonly requestId?: string;
   };
 }
 
-export function toErrorBody(error: GatewayError): ErrorBody {
+export function toErrorBody(error: GatewayError, requestId?: string): ErrorBody {
   return {
     error: {
       code: error.code,
       message: error.message,
+      ...(requestId === undefined ? {} : { requestId }),
       ...(error.issues === undefined ? {} : { issues: error.issues }),
     },
   };

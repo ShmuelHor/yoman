@@ -44,6 +44,15 @@ async function rejection(promise: Promise<unknown>): Promise<IngestRequestError>
 }
 
 describe('createIngestClient', () => {
+  it('sends the cycle id as x-request-id when there is one', async () => {
+    const fetch = respondWith(Response.json({ ok: true }));
+    const client = createIngestClient({ gatewayUrl: GATEWAY_URL, agentToken: TOKEN, fetch });
+
+    await client.post(BATCH, 'req-7f3a');
+
+    expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({ 'x-request-id': 'req-7f3a' });
+  });
+
   it('posts the batch as JSON with the Bearer token and refuses redirects', async () => {
     const fetch = respondWith(Response.json({ ok: true }));
     const client = createIngestClient({ gatewayUrl: GATEWAY_URL, agentToken: TOKEN, fetch });

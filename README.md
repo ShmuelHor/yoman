@@ -136,6 +136,22 @@ npm test                # unit tests with coverage thresholds
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/). commitlint checks them
 in the `commit-msg` hook today, and CI will check every commit in a pull request (planned).
 
+## Logs
+
+Every container prints one readable line per request, tied together by a request id (`reqId`): the agent, the gateway and each service log the same id for one request. Set `LOG_FORMAT=json` in `.env` for JSON lines instead (the default is `pretty`). Titles, command lines, tokens and cookies are never logged.
+
+```
+docker compose logs -f                                   # everything
+docker compose logs -f gateway                           # one service: gateway sessions reports goals battery system focus web postgres
+docker compose logs | grep req-7f3a                      # one request, end to end
+npm run logs [-- <service>]                              # JSON lines (LOG_FORMAT=json) pretty-printed, service as a column
+docker compose logs -f --no-log-prefix gateway | npx pino-pretty --minimumLevel error   # errors only (LOG_FORMAT=json)
+```
+
+Errors only with the default format: `docker compose logs -f | grep -E 'ERROR|WARN'`. A failed API answer carries its id in `error.requestId` and the `x-request-id` header; use it with `grep`.
+
+The agent runs in its own terminal for now (`npm run agent:dev`). Once it runs as a systemd user unit, follow it with `journalctl --user -u yoman-agent -f`.
+
 ## Roadmap
 
 Work is split into six waves so several contributors can work in parallel without touching the

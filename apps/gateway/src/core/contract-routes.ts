@@ -14,7 +14,7 @@ import {
 } from './authenticate.js';
 import { InternalError, NotImplementedError, ValidationError } from './errors.js';
 import type { AnyRouteHandler, HandlerContext, HandlerMap } from './route-handler.js';
-import type { ServiceClient } from './service-client.js';
+import { type ServiceClient, scopeToRequest } from './service-client.js';
 
 const MS_PER_SECOND = 1_000;
 export interface RateLimit {
@@ -50,6 +50,15 @@ function principalOf(request: FastifyRequest): Principal {
     throw new InternalError();
   }
   return principal;
+}
+
+/** Authenticates once, before the body is read, and remembers who it was for the rate limit. */
+export function authenticateRequest(
+  auth: Authenticator,
+  routeAuth: RouteContract['auth'],
+  request: FastifyRequest,
+): void {
+  principals.set(request, authenticate(auth, routeAuth, credentialsOf(request)));
 }
 
 function credentialsOf(request: FastifyRequest): Credentials {
@@ -115,7 +124,7 @@ function contractHandler(
       query: request.query,
       body: request.body,
       principal: principalOf(request),
-      services: deps.services,
+      services: scopeToRequest(deps.services, request.id),
       log: request.log,
     };
     if (handler === undefined) {
@@ -135,7 +144,7 @@ function contractHandler(
  * host shares one counter, so an unauthenticated request (a 401) could use
  * up the agent's single ingest slot and get its next real batch a 429.
  */
-function afterAuthentication(limit: RateLimit): RateLimitOptions {
+export function afterAuthentication(limit: RateLimit): RateLimitOptions {
   return {
     ...limit,
     // After `preParsing`, where `authenticate` rejects anyone without a credential.
@@ -159,7 +168,7 @@ export function registerContractRoutes(app: FastifyInstance, deps: ContractRoute
       ...(rateLimit === undefined ? {} : { config: { rateLimit: afterAuthentication(rateLimit) } }),
       // Before the body is read, so an unauthenticated client cannot make the gateway parse 1 MB.
       preParsing: async (request, _reply, payload) => {
-        principals.set(request, authenticate(deps.auth, contract.auth, credentialsOf(request)));
+        authenticateRequest(deps.auth, contract.auth, request);
         return payload;
       },
       schema: schemaOf(contract),

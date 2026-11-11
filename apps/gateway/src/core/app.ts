@@ -16,9 +16,11 @@ import {
 import { createTokenVerifier } from './agent-token.js';
 import { registerApiDocs } from './api-docs.js';
 import { CSRF_HEADER } from './authenticate.js';
+import { registerClientErrorRoute } from './client-errors.js';
 import { INGEST_RATE_LIMIT, type RateLimit, registerContractRoutes } from './contract-routes.js';
 import {
   ForbiddenError,
+  HTTP_BAD_REQUEST,
   HTTP_INTERNAL,
   MisdirectedRequestError,
   NotFoundError,
@@ -27,6 +29,7 @@ import {
   toGatewayError,
 } from './errors.js';
 import { ALLOWED_ORIGINS, isAllowedHost, isAllowedOrigin } from './origins.js';
+import { REQUEST_ID_HEADER, REQUEST_ID_LOG_LABEL, resolveRequestId } from './request-id.js';
 import type { HandlerMap } from './route-handler.js';
 import { CACHE_CONTROL, HELMET_OPTIONS } from './security-headers.js';
 import type { ServiceClient } from './service-client.js';
@@ -84,17 +87,53 @@ function logFailure(request: FastifyRequest, error: unknown): void {
   request.log.error({ err: error }, 'Request failed');
 }
 
+/** The one place a failure is logged in full, once, and turned into a client body. */
 function registerErrorHandlers(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     const gatewayError = toGatewayError(error);
     if (gatewayError.statusCode >= HTTP_INTERNAL) {
       logFailure(request, error);
     }
-    return reply.status(gatewayError.statusCode).send(toErrorBody(gatewayError));
+    return reply.status(gatewayError.statusCode).send(toErrorBody(gatewayError, request.id));
   });
-  app.setNotFoundHandler((_request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
     const error = new NotFoundError();
-    return reply.status(error.statusCode).send(toErrorBody(error));
+    return reply.status(error.statusCode).send(toErrorBody(error, request.id));
+  });
+}
+
+/** Server errors are errors, client mistakes are warnings, everything else is routine. */
+function levelOf(status: number): 'info' | 'warn' | 'error' {
+  if (status >= HTTP_INTERNAL) {
+    return 'error';
+  }
+  return status >= HTTP_BAD_REQUEST ? 'warn' : 'info';
+}
+
+/**
+ * A line when a request arrives and one when it is answered, both with `reqId`
+ * from the request's child logger, and the id echoed in the response. The route
+ * is the pattern, never the URL: ids and query strings stay out of the line.
+ */
+function registerRequestLog(app: FastifyInstance): void {
+  const routeOf = (request: FastifyRequest): string => request.routeOptions.url ?? 'unmatched';
+  app.addHook('onRequest', async (request) => {
+    request.log.info(
+      { method: request.method, route: routeOf(request) },
+      `→ ${request.method} ${routeOf(request)}`,
+    );
+  });
+  app.addHook('onSend', async (request, reply, payload) => {
+    void reply.header(REQUEST_ID_HEADER, request.id);
+    return payload;
+  });
+  app.addHook('onResponse', async (request, reply) => {
+    const status = reply.statusCode;
+    const durationMs = Math.round(reply.elapsedTime);
+    request.log[levelOf(status)](
+      { method: request.method, route: routeOf(request), status, durationMs },
+      `← ${request.method} ${routeOf(request)} ${status} ${durationMs}ms`,
+    );
   });
 }
 
@@ -107,6 +146,10 @@ function registerErrorHandlers(app: FastifyInstance): void {
 export async function buildGateway(options: GatewayOptions): Promise<FastifyInstance> {
   const app = Fastify({
     loggerInstance: options.logger,
+    // Replaced by the arrow lines of `registerRequestLog`, which carry the route pattern.
+    disableRequestLogging: true,
+    genReqId: resolveRequestId,
+    requestIdLogLabel: REQUEST_ID_LOG_LABEL,
     bodyLimit: BODY_LIMIT_BYTES,
     exposeHeadRoutes: false,
     requestTimeout: REQUEST_TIMEOUT_MS,
@@ -115,6 +158,7 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
   // Request parts and responses are parsed by the contracts' own Zod schemas.
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  registerRequestLog(app);
   registerErrorHandlers(app);
   await registerRequestGuards(app);
 
@@ -140,11 +184,13 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
     status: 'ok',
   }));
 
+  const auth = {
+    verifyAgentToken: createTokenVerifier(options.agentToken),
+    sessions: options.sessions ?? createSessionStore(),
+  };
+  registerClientErrorRoute(app, auth);
   registerContractRoutes(app, {
-    auth: {
-      verifyAgentToken: createTokenVerifier(options.agentToken),
-      sessions: options.sessions ?? createSessionStore(),
-    },
+    auth,
     services: options.services,
     handlers: options.handlers ?? new Map(),
     routeRateLimits: { ingest: options.rateLimits?.ingest ?? INGEST_RATE_LIMIT },

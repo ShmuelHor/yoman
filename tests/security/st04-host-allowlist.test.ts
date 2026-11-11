@@ -44,7 +44,11 @@ describe('ST04 host allowlist', () => {
 
       expect(response.statusCode, route.name).toBe(STATUS.MISDIRECTED);
       expect(response.json()).toEqual({
-        error: { code: 'MISDIRECTED_REQUEST', message: 'Misdirected request' },
+        error: {
+          code: 'MISDIRECTED_REQUEST',
+          message: 'Misdirected request',
+          requestId: expect.any(String),
+        },
       });
     }
   });

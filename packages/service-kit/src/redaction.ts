@@ -58,13 +58,18 @@ export function serializeError(error: unknown): Record<string, unknown> {
 }
 
 /**
- * Human-readable lines for a developer's terminal. The transport runs in a
- * worker thread on lines that were already redacted. `pino-pretty` is a dev
- * dependency, so the production image cannot load it.
+ * One readable line per entry, for `docker compose logs` and a terminal. The
+ * transport runs in a worker thread on lines that were already redacted.
+ * `reqId` stays on the line so one request can be followed across services.
  */
 const PRETTY_TRANSPORT = {
   target: 'pino-pretty',
-  options: { colorize: true, translateTime: 'SYS:HH:MM:ss.l', ignore: 'pid,hostname' },
+  options: {
+    colorize: true,
+    singleLine: true,
+    translateTime: 'SYS:HH:MM:ss.l',
+    ignore: 'pid,hostname',
+  },
 };
 
 export function buildLoggerOptions(name: string, level: string, pretty = false): LoggerOptions {
