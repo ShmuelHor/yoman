@@ -19,6 +19,7 @@ services:
     cpus: 0.5
     restart: unless-stopped
     environment:
+      LOG_FORMAT: ${LOG_FORMAT:-pretty}
       DB_HOST: postgres
       SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:?run npm run setup}
       # The zone the timeline's local days are counted in.

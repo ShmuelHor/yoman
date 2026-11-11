@@ -17,6 +17,7 @@ services:
     cpus: 0.5
     restart: unless-stopped
     environment:
+      LOG_FORMAT: ${LOG_FORMAT:-pretty}
       HOST: 0.0.0.0
       PORT: "8080"
       LOG_LEVEL: info
