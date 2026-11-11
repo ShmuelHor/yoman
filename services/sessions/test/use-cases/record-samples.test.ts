@@ -118,9 +118,54 @@ describe('recordSamples', () => {
     const retry = await recordSamples(store, [window('09:00:20', 'firefox', 'x'), ...batch]);
     const again = await recordSamples(store, batch);
 
-    expect(retry).toMatchObject({ accepted: 1, late: batch.length, closed: [] });
-    expect(again).toEqual({ accepted: 0, late: batch.length, closed: [] });
+    // A retry hands back the session the first attempt closed (see the next suite).
+    const codeId = store.state().sessions.find((session) => session.appId === 'code')?.id;
+    expect(retry).toMatchObject({ accepted: 1, late: batch.length });
+    expect(again.accepted).toBe(0);
+    expect(again.closed.map(({ session }) => session.id)).toEqual([codeId]);
     expect(store.state().sessions).toHaveLength(before.length);
     expect(store.state().sessions.filter((session) => session.appId === 'code')).toHaveLength(1);
+  });
+});
+
+describe('recordSamples on a retried batch', () => {
+  const batch = [
+    window('09:00:00', 'code'),
+    window('09:00:05', 'code'),
+    window('09:00:10', 'firefox'),
+  ];
+
+  it('returns the sessions the first attempt closed, with the same ids', async () => {
+    const store = createMemoryStore({ rules: [codeRule] });
+    const first = await recordSamples(store, batch);
+
+    const retry = await recordSamples(store, batch);
+
+    expect(retry.accepted).toBe(0);
+    expect(retry.closed).toEqual(first.closed);
+  });
+
+  it('finds a session that an idle sample closed before its own timestamp', async () => {
+    const store = createMemoryStore();
+    const idle: WindowSample = { ...window('09:05:00', 'code'), idleMs: 180_000 };
+    const awayBatch = [window('09:00:00', 'code'), window('09:00:05', 'code'), idle];
+    const first = await recordSamples(store, awayBatch);
+
+    const retry = await recordSamples(store, awayBatch);
+
+    expect(first.closed).toHaveLength(1);
+    expect(retry.closed).toEqual(first.closed);
+  });
+
+  it('does not return sessions unrelated to the retried samples', async () => {
+    const store = createMemoryStore();
+    await recordSamples(store, batch);
+    await recordSamples(store, [window('10:00:00', 'code'), window('10:00:10', 'firefox')]);
+
+    const retry = await recordSamples(store, batch);
+
+    expect(retry.closed.map(({ session }) => session.start)).not.toContain(
+      '2026-11-08T10:00:00.000Z',
+    );
   });
 });

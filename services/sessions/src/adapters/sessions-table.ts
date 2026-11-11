@@ -20,6 +20,8 @@ const SessionRow = z.object({
 });
 type SessionRow = z.infer<typeof SessionRow>;
 
+const ClosedRow = SessionRow.extend({ category: z.string().nullable() });
+
 const SubjectRow = z.object({
   id: z.string(),
   app_id: z.string(),
@@ -160,6 +162,37 @@ export async function listSessions(
       .execute(),
   );
   return rows.map(toSession);
+}
+
+/** Closed sessions overlapping `[fromMs, toMs]`, for a retried batch (see `SessionsTransaction`). */
+export async function closedSpansOverlapping(
+  db: Db,
+  fromMs: number,
+  toMs: number,
+  limit: number,
+): Promise<StoredSpan[]> {
+  const rows = parseRows(
+    ClosedRow,
+    await db
+      .selectFrom('sessions')
+      .select([...SESSION_COLUMNS, 'category'])
+      .where('closed', '=', true)
+      .where('start_at', '<=', new Date(toMs))
+      .where('end_at', '>=', new Date(fromMs))
+      .orderBy('start_at')
+      .orderBy('id')
+      .limit(limit)
+      .execute(),
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    appId: row.app_id,
+    startMs: row.start_at.getTime(),
+    endMs: row.end_at.getTime(),
+    title: row.title,
+    category: row.category,
+    closed: true,
+  }));
 }
 
 export async function sessionsEndingSince(db: Db, cutoff: Date): Promise<CategorizedSubject[]> {
