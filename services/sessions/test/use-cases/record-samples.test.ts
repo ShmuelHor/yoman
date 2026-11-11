@@ -1,7 +1,9 @@
 import type { WindowSample } from '@yoman/shared/ingest';
+import { LIMITS } from '@yoman/shared/limits';
 import type { Rule } from '@yoman/shared/sessions';
 import { describe, expect, it } from 'vitest';
 
+import { SampleResult } from '../../src/contracts.js';
 import { recordSamples } from '../../src/use-cases/record-samples.js';
 import { createMemoryStore } from '../memory-store.js';
 
@@ -167,5 +169,31 @@ describe('recordSamples on a retried batch', () => {
     expect(retry.closed.map(({ session }) => session.start)).not.toContain(
       '2026-11-08T10:00:00.000Z',
     );
+  });
+});
+
+const EXTRA = 5;
+const ID_DIGITS = 12;
+
+describe('recordSamples replay cap', () => {
+  it('never returns more closed sessions than a reply may hold', async () => {
+    const store = createMemoryStore();
+    const first = [window('09:00:00', 'code'), window('09:00:10', 'firefox')];
+    await recordSamples(store, first);
+    const crowd = Array.from({ length: LIMITS.ingestSamples + EXTRA }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(ID_DIGITS, '0')}`,
+      appId: 'crowd',
+      startMs: Date.parse('2026-11-08T09:00:01.000Z'),
+      endMs: Date.parse('2026-11-08T09:00:02.000Z'),
+      title: null,
+      category: null,
+      closed: true,
+    }));
+    const crowded = createMemoryStore({ sessions: [...store.state().sessions, ...crowd] });
+
+    const retry = await recordSamples(crowded, first);
+
+    expect(retry.closed).toHaveLength(LIMITS.ingestSamples);
+    expect(SampleResult.safeParse(retry).success).toBe(true);
   });
 });

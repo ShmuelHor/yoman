@@ -43,6 +43,7 @@ async function replayedClosures(
   tx: SessionsTransaction,
   samples: readonly WindowSample[],
   excluded: ReadonlySet<string>,
+  room: number,
 ): Promise<ClosedSession[]> {
   if (samples.length === 0) {
     return [];
@@ -50,7 +51,12 @@ async function replayedClosures(
   const fromMs = Math.min(...samples.map((sample) => Date.parse(sample.ts) - sample.idleMs));
   const toMs = Math.max(...samples.map((sample) => Date.parse(sample.ts)));
   const spans = await tx.closedSpansOverlapping(fromMs, toMs, LIMITS.ingestSamples);
-  return spans.filter((span) => !excluded.has(span.id)).map(toClosedSession);
+  // The reply holds at most `ingestSamples` sessions. Oldest first, so what a wide range
+  // pulls in beyond `room` is the newest, which are the least likely to be this batch's own.
+  return spans
+    .filter((span) => !excluded.has(span.id))
+    .slice(0, Math.max(0, room))
+    .map(toClosedSession);
 }
 
 /**
@@ -76,7 +82,12 @@ export function recordSamples(
     const replay = (closed: readonly ClosedSession[]): Promise<ClosedSession[]> =>
       late === 0
         ? Promise.resolve([])
-        : replayedClosures(tx, samples, new Set(closed.map(({ session }) => session.id)));
+        : replayedClosures(
+            tx,
+            samples,
+            new Set(closed.map(({ session }) => session.id)),
+            LIMITS.ingestSamples - closed.length,
+          );
     if (spans.length === 0) {
       return { accepted, late, closed: await replay([]) };
     }
