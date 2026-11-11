@@ -7,24 +7,16 @@ import type { DashboardToday } from '@yoman/shared/gateway';
 import type { App } from '@yoman/shared/sessions';
 import { useTranslation } from 'react-i18next';
 
-import { createGatewayClient, type GatewayClient } from '../../api/gateway.js';
+import type { GatewayClient } from '../../api/gateway.js';
 import { Card } from '../../components/card.js';
 import { splitDuration } from './format.js';
 import { appsQuery, todayQuery } from './queries.js';
 import { Timeline } from './timeline.js';
 import { TopApps } from './top-apps.js';
 
-let defaultClient: GatewayClient | undefined;
-
-/** One client per page load, created on first use so importing the page has no side effects. */
-function gatewayClient(): GatewayClient {
-  defaultClient ??= createGatewayClient(window.location);
-  return defaultClient;
-}
-
 interface TodayPageProps {
-  /** Injected by tests; the app uses the gateway on the page's own host. */
-  readonly client?: GatewayClient;
+  /** The router context's gateway client; tests inject a fake. */
+  readonly client: GatewayClient;
 }
 
 const SKELETON_HEIGHT = 96;
@@ -43,7 +35,7 @@ function Loading(): React.JSX.Element {
 }
 
 /** The Today dashboard: active time, focus streak, battery, timeline and top apps. */
-export function TodayPage({ client = gatewayClient() }: TodayPageProps): React.JSX.Element {
+export function TodayPage({ client }: TodayPageProps): React.JSX.Element {
   const { t } = useTranslation('today');
   const today = useQuery(todayQuery(client));
   const apps = useQuery(appsQuery(client));

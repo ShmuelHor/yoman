@@ -3,6 +3,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { createRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,6 +17,7 @@ import { Switch } from '../../components/switch.js';
 import { Tag } from '../../components/tag.js';
 import { directionOf, Language } from '../../i18n/languages.js';
 import type { PageRoute } from '../../router/page-route.js';
+import { rootRoute } from '../../router/root-route.js';
 import { LocaleProvider } from '../../theme/locale-provider.js';
 import type { ResolvedTheme } from '../../theme/theme.js';
 
@@ -218,10 +220,16 @@ function DevComponentsPage(): React.JSX.Element {
   );
 }
 
-export const route: PageRoute = {
+const route = createRoute({
+  getParentRoute: () => rootRoute,
+  path: `/${PATH}`,
+  component: DevComponentsPage,
+});
+
+export const page: PageRoute = {
   path: PATH,
   namespace: NAMESPACE,
   order: ORDER,
   devOnly: true,
-  Component: DevComponentsPage,
+  route,
 };

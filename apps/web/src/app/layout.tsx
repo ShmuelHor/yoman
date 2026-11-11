@@ -2,14 +2,15 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet } from 'react-router';
 
 import { DEFAULT_LANGUAGE, Language } from '../i18n/languages.js';
 import { hrefOf, navPages, type PageRoute } from '../router/page-route.js';
 import { ThemePreference } from '../theme/theme.js';
 import { useTheme } from '../theme/theme-provider.js';
+import { PageErrorBoundary } from './error-boundaries.js';
 
 interface LayoutProps {
   readonly pages: readonly PageRoute[];
@@ -19,9 +20,9 @@ function NavItem({ page }: { readonly page: PageRoute }): React.JSX.Element {
   const { t } = useTranslation(page.namespace);
   return (
     <li>
-      <NavLink to={hrefOf(page)} end>
+      <Link to={hrefOf(page)} activeOptions={{ exact: true }}>
         {t('title')}
-      </NavLink>
+      </Link>
     </li>
   );
 }
@@ -96,6 +97,7 @@ function ThemePicker(): React.JSX.Element {
 /** The app shell: navigation built from the registered pages (dev-only ones excluded), and the current page. */
 export function Layout({ pages }: LayoutProps): React.JSX.Element {
   const { t } = useTranslation();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   return (
     <>
       <header>
@@ -111,7 +113,9 @@ export function Layout({ pages }: LayoutProps): React.JSX.Element {
         <ThemePicker />
       </header>
       <main>
-        <Outlet />
+        <PageErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </PageErrorBoundary>
       </main>
     </>
   );
