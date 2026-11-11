@@ -1,0 +1,55 @@
+{
+  "title": "Apps",
+  "error": "Apps and rules could not be loaded.",
+  "uncategorized": "Uncategorized",
+  "notPreviewable": "Not shown",
+  "edit": "Edit",
+  "delete": "Delete",
+  "apps": { "label": "Your apps" },
+  "rules": { "label": "Category rules", "add": "Add rule" },
+  "columns": {
+    "name": "Name",
+    "id": "App ID",
+    "category": "Category",
+    "actions": "Actions",
+    "field": "Applies to",
+    "match": "Match",
+    "pattern": "Pattern",
+    "priority": "Priority",
+    "matches": "Apps matched"
+  },
+  "field": { "wmClass": "App ID", "title": "Window title" },
+  "match": { "exact": "Is exactly", "prefix": "Starts with", "contains": "Contains" },
+  "appDialog": { "title": "Edit app" },
+  "ruleDialog": { "create": "Add rule", "edit": "Edit rule" },
+  "deleteDialog": {
+    "title": "Delete this rule?",
+    "body": "Sessions that matched \"{{pattern}}\" are categorized again without it.",
+    "confirm": "Delete rule"
+  },
+  "form": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "categoryPlaceholder": "work",
+    "invalidName": "Enter a name of up to 128 characters.",
+    "invalidCategory": "Use 1 to 32 lowercase letters, digits or hyphens.",
+    "invalidPattern": "Enter a pattern of up to 256 characters.",
+    "invalidPriority": "Enter a whole number from 0 to 1000."
+  },
+  "preview": {
+    "empty": "Type a pattern to see which apps it applies to.",
+    "none": "No app you have used matches this pattern yet.",
+    "titleRule": "Window titles are not stored with your apps, so this rule cannot be previewed. It applies to matching titles as they are recorded.",
+    "matches_one": "Applies to {{count}} app",
+    "matches_other": "Applies to {{count}} apps",
+    "separator": ", ",
+    "more_one": " and {{count}} more",
+    "more_other": " and {{count}} more"
+  },
+  "toast": {
+    "appSaved": "App saved",
+    "ruleCreated": "Rule created",
+    "ruleSaved": "Rule saved",
+    "ruleDeleted": "Rule deleted"
+  }
+}
