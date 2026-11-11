@@ -6,6 +6,7 @@ import { App } from './app/app.js';
 import { createQueryClient } from './app/query-client.js';
 import { bundledResources } from './i18n/bundled.js';
 import { createI18n } from './i18n/i18n.js';
+import { createNotifier } from './notify/notifier.js';
 import { pageRoutes } from './router/pages.js';
 import { createAppRouter } from './router/router.js';
 
@@ -28,9 +29,15 @@ async function main(): Promise<void> {
   }
   await enableMocks();
   const i18n = createI18n(bundledResources, document.documentElement);
+  const notifier = createNotifier(i18n);
   createRoot(container).render(
     <StrictMode>
-      <App i18n={i18n} queryClient={createQueryClient()} router={createAppRouter(pageRoutes)} />
+      <App
+        i18n={i18n}
+        queryClient={createQueryClient(notifier)}
+        notifier={notifier}
+        router={createAppRouter(pageRoutes)}
+      />
     </StrictMode>,
   );
 }

@@ -10,6 +10,7 @@ import { App } from '../../src/app/app.js';
 import { createQueryClient } from '../../src/app/query-client.js';
 import { bundledResources } from '../../src/i18n/bundled.js';
 import { createI18n } from '../../src/i18n/i18n.js';
+import { createNotifier } from '../../src/notify/notifier.js';
 import { navPages, type PageRoute } from '../../src/router/page-route.js';
 import { pageRoutes } from '../../src/router/pages.js';
 import { buildRoutes } from '../../src/router/router.js';
@@ -42,7 +43,15 @@ const root = document.documentElement;
 function renderApp(path: string): i18n {
   const instance = createI18n(bundledResources, root);
   const router = createMemoryRouter(buildRoutes(pages), { initialEntries: [path] });
-  render(<App i18n={instance} queryClient={createQueryClient()} router={router} />);
+  const notifier = createNotifier(instance);
+  render(
+    <App
+      i18n={instance}
+      queryClient={createQueryClient(notifier)}
+      notifier={notifier}
+      router={router}
+    />,
+  );
   return instance;
 }
 

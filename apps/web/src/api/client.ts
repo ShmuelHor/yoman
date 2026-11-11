@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 
 /**
  * The parts of a route contract the client needs. `@yoman/shared`'s
@@ -40,16 +40,31 @@ export type RouteOutput<R extends ApiRoute> = R['response'] extends z.ZodType
   ? z.output<R['response']>
   : undefined;
 
+const REQUEST_ID_HEADER = 'x-request-id';
+const MAX_REQUEST_ID_LENGTH = 64;
+/** The id comes off the wire and is shown in a toast, so only a plain token is accepted. */
+const RequestId = z
+  .string()
+  .max(MAX_REQUEST_ID_LENGTH)
+  .regex(/^[A-Za-z0-9._-]+$/u);
+
 /** A non-success status or a response that breaks its contract. */
 export class ApiError extends Error {
   constructor(
     readonly route: string,
     readonly status: number,
     message: string,
+    /** The gateway's `x-request-id`, so a failure can be found in its logs. */
+    readonly requestId?: string,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function requestIdOf(response: Response): string | undefined {
+  const parsed = RequestId.safeParse(response.headers.get(REQUEST_ID_HEADER));
+  return parsed.success ? parsed.data : undefined;
 }
 
 export interface ApiClientOptions<M extends RouteMap> {
@@ -138,14 +153,24 @@ export function createApiClient<M extends RouteMap>(options: ApiClientOptions<M>
       }
       const response = await send(url, init);
       if (response.status !== route.status) {
-        throw new ApiError(name, response.status, `${name} answered ${response.status}`);
+        throw new ApiError(
+          name,
+          response.status,
+          `${name} answered ${response.status}`,
+          requestIdOf(response),
+        );
       }
       if (route.response === null) {
         return undefined as RouteOutput<M[N]>;
       }
       const parsed = route.response.safeParse(await response.json());
       if (!parsed.success) {
-        throw new ApiError(name, response.status, `${name} answered outside its contract`);
+        throw new ApiError(
+          name,
+          response.status,
+          `${name} answered outside its contract`,
+          requestIdOf(response),
+        );
       }
       return parsed.data as RouteOutput<M[N]>;
     },

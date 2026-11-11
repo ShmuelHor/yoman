@@ -1,7 +1,28 @@
 {
   "appName": "Yoman",
-  "nav": { "label": "Main navigation" },
-  "language": { "label": "Language", "he": "Hebrew", "en": "English" },
-  "theme": { "label": "Color theme", "system": "System", "light": "Light", "dark": "Dark" },
-  "error": { "title": "Something went wrong", "notFound": "Page not found" }
+  "nav": {
+    "label": "Main navigation"
+  },
+  "language": {
+    "label": "Language",
+    "he": "Hebrew",
+    "en": "English"
+  },
+  "theme": {
+    "label": "Color theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "notFound": "Page not found",
+    "crashed": "This page ran into a problem. You can try again.",
+    "retry": "Try again"
+  },
+  "notify": {
+    "error": "Something went wrong. Please try again.",
+    "errorWithId": "Something went wrong. Request ID: {{requestId}}",
+    "degraded": "Some data is unavailable right now. What is shown may be incomplete."
+  }
 }

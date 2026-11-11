@@ -181,3 +181,28 @@ describe('createApiClient', () => {
     await expect(api.request('app')).rejects.toThrow('missing path parameter id');
   });
 });
+
+describe('ApiError request id', () => {
+  const failing = (header: string | undefined): typeof fetch =>
+    vi.fn<typeof fetch>(
+      async () =>
+        new Response('{}', {
+          status: SERVER_ERROR,
+          headers: header === undefined ? {} : { 'x-request-id': header },
+        }),
+    );
+
+  it('carries the x-request-id header of a failed response', async () => {
+    const api = createApiClient({ routes, baseUrl: BASE, fetch: failing('req-123') });
+
+    await expect(api.request('week')).rejects.toMatchObject({ requestId: 'req-123' });
+  });
+
+  it('has no request id when the header is absent or not a plain token', async () => {
+    const missing = createApiClient({ routes, baseUrl: BASE, fetch: failing(undefined) });
+    const hostile = createApiClient({ routes, baseUrl: BASE, fetch: failing('<b>x</b>') });
+
+    await expect(missing.request('week')).rejects.toMatchObject({ requestId: undefined });
+    await expect(hostile.request('week')).rejects.toMatchObject({ requestId: undefined });
+  });
+});
