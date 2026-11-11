@@ -1,4 +1,4 @@
-import { requestFixtures } from '@yoman/shared/fixtures/requests';
+import { settingsFixture } from '@yoman/shared/fixtures/data';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createGatewayClient } from '../../src/api/gateway.js';
@@ -48,7 +48,7 @@ function fakeGateway(): {
     if (init?.method === 'PUT' && headers.get('x-csrf-token') !== CSRF) {
       return json(FORBIDDEN, { code: 'forbidden' });
     }
-    return json(OK, init?.method === 'PUT' ? requestFixtures.updateSettings.body : today);
+    return json(OK, init?.method === 'PUT' ? settingsFixture : today);
   });
   return { fetch: fake, calls, seen, expireSession: () => (valid = false) };
 }
@@ -99,7 +99,7 @@ describe('gateway session bootstrap', () => {
     const api = createGatewayClient(location, gateway.fetch);
 
     await api.request('dashboardToday');
-    await api.request('updateSettings', requestFixtures.updateSettings);
+    await api.request('updateSettings', { body: settingsFixture });
 
     // seen: session, read, write
     expect(gateway.seen[1]?.get('x-csrf-token')).toBeNull();
@@ -108,11 +108,13 @@ describe('gateway session bootstrap', () => {
 
   it('opens the session again after a failed attempt', async () => {
     const gateway = fakeGateway();
-    const failing = vi.fn<typeof fetch>(async (input, init) =>
-      failing.mock.calls.length === 1
+    let attempts = 0;
+    const failing = vi.fn<typeof fetch>(async (input, init) => {
+      attempts += 1;
+      return attempts === 1
         ? new Response('{}', { status: SERVER_ERROR })
-        : gateway.fetch(input, init),
-    );
+        : gateway.fetch(input, init);
+    });
     const api = createGatewayClient(location, failing);
 
     await expect(api.request('dashboardToday')).rejects.toThrow();
