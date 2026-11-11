@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { type Logger, pino } from 'pino';
+import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -7,6 +7,7 @@ import { buildApp } from '../src/app.js';
 import type { Pingable } from '../src/database.js';
 import { ConflictError } from '../src/errors.js';
 import { defineRoute, HTTP_NO_CONTENT, type Route } from '../src/route.js';
+import { recordingLogger } from './log-capture.js';
 
 const STATUS = {
   OK: 200,
@@ -68,16 +69,6 @@ const routes: Route[] = [
 ];
 
 let app: FastifyInstance | undefined;
-
-function recordingLogger(): { logger: Logger; lines: Record<string, unknown>[] } {
-  const lines: Record<string, unknown>[] = [];
-  const destination = {
-    write: (line: string): void => {
-      lines.push(JSON.parse(line) as Record<string, unknown>);
-    },
-  };
-  return { logger: pino({ level: 'info' }, destination), lines };
-}
 
 function build(db: Pingable = up): FastifyInstance {
   app = buildApp({ logger: pino({ level: 'silent' }), routes, db });

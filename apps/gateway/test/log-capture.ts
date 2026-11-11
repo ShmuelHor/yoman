@@ -5,6 +5,8 @@ export interface LogLine {
   readonly msg?: string;
   readonly reqId?: string;
   readonly source?: string;
+  readonly route?: string;
+  readonly status?: number;
   readonly level?: number;
   readonly [field: string]: unknown;
 }
