@@ -1,0 +1,43 @@
+{
+  "title": "יעדים",
+  "add": "הוספת יעד",
+  "error": "לא ניתן לטעון את היעדים.",
+  "progressError": "לא ניתן לטעון את ההתקדמות של היום.",
+  "edit": "עריכה",
+  "delete": "מחיקה",
+  "list": { "label": "היעדים שלך" },
+  "columns": {
+    "type": "יעד",
+    "targetKind": "עבור",
+    "target": "מטרה",
+    "minutes": "דקות ביום",
+    "days": "ימים",
+    "today": "היום",
+    "actions": "פעולות"
+  },
+  "type": { "max": "לכל היותר", "min": "לפחות" },
+  "kind": { "app": "אפליקציה", "category": "קטגוריה" },
+  "status": { "on-track": "במסלול", "met": "הושג", "breached": "חריגה" },
+  "progress": { "value": "{{used}} מתוך {{target}} דקות", "notToday": "לא מתוזמן להיום" },
+  "dialog": { "create": "הוספת יעד", "edit": "עריכת יעד" },
+  "deleteDialog": {
+    "title": "למחוק את היעד?",
+    "body": "היעד יפסיק להיספר ולא יופעלו עוד התראות עבורו.",
+    "confirm": "מחיקת היעד"
+  },
+  "form": {
+    "save": "שמירה",
+    "cancel": "ביטול",
+    "chooseApp": "בחירת אפליקציה",
+    "categoryPlaceholder": "social",
+    "invalidApp": "יש לבחור אפליקציה.",
+    "invalidCategory": "יש להשתמש ב-1 עד 32 אותיות לטיניות קטנות, ספרות או מקפים.",
+    "invalidMinutes": "יש להזין מספר שלם של דקות בין 1 ל-1440.",
+    "invalidDays": "יש לבחור לפחות יום אחד."
+  },
+  "toast": {
+    "created": "היעד נוצר",
+    "saved": "היעד נשמר",
+    "deleted": "היעד נמחק"
+  }
+}
