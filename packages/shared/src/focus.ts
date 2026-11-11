@@ -52,6 +52,18 @@ export const MuteCommands = z.strictObject({
 });
 export type MuteCommands = z.infer<typeof MuteCommands>;
 
+/**
+ * The mute decision that rides on an ingest reply (SPEC §3): the commands plus
+ * what the agent's muter needs to keep them safe.
+ */
+export const MuteDirective = MuteCommands.extend({
+  /** When the active focus session ends; the muter restores by itself after this. */
+  endsAt: Timestamp.optional(),
+  /** `Settings.systemApps`: apps that must never be muted. */
+  systemApps: AppIdList,
+});
+export type MuteDirective = z.infer<typeof MuteDirective>;
+
 export const FocusChange = z.strictObject({ state: FocusState, commands: MuteCommands });
 export type FocusChange = z.infer<typeof FocusChange>;
 
