@@ -93,4 +93,19 @@ describe('IngestResult', () => {
     expect(IngestResult.safeParse(result).success).toBe(true);
     expect(IngestResult.safeParse({ ...result, accepted: -1 }).success).toBe(false);
   });
+
+  it('carries mute and restore commands with the focus end and system apps', () => {
+    const mute = {
+      mute: ['org.telegram.desktop'],
+      restore: [],
+      endsAt: '2026-01-01T10:00:00.000Z',
+      systemApps: ['org.gnome.Settings'],
+    };
+    const result = { accepted: 1, deliver: [], queued: 0, degraded: [], mute };
+    expect(IngestResult.safeParse(result).success).toBe(true);
+    expect(
+      IngestResult.safeParse({ ...result, mute: { ...mute, mute: ['bad id!'] } }).success,
+    ).toBe(false);
+    expect(IngestResult.safeParse({ ...result, mute: { ...mute, extra: 1 } }).success).toBe(false);
+  });
 });

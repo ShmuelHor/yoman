@@ -65,6 +65,15 @@ jobs:
         run: npm run setup
       - name: Start the stack
         run: docker compose up --detach --wait --wait-timeout 180
+      # The ingest flow against the real services (T27). The token is read
+      # from the generated .env and masked; it is never echoed.
+      - name: Ingest integration test
+        run: |
+          token="$(sed -n 's/^AGENT_TOKEN=//p' .env)"
+          echo "::add-mask::${token}"
+          npm run build:packages
+          YOMAN_GATEWAY_URL=http://127.0.0.1:4711 YOMAN_AGENT_TOKEN="${token}" \
+            npx vitest run apps/gateway/test/routes/ingest/ingest.compose.test.ts
       # Service logs carry no secrets (pino redaction); once the runner is gone
       # they are the only clue to why a container failed.
       - name: Show container state and logs

@@ -47,6 +47,11 @@ function bind(state: State): SessionsTransaction {
       state.recordedUntil = tsMs;
     },
     saveSpans: async (spans) => spans.map(save),
+    closedSpansOverlapping: async (fromMs, toMs, limit) =>
+      state.sessions
+        .filter((s) => s.closed && s.startMs <= toMs && s.endMs >= fromMs)
+        .sort((a, b) => a.startMs - b.startMs)
+        .slice(0, limit),
     listSessions: async (range, limit) =>
       state.sessions
         .filter((s) => s.startMs < Date.parse(range.to) && s.endMs >= Date.parse(range.from))
