@@ -18,12 +18,10 @@ function Crashing(): React.JSX.Element {
   return <p>page content</p>;
 }
 
+const hebrew = createI18n(bundledResources, document.createElement('html'));
+
 function withI18n(ui: React.ReactNode): React.JSX.Element {
-  return (
-    <I18nextProvider i18n={createI18n(bundledResources, document.createElement('html'))}>
-      {ui}
-    </I18nextProvider>
-  );
+  return <I18nextProvider i18n={hebrew}>{ui}</I18nextProvider>;
 }
 
 describe('error boundaries', () => {
@@ -42,7 +40,7 @@ describe('error boundaries', () => {
       ),
     );
 
-    expect(screen.getByRole('alert').textContent).toContain('משהו השתבש');
+    expect(screen.getByRole('alert').textContent).toContain(hebrew.t('error.title'));
     expect(screen.queryByText(/internal secret detail/u)).toBeNull();
   });
 

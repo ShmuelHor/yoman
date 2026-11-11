@@ -24,7 +24,9 @@ describe('NotifierProvider', () => {
     await act(async () => i18n.changeLanguage('en'));
     act(() => notifier.error(new ApiError('week', SERVER_ERROR, 'boom', 'req-43')));
 
-    expect(await screen.findByText('משהו השתבש. מזהה בקשה: req-42')).toBeTruthy();
+    expect(
+      await screen.findByText(i18n.t('notify.errorWithId', { requestId: 'req-42', lng: 'he' })),
+    ).toBeTruthy();
     expect(await screen.findByText('Something went wrong. Request ID: req-43')).toBeTruthy();
   });
 });
