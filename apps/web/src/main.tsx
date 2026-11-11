@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { createGatewayClient } from './api/gateway.js';
 import { gatewayUrl } from './api/gateway-url.js';
 import { App } from './app/app.js';
 import { createQueryClient } from './app/query-client.js';
@@ -30,13 +31,15 @@ async function main(): Promise<void> {
   await enableMocks();
   const i18n = createI18n(bundledResources, document.documentElement);
   const notifier = createNotifier(i18n);
+  const queryClient = createQueryClient(notifier);
+  const client = createGatewayClient(window.location);
   createRoot(container).render(
     <StrictMode>
       <App
         i18n={i18n}
-        queryClient={createQueryClient(notifier)}
+        queryClient={queryClient}
         notifier={notifier}
-        router={createAppRouter(pageRoutes)}
+        router={createAppRouter({ pages: pageRoutes, queryClient, client })}
       />
     </StrictMode>,
   );

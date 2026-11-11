@@ -1,16 +1,15 @@
 // @vitest-environment happy-dom
 
 import { heIL as pickersHe } from '@mui/x-date-pickers/locales';
-import { cleanup, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
+import { cleanup, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { I18nextProvider } from 'react-i18next';
-import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-
+import type { GatewayClient } from '../../../src/api/gateway.js';
 import { bundledResources } from '../../../src/i18n/bundled.js';
 import { createI18n } from '../../../src/i18n/i18n.js';
-import { route } from '../../../src/pages/dev-components/route.js';
-import { renderWithTheme } from '../../support/render-with-theme.js';
+import { page } from '../../../src/pages/dev-components/route.js';
+import { renderRouter } from '../../support/render-router.js';
 
 const PANEL_COUNT = 4;
 const HEBREW_PANEL = 0;
@@ -25,15 +24,15 @@ const HEBREW_CHOOSE_DATE =
     null,
   ) ?? '';
 
-function renderPage(): void {
-  const router = createMemoryRouter([{ path: '*', Component: route.Component }], {
-    initialEntries: ['/dev/components'],
+async function renderPage(): Promise<void> {
+  renderRouter({
+    pages: [page],
+    path: '/dev/components',
+    queryClient: new QueryClient(),
+    client: {} as GatewayClient,
+    i18n: instance,
   });
-  renderWithTheme(
-    <I18nextProvider i18n={instance}>
-      <RouterProvider router={router} />
-    </I18nextProvider>,
-  );
+  await screen.findByRole('heading', { level: 1 });
 }
 
 /** Each panel pins its own theme, which is how the page shows both at once. */
@@ -56,7 +55,7 @@ describe('/dev/components', { timeout: RENDER_TIMEOUT_MS }, () => {
   afterAll(cleanup);
 
   it('is a dev-only page at /dev/components', () => {
-    expect(route).toMatchObject({ path: 'dev/components', devOnly: true });
+    expect(page).toMatchObject({ path: 'dev/components', devOnly: true });
   });
 
   it('shows the gallery in Hebrew and English, each in light and dark', () => {

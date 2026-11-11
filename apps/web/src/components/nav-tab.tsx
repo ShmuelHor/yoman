@@ -1,7 +1,7 @@
 import MuiButton from '@mui/material/Button';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router';
 
 export interface NavTabProps {
   readonly to: string;
@@ -21,10 +21,10 @@ const tabSx: SxProps<Theme> = (theme) => ({
   },
 });
 
-/** A navigation tab. React Router marks the current one with `aria-current="page"`. */
+/** A navigation tab. TanStack Router marks the current one with `aria-current="page"`. */
 export function NavTab({ to, children, end = true }: NavTabProps): React.JSX.Element {
   return (
-    <MuiButton component={NavLink} to={to} end={end} sx={tabSx}>
+    <MuiButton component={Link} to={to} activeOptions={{ exact: end }} sx={tabSx}>
       {children}
     </MuiButton>
   );
