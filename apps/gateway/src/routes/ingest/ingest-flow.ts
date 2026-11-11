@@ -1,10 +1,10 @@
 import type { Alert } from '@yoman/shared/alerts';
-import type { AppId } from '@yoman/shared/common';
+import type { AppId, ServiceName } from '@yoman/shared/common';
 import { FocusState, type MuteDirective } from '@yoman/shared/focus';
 import { LIMITS } from '@yoman/shared/limits';
 
 import type { RouteHandler } from '../../core/route-handler.js';
-import { degradedServices, orDegraded, type ServiceClient } from '../../core/service-client.js';
+import { orDegraded, type ServiceClient } from '../../core/service-client.js';
 import type { ThresholdsProvider } from '../system/thresholds.js';
 import {
   AlertingReply,
@@ -76,46 +76,37 @@ async function storeSamples(
 /**
  * Hands closed sessions to reports, then asks goals to evaluate the day's
  * totals, which reports has just updated. Returns goal-breach alerts.
+ *
+ * Both are data owners, so a failure fails the batch. The agent resends it,
+ * sessions hands the same closed sessions back, reports counts each session
+ * id once and goals evaluates absolute totals, so nothing is lost or counted
+ * twice.
  */
 async function countAndEvaluate(
   services: ServiceClient,
   closed: readonly ClosedSession[],
-): Promise<{ alerts: Alert[]; degradedBy: ReturnType<typeof degradedServices> }> {
+): Promise<Alert[]> {
   if (closed.length === 0) {
-    return { alerts: [], degradedBy: [] };
+    return [];
   }
-  const counted = await orDegraded('reports', () =>
-    services.call('reports', {
-      method: 'POST',
-      path: '/sessions',
-      body: { sessions: closed },
-      response: CountedReply,
-    }),
-  );
-  if (counted.value === null) {
-    return { alerts: [], degradedBy: ['reports'] };
-  }
-  const usage = await orDegraded('reports', () =>
-    services.call('reports', { method: 'GET', path: '/today', response: DayUsage }),
-  );
-  if (usage.value === null) {
-    return { alerts: [], degradedBy: ['reports'] };
-  }
-  const evaluated = await orDegraded('goals', () =>
-    services.call('goals', {
-      method: 'POST',
-      path: '/evaluate',
-      body: {
-        date: usage.value.date,
-        apps: usage.value.topApps,
-        categories: usage.value.byCategory,
-      },
-      response: EvaluateReply,
-    }),
-  );
-  return evaluated.value === null
-    ? { alerts: [], degradedBy: ['goals'] }
-    : { alerts: evaluated.value.breaches, degradedBy: [] };
+  await services.call('reports', {
+    method: 'POST',
+    path: '/sessions',
+    body: { sessions: closed },
+    response: CountedReply,
+  });
+  const usage = await services.call('reports', {
+    method: 'GET',
+    path: '/today',
+    response: DayUsage,
+  });
+  const evaluated = await services.call('goals', {
+    method: 'POST',
+    path: '/evaluate',
+    body: { date: usage.date, apps: usage.topApps, categories: usage.byCategory },
+    response: EvaluateReply,
+  });
+  return evaluated.breaches;
 }
 
 /**
@@ -174,19 +165,16 @@ async function readMute(services: ServiceClient, deps: IngestDeps): Promise<Mute
  * system; forwards closed sessions to reports and goals; routes every alert
  * through focus; and answers with what to notify now and what to mute.
  *
- * Sessions, battery and system are idempotent on a retried batch, so their
- * failure fails the request and the agent resends. Reports, goals and focus
- * are downstream of data that is already stored, so they degrade instead.
+ * Every data owner (sessions, battery, system, reports, goals) is idempotent
+ * on a retried batch, so its failure fails the request with a 5xx and the
+ * agent resends. Only focus degrades: its alerts fail open.
  */
 export function createIngest(deps: IngestDeps): RouteHandler<'ingest'> {
   return async ({ services, body }) => {
     const stored = await storeSamples(services, deps, body);
-    const evaluation = await countAndEvaluate(services, stored.closed);
-    const decision = await decide(services, deps, [...stored.alerts, ...evaluation.alerts]);
-    const degraded = degradedServices([
-      ...evaluation.degradedBy.map((service) => ({ value: null, degradedBy: service })),
-      ...(decision.degradedBy ? [{ value: null, degradedBy: 'focus' as const }] : []),
-    ]);
+    const goalAlerts = await countAndEvaluate(services, stored.closed);
+    const decision = await decide(services, deps, [...stored.alerts, ...goalAlerts]);
+    const degraded: ServiceName[] = decision.degradedBy ? ['focus'] : [];
     return {
       accepted: stored.accepted,
       deliver: decision.deliver,
