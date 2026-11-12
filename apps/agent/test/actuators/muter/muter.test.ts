@@ -94,6 +94,24 @@ describe('muter', () => {
     expect(gs.calls).toEqual([]);
   });
 
+  it('refuses a dashed system app even when told to mute it, and still mutes Telegram', async () => {
+    const gs = fakeGsettings();
+    const { logger } = recordingLogger();
+
+    await muter(gs.run).run(
+      request({
+        mute: [
+          'org-gnome-settings',
+          'firmware-updater-firmware-updater',
+          'telegram-desktop-telegram-desktop',
+        ],
+      }),
+      { logger, sessionBus: undefined as never },
+    );
+
+    expect([...gs.values.keys()]).toEqual([schema('telegram-desktop-telegram-desktop')]);
+  });
+
   it('restores the exact original value, including an app that was already muted', async () => {
     const gs = fakeGsettings({ [schema('slack')]: 'false' });
     const { logger } = recordingLogger();

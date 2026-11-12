@@ -21,6 +21,20 @@ describe('isNeverMuted', () => {
     },
   );
 
+  it.each([
+    'org-gnome-settings',
+    'org-freedesktop-portal',
+    'desktop-security-center-desktop-security-center',
+    'firmware-updater-firmware-updater',
+    'io-snapcraft-snapstore',
+  ])('never mutes the dashed form %s the agent reports', (app) => {
+    expect(isNeverMuted(app, [])).toBe(true);
+  });
+
+  it('matches a settings-list app across the dotted and dashed forms', () => {
+    expect(isNeverMuted('org-telegram-desktop', ['org.telegram.desktop'])).toBe(true);
+  });
+
   it('never mutes an app on the settings list, whatever its case', () => {
     expect(isNeverMuted('Telegram', ['telegram'])).toBe(true);
     expect(isNeverMuted('telegram', ['Telegram'])).toBe(true);
