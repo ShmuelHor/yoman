@@ -47,7 +47,7 @@ export type Pid = z.infer<typeof Pid>;
 export const Comm = z.string().min(1).max(LIMITS.commLength);
 export type Comm = z.infer<typeof Comm>;
 
-export const ServiceName = z.enum(['sessions', 'reports', 'goals', 'battery', 'system', 'focus']);
+export const ServiceName = z.enum(['sessions', 'reports', 'battery', 'system', 'focus']);
 export type ServiceName = z.infer<typeof ServiceName>;
 
 /** The gateway's partial-response envelope: `{data, degraded:["battery"]}` (SPEC §5 gateway). */

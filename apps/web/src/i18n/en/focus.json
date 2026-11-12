@@ -111,10 +111,6 @@
     "memoryLeak": {
       "title": "Possible memory leak",
       "body": "{{comm}} grows by {{mbPerHour}} MB per hour."
-    },
-    "goalBreach": {
-      "title": "Goal alert",
-      "body": "{{target}}: {{minutesUsed}} of {{targetMinutes}} minutes today."
     }
   }
 }

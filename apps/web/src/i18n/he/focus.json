@@ -111,10 +111,6 @@
     "memoryLeak": {
       "title": "ייתכן שיש דליפת זיכרון",
       "body": "{{comm}} גדל ב-{{mbPerHour}} MB בכל שעה."
-    },
-    "goalBreach": {
-      "title": "התראת יעד",
-      "body": "{{target}}: {{minutesUsed}} מתוך {{targetMinutes}} דקות היום."
     }
   }
 }

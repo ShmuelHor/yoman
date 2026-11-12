@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { BatteryNow } from './battery.js';
 import { LocalDate, Timestamp, withDegraded } from './common.js';
 import { FocusState } from './focus.js';
-import { GoalList } from './goals.js';
 import { LIMITS } from './limits.js';
 import { DayReport } from './reports.js';
 import { AppList, RuleList, Session } from './sessions.js';
@@ -42,7 +41,6 @@ export const ExportBundle = z.strictObject({
   settings: Settings,
   apps: AppList,
   rules: RuleList,
-  goals: GoalList,
   sessions: z.array(Session).max(LIMITS.exportSessions),
 });
 export type ExportBundle = z.infer<typeof ExportBundle>;

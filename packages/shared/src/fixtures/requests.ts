@@ -3,7 +3,6 @@ import {
   appFixture,
   FIXTURE_DATE,
   FIXTURE_IDS,
-  goalFixture,
   profileFixture,
   ruleFixture,
   settingsFixture,
@@ -17,7 +16,6 @@ export interface RequestFixture {
 }
 
 const { id: _ruleId, ...ruleInput } = ruleFixture;
-const { id: _goalId, ...goalInput } = goalFixture;
 const { id: _profileId, ...profileInput } = profileFixture;
 const range = { from: '2026-11-01T00:00:00.000Z', to: '2026-11-08T00:00:00.000Z' };
 
@@ -33,11 +31,6 @@ export const requestFixtures: { readonly [K in RouteName]: RequestFixture } = {
   createRule: { body: ruleInput },
   updateRule: { params: { id: FIXTURE_IDS.rule }, body: ruleInput },
   deleteRule: { params: { id: FIXTURE_IDS.rule } },
-  listGoals: {},
-  createGoal: { body: goalInput },
-  updateGoal: { params: { id: FIXTURE_IDS.goal }, body: goalInput },
-  deleteGoal: { params: { id: FIXTURE_IDS.goal } },
-  goalProgress: { query: { date: FIXTURE_DATE } },
   batteryNow: {},
   batteryHealthTrend: { query: { days: '30' } },
   batteryPowerByApp: { query: range },

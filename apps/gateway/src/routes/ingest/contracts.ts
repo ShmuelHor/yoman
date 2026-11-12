@@ -1,8 +1,7 @@
 import { Alert } from '@yoman/shared/alerts';
-import { Category, LocalDate } from '@yoman/shared/common';
+import { Category } from '@yoman/shared/common';
 import { KnownApp, Profile } from '@yoman/shared/focus';
 import { LIMITS } from '@yoman/shared/limits';
-import { AppTotal, CategoryTotal } from '@yoman/shared/reports';
 import { Session } from '@yoman/shared/sessions';
 import { z } from 'zod';
 
@@ -34,20 +33,6 @@ export type AlertingReply = z.infer<typeof AlertingReply>;
 
 /** `reports POST /sessions` reply, which the gateway does not need beyond success. */
 export const CountedReply = z.object({ counted: SampleCount });
-
-/** `goals POST /evaluate` reply: a `goal-breach` alert for each goal newly breached. */
-export const EvaluateReply = z.object({
-  breaches: z.array(Alert).max(LIMITS.listSize * 2),
-});
-export type EvaluateReply = z.infer<typeof EvaluateReply>;
-
-/** The part of `reports GET /today` that goals evaluates. */
-export const DayUsage = z.object({
-  date: LocalDate,
-  byCategory: z.array(CategoryTotal).max(LIMITS.listSize),
-  topApps: z.array(AppTotal).max(LIMITS.listSize),
-});
-export type DayUsage = z.infer<typeof DayUsage>;
 
 /** `focus POST /route` reply: what to notify now; the rest was queued or rate limited. */
 export const RouteReply = z.object({

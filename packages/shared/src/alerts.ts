@@ -6,7 +6,7 @@ import { LIMITS } from './limits.js';
 export const AlertLevel = z.enum(['critical', 'important', 'normal']);
 export type AlertLevel = z.infer<typeof AlertLevel>;
 
-/** Every alert the product can raise, from SPEC §5 battery, system and goals. */
+/** Every alert the product can raise, from SPEC §5 battery and system. */
 export const AlertType = z.enum([
   'battery-low',
   'battery-critical',
@@ -15,7 +15,6 @@ export const AlertType = z.enum([
   'memory-critical',
   'thermal',
   'memory-leak',
-  'goal-breach',
 ]);
 export type AlertType = z.infer<typeof AlertType>;
 

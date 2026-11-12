@@ -84,7 +84,7 @@ describe('migrationLockKey', () => {
   });
 
   it('differs between service schemas', () => {
-    const schemas = ['sessions', 'goals', 'reports', 'battery', 'system', 'focus'];
+    const schemas = ['sessions', 'reports', 'battery', 'system', 'focus'];
     const keys = new Set(schemas.map((schema) => migrationLockKey(schema)));
     expect(keys.size).toBe(schemas.length);
   });
@@ -101,19 +101,19 @@ describe('withMigrationLock', () => {
     const locks = new FakeAdvisoryLocks();
     const events: string[] = [];
     const sessions = controlledRun('sessions', events);
-    const goals = controlledRun('goals', events);
+    const reports = controlledRun('reports', events);
 
     const runs = Promise.all([
       withMigrationLock(locks.client(), 'sessions', sessions.work),
-      withMigrationLock(locks.client(), 'goals', goals.work),
+      withMigrationLock(locks.client(), 'reports', reports.work),
     ]);
     await flush();
     const startedBeforeAnyEnded = [...events];
     sessions.finish();
-    goals.finish();
+    reports.finish();
 
-    await expect(runs).resolves.toEqual(['sessions', 'goals']);
-    expect(startedBeforeAnyEnded).toEqual(['sessions:start', 'goals:start']);
+    await expect(runs).resolves.toEqual(['sessions', 'reports']);
+    expect(startedBeforeAnyEnded).toEqual(['sessions:start', 'reports:start']);
   });
 
   it('serializes two runs of the same service', async () => {
@@ -140,11 +140,11 @@ describe('withMigrationLock', () => {
     const locks = new FakeAdvisoryLocks();
     const failing = (): Promise<never> => Promise.reject(new Error('bad migration'));
 
-    await expect(withMigrationLock(locks.client(), 'goals', failing)).rejects.toThrow(
+    await expect(withMigrationLock(locks.client(), 'reports', failing)).rejects.toThrow(
       'bad migration',
     );
 
-    expect(locks.isHeld(migrationLockKey('goals'))).toBe(false);
+    expect(locks.isHeld(migrationLockKey('reports'))).toBe(false);
   });
 
   it('locks on the schema key, passed as a bigint parameter', async () => {

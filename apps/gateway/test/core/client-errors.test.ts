@@ -6,7 +6,7 @@ import { testGateway, webSession } from '../gateway-harness.js';
 import { GATEWAY_HOST, STATUS } from '../harness.js';
 import { recordingLogger } from '../log-capture.js';
 
-const REPORT = { kind: 'request-failed', reqId: 'req-c2d8', route: '/v1/goals', status: 500 };
+const REPORT = { kind: 'request-failed', reqId: 'req-c2d8', route: '/v1/apps', status: 500 };
 const OVERSIZED_BYTES = 4_096;
 
 describe(`POST ${CLIENT_ERRORS_PATH}`, () => {
@@ -33,7 +33,7 @@ describe(`POST ${CLIENT_ERRORS_PATH}`, () => {
     expect(lines.find((line) => line.source === 'web')).toMatchObject({
       reqId: 'req-c2d8',
       kind: 'request-failed',
-      route: '/v1/goals',
+      route: '/v1/apps',
       status: 500,
       msg: 'request failed',
     });
@@ -54,7 +54,7 @@ describe(`POST ${CLIENT_ERRORS_PATH}`, () => {
 
   it.each([
     ['an unknown field', { ...REPORT, message: 'Window title: bank' }],
-    ['a free-form route', { ...REPORT, route: '/v1/goals?title=secret' }],
+    ['a free-form route', { ...REPORT, route: '/v1/apps?title=secret' }],
     ['a malformed request id', { ...REPORT, reqId: 'two words' }],
     ['an unknown kind', { ...REPORT, kind: 'other' }],
     ['a status out of range', { ...REPORT, status: 99 }],

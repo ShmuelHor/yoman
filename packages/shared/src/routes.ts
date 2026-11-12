@@ -15,7 +15,6 @@ import {
   ProfileList,
 } from './focus.js';
 import { DashboardToday, ExportBundle, ExportQuery, WebSession } from './gateway.js';
-import { Goal, GoalInput, GoalList, GoalProgress } from './goals.js';
 import { IngestBatch, IngestResult } from './ingest.js';
 import { WeekQuery, WeekReport } from './reports.js';
 import { App, AppList, AppUpdate, Rule, RuleInput, RuleList } from './sessions.js';
@@ -120,41 +119,6 @@ export const routes = {
     status: 204,
     params: IdParams,
     response: null,
-  },
-
-  listGoals: { method: 'GET', path: '/v1/goals', auth: 'session', status: 200, response: GoalList },
-  createGoal: {
-    method: 'POST',
-    path: '/v1/goals',
-    auth: 'session',
-    status: 201,
-    body: GoalInput,
-    response: Goal,
-  },
-  updateGoal: {
-    method: 'PUT',
-    path: '/v1/goals/:id',
-    auth: 'session',
-    status: 200,
-    params: IdParams,
-    body: GoalInput,
-    response: Goal,
-  },
-  deleteGoal: {
-    method: 'DELETE',
-    path: '/v1/goals/:id',
-    auth: 'session',
-    status: 204,
-    params: IdParams,
-    response: null,
-  },
-  goalProgress: {
-    method: 'GET',
-    path: '/v1/goals/progress',
-    auth: 'session',
-    status: 200,
-    query: DateQuery,
-    response: GoalProgress,
   },
 
   batteryNow: {

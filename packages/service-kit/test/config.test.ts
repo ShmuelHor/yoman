@@ -27,8 +27,8 @@ describe('loadConfig', () => {
   });
 
   it('coerces numeric variables', () => {
-    const config = loadConfig('goals', {
-      GOALS_DB_PASSWORD: SECRET,
+    const config = loadConfig('reports', {
+      REPORTS_DB_PASSWORD: SECRET,
       PORT: '9001',
       DB_PORT: '6543',
     });

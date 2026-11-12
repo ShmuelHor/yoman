@@ -20,11 +20,11 @@ const profile: Profile = {
 };
 
 const important = {
-  alertKey: 'goal-breach:x:2026-11-08',
-  type: 'goal-breach',
+  alertKey: 'thermal:x:2026-11-08',
+  type: 'thermal',
   level: 'important',
   ts: NOW.toISOString(),
-  params: { target: 'social', minutesUsed: 45, targetMinutes: 30 },
+  params: { celsius: 95 },
 } as const;
 
 function later(minutes: number): Date {

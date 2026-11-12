@@ -18,7 +18,6 @@ import { STATUS } from '../harness.js';
 const URLS: Record<ServiceName, URL> = {
   sessions: new URL('http://sessions:8080'),
   reports: new URL('http://reports:8080'),
-  goals: new URL('http://goals:8080'),
   battery: new URL('http://battery:8080'),
   system: new URL('http://system:8080'),
   focus: new URL('http://focus:8080'),
@@ -101,7 +100,7 @@ describe('createServiceClient', () => {
     );
 
     await expect(
-      client.call('goals', { method: 'DELETE', path: '/goals/1', response: z.undefined() }),
+      client.call('reports', { method: 'DELETE', path: '/items/1', response: z.undefined() }),
     ).resolves.toBeUndefined();
   });
 
@@ -112,9 +111,9 @@ describe('createServiceClient', () => {
       return json({ seconds: ANSWER });
     });
 
-    await scopeToRequest(client, 'req-7f3a').call('goals', {
+    await scopeToRequest(client, 'req-7f3a').call('reports', {
       method: 'GET',
-      path: '/goals',
+      path: '/items',
       response: Total,
     });
 
@@ -196,10 +195,10 @@ describe('createServiceClient', () => {
     const conflict = clientWith(() => Promise.resolve(json({}, STATUS.CONFLICT))).client;
 
     await expect(
-      notFound.call('goals', { method: 'GET', path: '/goals/1', response: Total }),
+      notFound.call('reports', { method: 'GET', path: '/items/1', response: Total }),
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
-      conflict.call('goals', { method: 'PUT', path: '/goals/1', response: Total }),
+      conflict.call('reports', { method: 'PUT', path: '/items/1', response: Total }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
