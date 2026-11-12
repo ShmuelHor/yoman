@@ -75,6 +75,8 @@ const T30_ROUTES: readonly HandledRouteName[] = [
   'updateAlertPolicy',
 ];
 
+const T31_ROUTES: readonly HandledRouteName[] = ['getSettings', 'updateSettings'];
+
 interface HandledRoute extends ContractRoute {
   readonly name: HandledRouteName;
 }
@@ -257,5 +259,12 @@ describe('ST08 route fuzzing', () => {
       await fuzzRoute(handled, route);
     },
   );
-  it.todo('[T31] settings routes pass the fuzzing check');
+  it.each(routesNamed(T31_ROUTES))(
+    'settings routes pass the fuzzing check with their handlers: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
 });

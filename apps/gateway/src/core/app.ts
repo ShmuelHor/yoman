@@ -33,6 +33,7 @@ import { REQUEST_ID_HEADER, REQUEST_ID_LOG_LABEL, resolveRequestId } from './req
 import type { HandlerMap } from './route-handler.js';
 import { CACHE_CONTROL, HELMET_OPTIONS } from './security-headers.js';
 import type { ServiceClient } from './service-client.js';
+import type { SettingsStore } from './settings-store.js';
 import { createSessionStore, type SessionStore } from './web-sessions.js';
 
 /** SECURITY A17: 1 MB per request body. */
@@ -50,6 +51,7 @@ export interface GatewayOptions {
   readonly logger: FastifyBaseLogger;
   readonly agentToken: string;
   readonly services: ServiceClient;
+  readonly settings: SettingsStore;
   readonly handlers?: HandlerMap;
   readonly sessions?: SessionStore;
   readonly rateLimits?: { readonly global?: RateLimit; readonly ingest?: RateLimit };
@@ -192,6 +194,7 @@ export async function buildGateway(options: GatewayOptions): Promise<FastifyInst
   registerContractRoutes(app, {
     auth,
     services: options.services,
+    settings: options.settings,
     handlers: options.handlers ?? new Map(),
     routeRateLimits: { ingest: options.rateLimits?.ingest ?? INGEST_RATE_LIMIT },
   });

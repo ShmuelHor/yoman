@@ -6,9 +6,11 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { NotFoundError, ServiceUnavailableError } from '../../../src/core/errors.js';
+import { DEFAULT_SETTINGS } from '../../../src/core/settings-store.js';
 import { handlers } from '../../../src/routes/focus/index.js';
 import { agentHeaders } from '../../gateway-harness.js';
 import { STATUS } from '../../harness.js';
+import { memorySettings } from '../../memory-settings.js';
 import { type CallKey, type RouteHarness, routeHarness } from '../route-harness.js';
 
 const { id: _id, ...profileInput } = profileFixture;
@@ -32,8 +34,11 @@ describe('focus routes', () => {
     harness = undefined;
   });
 
-  async function start(replies: Partial<Record<CallKey, unknown>>): Promise<RouteHarness> {
-    harness = await routeHarness(handlers, replies);
+  async function start(
+    replies: Partial<Record<CallKey, unknown>>,
+    settings = memorySettings(),
+  ): Promise<RouteHarness> {
+    harness = await routeHarness(handlers, replies, settings);
     return harness;
   }
 
@@ -195,5 +200,27 @@ describe('focus routes', () => {
     const response = await app().inject({ method: 'GET', url: '/v1/focus/state', headers });
 
     expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
+  });
+
+  it('filters system apps out of the start mute commands, built-in and from settings', async () => {
+    const { headers } = await start(
+      {
+        'focus POST /start': {
+          state: responseFixtures.focusStart.state,
+          commands: { mute: ['slack', 'org.gnome.Shell', 'Telegram'], restore: [] },
+          summary: null,
+        },
+      },
+      memorySettings({ ...DEFAULT_SETTINGS, systemApps: ['telegram'] }),
+    );
+
+    const response = await app().inject({
+      method: 'POST',
+      url: '/v1/focus/start',
+      headers: { ...headers, ...JSON_HEADERS },
+      payload: START_BODY,
+    });
+
+    expect(response.json().commands.mute).toEqual(['slack']);
   });
 });

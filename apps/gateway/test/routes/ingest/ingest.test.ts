@@ -9,14 +9,19 @@ import { type IngestBatch, IngestResult } from '@yoman/shared/ingest';
 import { LIMITS } from '@yoman/shared/limits';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
-
 import { ServiceUnavailableError } from '../../../src/core/errors.js';
 import { toHandlerMap } from '../../../src/core/route-handler.js';
 import type { ServiceClient } from '../../../src/core/service-client.js';
-import { createIngest, type IngestDeps } from '../../../src/routes/ingest/ingest-flow.js';
+import { DEFAULT_SETTINGS } from '../../../src/core/settings-store.js';
+import {
+  createIngest,
+  type IngestDeps,
+  settingsDeps,
+} from '../../../src/routes/ingest/ingest-flow.js';
 import { agentHeaders, testGateway } from '../../gateway-harness.js';
 import { STATUS } from '../../harness.js';
 import { recordingLogger } from '../../log-capture.js';
+import { memorySettings } from '../../memory-settings.js';
 import { type CallKey, fakeServices, type RecordedCall, routeHarness } from '../route-harness.js';
 import { batterySample, pressureSample, windowSample } from './samples.js';
 
@@ -211,6 +216,7 @@ describe('POST /v1/ingest', () => {
     };
     app = await testGateway({
       services: client,
+      settings: memorySettings(),
       rateLimits: { ingest: NO_LIMIT },
       handlers: toHandlerMap({ ingest: createIngest(DEPS) }),
     });
@@ -277,6 +283,7 @@ describe('POST /v1/ingest', () => {
       body: FULL_BATCH,
       principal: { kind: 'agent' },
       services: client,
+      settings: memorySettings(),
       log: logger,
     });
 
@@ -295,5 +302,28 @@ describe('POST /v1/ingest', () => {
     const body: Record<string, unknown> = response.json();
     expect(body).toMatchObject({ degraded: ['focus'] });
     expect(body).not.toHaveProperty('mute');
+  });
+
+  it('uses the saved thresholds and system apps, and the defaults when settings are unreadable', async () => {
+    const { logger, lines } = recordingLogger();
+    const saved = {
+      ...DEFAULT_SETTINGS,
+      thresholds: THRESHOLDS,
+      systemApps: ['org.gnome.Settings'],
+    };
+    const broken = {
+      read: () => Promise.reject(new Error('db down')),
+      write: () => Promise.reject(new Error('db down')),
+    };
+
+    const fromSaved = settingsDeps(memorySettings(saved), logger);
+    const fromBroken = settingsDeps(broken, logger);
+
+    expect(await fromSaved.thresholds()).toEqual(THRESHOLDS);
+    expect(await fromSaved.systemApps()).toEqual(['org.gnome.Settings']);
+    expect(await fromBroken.thresholds()).toEqual(DEFAULT_SETTINGS.thresholds);
+    expect(lines).toContainEqual(
+      expect.objectContaining({ msg: 'settings unreadable; used the defaults' }),
+    );
   });
 });

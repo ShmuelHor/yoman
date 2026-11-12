@@ -15,6 +15,7 @@ import {
 import { InternalError, NotImplementedError, ValidationError } from './errors.js';
 import type { AnyRouteHandler, HandlerContext, HandlerMap } from './route-handler.js';
 import { type ServiceClient, scopeToRequest } from './service-client.js';
+import type { SettingsStore } from './settings-store.js';
 
 const MS_PER_SECOND = 1_000;
 export interface RateLimit {
@@ -29,6 +30,7 @@ export const INGEST_RATE_LIMIT: RateLimit = { max: 1, timeWindow: 10_000 };
 export interface ContractRouteDeps {
   readonly auth: Authenticator;
   readonly services: ServiceClient;
+  readonly settings: SettingsStore;
   readonly handlers: HandlerMap;
   /** Per-route limits on top of the global one, counted per principal once authenticated. */
   readonly routeRateLimits?: Partial<Record<RouteName, RateLimit>>;
@@ -125,6 +127,7 @@ function contractHandler(
       body: request.body,
       principal: principalOf(request),
       services: scopeToRequest(deps.services, request.id),
+      settings: deps.settings,
       log: request.log,
     };
     if (handler === undefined) {

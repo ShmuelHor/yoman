@@ -8,6 +8,7 @@ import { type ConnectDatabase, connectDatabase, type GatewayDatabase } from './d
 import { createLogger } from './logger.js';
 import { loadRouteHandlers } from './route-loader.js';
 import { createServiceClient } from './service-client.js';
+import { createSettingsStore } from './settings-store.js';
 
 /** Docker sends SIGKILL 10 s after SIGTERM; finish before that. */
 const SHUTDOWN_TIMEOUT_MS = 8_000;
@@ -66,6 +67,7 @@ export async function startGateway(options: StartOptions): Promise<RunningGatewa
       logger: log,
       agentToken: config.agentToken,
       services: createServiceClient({ urls: config.serviceUrls, log }),
+      settings: createSettingsStore(database.pool),
       handlers: await loadRouteHandlers({ dir: options.routesDir }),
       apiDocs: config.development,
     });

@@ -1,7 +1,9 @@
 import { FocusState } from '@yoman/shared/focus';
 import { z } from 'zod';
 
+import { withoutNeverMuted } from '../../core/never-muted.js';
 import { defineHandlers } from '../../core/route-handler.js';
+import { readSettingsOrDefaults } from '../../core/settings-store.js';
 import {
   AlertPolicyReply,
   AlertQueueReply,
@@ -22,17 +24,26 @@ const NoContent = z.undefined();
  *
  * The agent receives the commands in its next ingest reply, built from the
  * session this route started; the commands here go to the caller (web or CLI).
+ * Both are filtered against the never-muted rule, so no caller is told to mute a system app.
  */
 export const handlers = defineHandlers({
-  focusStart: ({ services, body }) =>
-    services.call('focus', {
+  focusStart: async ({ services, settings, log, body }) => {
+    const change = await services.call('focus', {
       method: 'POST',
       path: '/start',
       body,
       response: FocusTransitionReply,
-    }),
-  focusStop: ({ services }) =>
-    services.call('focus', { method: 'POST', path: '/stop', response: FocusTransitionReply }),
+    });
+    return withoutNeverMuted(change, (await readSettingsOrDefaults(settings, log)).systemApps);
+  },
+  focusStop: async ({ services, settings, log }) => {
+    const change = await services.call('focus', {
+      method: 'POST',
+      path: '/stop',
+      response: FocusTransitionReply,
+    });
+    return withoutNeverMuted(change, (await readSettingsOrDefaults(settings, log)).systemApps);
+  },
   focusState: ({ services }) =>
     services.call('focus', { method: 'GET', path: '/state', response: FocusState }),
   listProfiles: ({ services }) =>

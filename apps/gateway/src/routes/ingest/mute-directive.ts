@@ -2,6 +2,8 @@ import type { AppId } from '@yoman/shared/common';
 import type { FocusState, MuteDirective, Profile } from '@yoman/shared/focus';
 import { LIMITS } from '@yoman/shared/limits';
 
+import { isNeverMuted } from '../../core/never-muted.js';
+
 /**
  * What the agent's muter should hold right now. While a focus session is
  * active the profile's muted apps are muted; with none, nothing is, and the
@@ -23,13 +25,14 @@ export function buildMuteDirective(
     return { mute: [], restore: [], systemApps: [...systemApps] };
   }
   const profile = profiles.find((candidate) => candidate.id === state.profileId);
-  const blocked = new Set<string>([...systemApps, ...(profile?.exceptions ?? [])]);
+  const exceptions = new Set<string>(profile?.exceptions ?? []);
   const candidates = [
     ...(profile?.mutedApps ?? []),
     ...(profile?.muteNewApps === true ? knownApps : []),
   ];
   const mute = [...new Set(candidates)]
-    .filter((app) => !blocked.has(app))
+    // Before the cap, so a system app never takes the place of a real one.
+    .filter((app) => !exceptions.has(app) && !isNeverMuted(app, systemApps))
     .sort()
     .slice(0, LIMITS.listSize);
   return { mute, restore: [], endsAt: state.endsAt, systemApps: [...systemApps] };
