@@ -93,14 +93,21 @@ function fakeGsettings(children: () => string): RunFile & { runs: number } {
   return run;
 }
 
-function context(bus: SessionBus): CollectorContext & { logs: unknown[] } {
+function context(
+  bus: SessionBus,
+): CollectorContext & { logs: unknown[]; reported: (readonly KnownApp[])[] } {
   const { logger, logs } = recordingLogger();
+  const reported: (readonly KnownApp[])[] = [];
   return {
     logs,
+    reported,
     logger,
     sessionBus: bus,
     ...recordedPresence(),
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (apps): void => {
+      reported.push(apps);
+    },
   };
 }
 
@@ -175,6 +182,19 @@ describe('apps collector', () => {
     await collector.stop?.();
     vi.useRealTimers();
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('reports the catalog to the agent core on start', async () => {
+    // Arrange
+    const ctx = context(dconf);
+
+    // Act
+    await start(create(), ctx);
+
+    // Assert
+    expect(ctx.reported).toEqual([
+      [{ appId: 'org-gnome-nautilus', name: 'Files', source: 'desktop' }],
+    ]);
   });
 
   it('lists the installed apps on start, without polling', async () => {

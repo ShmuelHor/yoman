@@ -1,4 +1,6 @@
 import { createIngestClient, type FetchFn } from '../sender/adapters/ingest-client.js';
+import { createKnownAppsClient } from '../sender/adapters/known-apps-client.js';
+import { createKnownAppsReporter } from '../sender/known-apps-reporter.js';
 import { muteOnReply } from '../sender/mute-handler.js';
 import { notifyEach } from '../sender/reply-handlers.js';
 import { createSender } from '../sender/sender.js';
@@ -70,19 +72,33 @@ export async function createAgent(deps: AgentDeps): Promise<Agent> {
     ],
   });
 
+  const knownApps = createKnownAppsReporter({
+    logger,
+    client: createKnownAppsClient({
+      gatewayUrl: deps.config.gatewayUrl,
+      agentToken: deps.agentToken,
+      ...(deps.fetch === undefined ? {} : { fetch: deps.fetch }),
+    }),
+  });
+
   const tracker = createPresenceTracker({
     pause(): void {
       scheduler.pause();
       sender.pause();
+      knownApps.pause();
     },
     resume(): void {
       scheduler.resume();
       sender.resume();
+      knownApps.resume();
     },
   });
   const collectorContext: CollectorContext = {
     ...pluginContext,
     emit: (samples) => buffer.append(samples),
+    reportKnownApps: (apps) => {
+      knownApps.report(apps);
+    },
     presence: tracker.presence,
     reportPresence: (update) => {
       tracker.report(update);
@@ -116,6 +132,7 @@ export async function createAgent(deps: AgentDeps): Promise<Agent> {
       stopped = true;
       scheduler.stop();
       await sender.stop();
+      await knownApps.stop();
       await stopPlugins(deps.collectors.values(), onPluginError);
       await stopPlugins(deps.actuators.values(), onPluginError);
       deps.sessionBus.close();

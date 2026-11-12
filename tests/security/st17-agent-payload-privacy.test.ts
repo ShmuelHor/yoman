@@ -60,6 +60,7 @@ function context(): CollectorContext {
     presence: { idleMs: 0, locked: false },
     reportPresence: (): void => undefined,
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (): void => undefined,
   };
 }
 

@@ -42,6 +42,7 @@ function context(bus: SessionBus): CollectorContext & RecordedPresence & { logs:
     sessionBus: bus,
     ...recordedPresence(),
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (): void => undefined,
   };
 }
 

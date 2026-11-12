@@ -50,6 +50,7 @@ function context(): CollectorContext & { logs: unknown[] } {
     sessionBus: unreachableSessionBus(),
     ...recordedPresence(),
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (): void => undefined,
   };
 }
 

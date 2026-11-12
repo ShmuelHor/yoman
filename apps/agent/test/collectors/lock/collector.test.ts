@@ -72,6 +72,7 @@ function context(
     sessionBus: bus,
     ...presence,
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (): void => undefined,
   };
 }
 
