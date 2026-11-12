@@ -42,6 +42,12 @@ const ALL_UP: Partial<Record<CallKey, unknown>> = {
   },
   'focus GET /state': focusActiveFixture,
   'focus GET /profiles': { items: [profileFixture] },
+  'focus GET /known-apps': {
+    items: [
+      { appId: 'slack', name: 'Slack', source: 'desktop' },
+      { appId: 'telegram', name: 'Telegram', source: 'desktop' },
+    ],
+  },
 };
 
 const DEPS: IngestDeps = {
@@ -85,7 +91,7 @@ describe('POST /v1/ingest', () => {
       queued: 1,
       degraded: [],
       mute: {
-        mute: ['slack', 'discord'],
+        mute: ['discord', 'slack', 'telegram'],
         restore: [],
         endsAt: focusActiveFixture.active ? focusActiveFixture.endsAt : null,
         systemApps: ['org.gnome.Settings'],
@@ -244,6 +250,17 @@ describe('POST /v1/ingest', () => {
 
     const body: Record<string, unknown> = response.json();
     expect(body).toMatchObject({ deliver: [alertFixture], queued: 1, degraded: ['focus'] });
+    expect(body).not.toHaveProperty('mute');
+  });
+
+  it('sends no mute when the known apps cannot be read for a profile that mutes new apps', async () => {
+    const { response } = await ingest({
+      ...ALL_UP,
+      'focus GET /known-apps': new ServiceUnavailableError('focus', 'timeout'),
+    });
+
+    const body: Record<string, unknown> = response.json();
+    expect(body).toMatchObject({ degraded: ['focus'] });
     expect(body).not.toHaveProperty('mute');
   });
 });
