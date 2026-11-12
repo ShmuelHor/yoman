@@ -1,5 +1,6 @@
 import { NotFoundError } from '@yoman/service-kit/errors';
 import type { FocusStart, FocusState, Profile } from '@yoman/shared/focus';
+import { appsFirstSeenAfterFirstSync } from '@yoman/shared/known-apps';
 import { LIMITS } from '@yoman/shared/limits';
 
 import type { FocusSummary, FocusTransition } from '../contracts.js';
@@ -58,10 +59,7 @@ export function startFocus(
     await tx.lock();
     const profile = await resolveProfile(tx, request.profileId);
     const knownApps = await tx.listKnownApps(LIMITS.listSize);
-    const muted = appsToMute(
-      profile,
-      knownApps.map((app) => app.appId),
-    );
+    const muted = appsToMute(profile, appsFirstSeenAfterFirstSync(knownApps));
     const previous = await tx.openSession();
     const summary = previous === null ? null : await closeSession(tx, previous, nowMs);
     const session = await tx.startSession({

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FocusTransition } from '../../src/contracts.js';
 import { readFocusState, startFocus, stopFocus } from '../../src/use-cases/focus-sessions.js';
+import { reportKnownApps } from '../../src/use-cases/known-apps.js';
 import { routeIncoming } from '../../src/use-cases/route-alerts.js';
 import { createMemoryStore } from '../memory-store.js';
 
@@ -29,10 +30,19 @@ const calls: Profile = {
   muteNewApps: false,
 };
 
-const knownApps = ['org.telegram.desktop', 'slack', 'thunderbird', 'spotify'].map((appId) => ({
-  appId,
+const FIRST_SYNC = '2026-01-01T00:00:00.000Z';
+const LATER_SYNC = '2026-02-01T00:00:00.000Z';
+// The first catalog is never "new"; only what a later sync added is.
+const knownApps = [
+  ['slack', FIRST_SYNC],
+  ['thunderbird', FIRST_SYNC],
+  ['spotify', FIRST_SYNC],
+  ['org.telegram.desktop', LATER_SYNC],
+].map(([appId, firstSeenAt]) => ({
+  appId: appId as string,
   name: null,
   source: 'desktop' as const,
+  firstSeenAt: firstSeenAt as string,
 }));
 
 function later(minutes: number): Date {
@@ -52,7 +62,7 @@ function givenStore(): ReturnType<typeof createMemoryStore> {
 }
 
 describe('startFocus', () => {
-  it("mutes the profile's apps and every known app except exceptions", async () => {
+  it("mutes the profile's apps and the apps new since the first sync, except exceptions", async () => {
     const store = givenStore();
 
     const change = await startFocus(store, { minutes: FOCUS_MINUTES }, NOW, ZONE);
@@ -65,9 +75,30 @@ describe('startFocus', () => {
         startedAt: NOW.toISOString(),
         endsAt: later(FOCUS_MINUTES).toISOString(),
       },
-      commands: { mute: ['org.telegram.desktop', 'slack', 'spotify'], restore: [] },
+      commands: { mute: ['org.telegram.desktop', 'slack'], restore: [] },
       summary: null,
     });
+  });
+
+  it('does not mute the first known-apps catalog as new apps', async () => {
+    const store = createMemoryStore({ profiles: [deepWork] });
+    await reportKnownApps(store, {
+      items: ['org-gnome-settings', 'telegram-desktop-telegram-desktop'].map((appId) => ({
+        appId,
+        name: null,
+        source: 'desktop' as const,
+      })),
+    });
+
+    const first = await startFocus(store, { minutes: FOCUS_MINUTES }, NOW, ZONE);
+    await reportKnownApps(store, {
+      items: [{ appId: 'org-gnome-evolution-alarm-notify', name: null, source: 'desktop' }],
+    });
+    const second = await startFocus(store, { minutes: FOCUS_MINUTES }, NOW, ZONE);
+
+    expect(first.commands.mute).toEqual(['slack']);
+    // New since the first sync, but a system app: the plan still leaves it out.
+    expect(second.commands.mute).toEqual(['slack']);
   });
 
   it('switches profiles restoring only what the new one leaves unmuted', async () => {
@@ -110,7 +141,7 @@ describe('stopFocus', () => {
 
     expect(FocusTransition.parse(change)).toEqual({
       state: { active: false },
-      commands: { mute: [], restore: ['org.telegram.desktop', 'slack', 'spotify'] },
+      commands: { mute: [], restore: ['org.telegram.desktop', 'slack'] },
       summary: {
         profileId: deepWork.id,
         startedAt: NOW.toISOString(),

@@ -1,4 +1,5 @@
 import { focusActiveFixture, profileFixture } from '@yoman/shared/fixtures/data';
+import { SYSTEM_APP_IDS, USER_APP_IDS } from '@yoman/shared/fixtures/known-apps-catalog';
 import { LIMITS } from '@yoman/shared/limits';
 import { describe, expect, it } from 'vitest';
 
@@ -82,5 +83,18 @@ describe('buildMuteDirective', () => {
     const directive = buildMuteDirective(focusActiveFixture, [profile], [], [...system, 'zoom']);
 
     expect(directive.mute).toEqual(['slack', 'zoom']);
+  });
+
+  it('never puts a system app from a real dashed catalog in a directive, but still mutes Telegram', () => {
+    const profile = { ...profileFixture, mutedApps: [...SYSTEM_APP_IDS], muteNewApps: true };
+
+    const directive = buildMuteDirective(
+      focusActiveFixture,
+      [{ ...profile, mutedApps: [...profile.mutedApps, USER_APP_IDS[0]] }],
+      [],
+      [...SYSTEM_APP_IDS, ...USER_APP_IDS],
+    );
+
+    expect(directive.mute).toEqual([USER_APP_IDS[0], USER_APP_IDS[1]].sort());
   });
 });

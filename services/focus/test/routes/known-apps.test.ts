@@ -28,7 +28,9 @@ describe('known-apps routes', () => {
     expect(reported.statusCode).toBe(HTTP_OK);
     expect(KnownAppsResult.parse(reported.json())).toEqual({ added: 2 });
     expect(KnownAppsResult.parse(again.json())).toEqual({ added: 0 });
-    expect(KnownAppList.parse(listed.json())).toEqual({ items });
+    expect(KnownAppList.parse(listed.json())).toEqual({
+      items: items.map((item) => ({ ...item, firstSeenAt: expect.any(String) })),
+    });
   });
 
   it('rejects an app id that could reach a shell with 400', async () => {

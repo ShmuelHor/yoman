@@ -93,7 +93,9 @@
 
 **Muter safety.** Before every change, the agent saves the original value in `~/.local/state/yoman/mute-state.json`. On startup, and whenever `focus.endsAt < now`, it restores automatically. An app must never stay muted after a crash.
 
-**Never muted:** `update-manager`, `gnome-*`, `org.gnome.*`, `yoman`, and every app on the "system" list in the settings.
+**Never muted:** `gnome-*`, `org.gnome.*`, `org.freedesktop.*`, `io.snapcraft.*`, `update-manager`, `yoman`, `desktop-security-center`, `firmware-updater`, `snapd-desktop-integration`, `snap-store`, `nm-connection-editor`, `im-config`, and every app on the "system" list in the settings. IDs are matched with dots and dashes treated alike and without case (the agent reports `org-gnome-settings`; a snap's doubled name such as `firmware-updater-firmware-updater` counts as the name). The gateway filters these out of every mute command, and the agent's muter refuses them again as a last line of defense.
+
+**Mute new apps.** An app is new only if the focus service first saw it after the first known-apps sync. The first catalog is never new, so turning the option on does not mute everything already installed. The focus service lists each app's `firstSeenAt`; without it an app is not new.
 
 ### 4.3 Buffer and sending
 - A local JSONL file in `~/.local/state/yoman/buffer/`, with a new file every hour

@@ -1,4 +1,5 @@
 import { LIMITS } from '@yoman/shared/limits';
+import { isBuiltInNeverMuted } from '@yoman/shared/never-muted';
 
 /** What a profile decides about muting. */
 export interface MuteProfile {
@@ -18,15 +19,18 @@ function sorted(apps: Iterable<string>): string[] {
 }
 
 /**
- * The apps a focus with this profile mutes. Exceptions always keep notifying.
- * With `muteNewApps`, every known app the profile does not list is muted too,
- * so an app installed after the profile was written is muted by default. The
- * result is sorted and capped at the contract's list size.
+ * The apps a focus with this profile mutes. Exceptions always keep notifying,
+ * and built-in system apps are never muted. With `muteNewApps`, `newApps` (the
+ * apps first seen after the first known-apps sync, never the first catalog) are
+ * muted too, so an app installed after the profile was written is muted by
+ * default. The result is sorted and capped at the contract's list size.
  */
-export function appsToMute(profile: MuteProfile, knownApps: readonly string[]): string[] {
+export function appsToMute(profile: MuteProfile, newApps: readonly string[]): string[] {
   const exceptions = new Set(profile.exceptions);
-  const candidates = profile.muteNewApps ? [...profile.mutedApps, ...knownApps] : profile.mutedApps;
-  return sorted(candidates.filter((app) => !exceptions.has(app))).slice(0, LIMITS.listSize);
+  const candidates = profile.muteNewApps ? [...profile.mutedApps, ...newApps] : profile.mutedApps;
+  return sorted(
+    candidates.filter((app) => !exceptions.has(app) && !isBuiltInNeverMuted(app)),
+  ).slice(0, LIMITS.listSize);
 }
 
 /**

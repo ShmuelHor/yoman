@@ -2,6 +2,7 @@ import type { Alert } from '@yoman/shared/alerts';
 import type { AppId, ServiceName } from '@yoman/shared/common';
 import { FocusState, type MuteDirective, type Profile } from '@yoman/shared/focus';
 import { IngestResult } from '@yoman/shared/ingest';
+import { appsFirstSeenAfterFirstSync } from '@yoman/shared/known-apps';
 import { LIMITS } from '@yoman/shared/limits';
 import type { Settings } from '@yoman/shared/settings';
 import type { FastifyBaseLogger } from 'fastify';
@@ -159,7 +160,7 @@ async function readKnownApps(
   const known = await orDegraded('focus', () =>
     services.call('focus', { method: 'GET', path: '/known-apps', response: KnownAppsReply }),
   );
-  return known.value === null ? null : known.value.items.map((app) => app.appId);
+  return known.value === null ? null : appsFirstSeenAfterFirstSync(known.value.items);
 }
 
 async function readMute(services: ServiceClient, deps: IngestDeps): Promise<MuteDirective | null> {

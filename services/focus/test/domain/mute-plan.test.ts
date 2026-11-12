@@ -16,7 +16,7 @@ describe('appsToMute', () => {
     expect(appsToMute(profile, KNOWN)).toEqual(['org.telegram.desktop', 'slack']);
   });
 
-  it('mutes every known app when new apps are muted by default', () => {
+  it('mutes the new apps too when new apps are muted by default', () => {
     const profile = { mutedApps: [], exceptions: [], muteNewApps: true };
 
     expect(appsToMute(profile, KNOWN)).toEqual([...KNOWN].sort());
@@ -30,6 +30,18 @@ describe('appsToMute', () => {
     };
 
     expect(appsToMute(profile, KNOWN)).toEqual(['org.telegram.desktop', 'spotify']);
+  });
+
+  it('never mutes a system app, whatever the ID form or where it came from', () => {
+    const profile = {
+      mutedApps: ['org-gnome-settings', 'slack'],
+      exceptions: [],
+      muteNewApps: true,
+    };
+
+    expect(
+      appsToMute(profile, ['org.gnome.Nautilus', 'firmware-updater-firmware-updater']),
+    ).toEqual(['slack']);
   });
 
   it('mutes a listed app the agent has not discovered yet', () => {

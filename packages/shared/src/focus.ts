@@ -77,6 +77,8 @@ export const KnownApp = z.strictObject({
   appId: AppId,
   name: Label.nullable(),
   source: KnownAppSource,
+  /** Set by the focus service when it lists apps; what makes an app "new". Ignored in a report. */
+  firstSeenAt: Timestamp.optional(),
 });
 export type KnownApp = z.infer<typeof KnownApp>;
 

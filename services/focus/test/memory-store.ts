@@ -25,6 +25,9 @@ export interface MemoryStore extends FocusStore {
   readonly state: () => State;
 }
 
+const BASE_TIME_MS = Date.parse('2026-01-01T00:00:00.000Z');
+const REPORT_GAP_MS = 1000;
+
 function bind(state: State): FocusTransaction {
   const removeById = <T extends { id: string }>(items: T[], id: string): [T[], boolean] => {
     const kept = items.filter((item) => item.id !== id);
@@ -69,14 +72,27 @@ function bind(state: State): FocusTransaction {
       [...state.knownApps].sort((a, b) => a.appId.localeCompare(b.appId)).slice(0, limit),
     saveKnownApps: async (apps): Promise<number> => {
       let added = 0;
-      for (const app of apps) {
+      // One report shares a time, as in the database; each report is later.
+      const latest = Math.max(
+        BASE_TIME_MS,
+        ...state.knownApps
+          .map((known) => Date.parse(known.firstSeenAt ?? ''))
+          .filter(Number.isFinite),
+      );
+      const firstSeenAt = new Date(latest + REPORT_GAP_MS).toISOString();
+      for (const incoming of apps) {
+        const app = { ...incoming, firstSeenAt };
         const existing = state.knownApps.find((known) => known.appId === app.appId);
         if (existing === undefined) {
           state.knownApps.push(app);
           added += 1;
           continue;
         }
-        const refreshed = { ...app, name: app.name ?? existing.name };
+        const refreshed = {
+          ...app,
+          name: app.name ?? existing.name,
+          firstSeenAt: existing.firstSeenAt,
+        };
         state.knownApps = state.knownApps.map((k) => (k.appId === app.appId ? refreshed : k));
       }
       return added;

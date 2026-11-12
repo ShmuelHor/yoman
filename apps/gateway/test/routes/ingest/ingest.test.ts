@@ -47,8 +47,13 @@ const ALL_UP: Partial<Record<CallKey, unknown>> = {
   'focus GET /profiles': { items: [profileFixture] },
   'focus GET /known-apps': {
     items: [
-      { appId: 'slack', name: 'Slack', source: 'desktop' },
-      { appId: 'telegram', name: 'Telegram', source: 'desktop' },
+      { appId: 'slack', name: 'Slack', source: 'desktop', firstSeenAt: '2026-01-01T00:00:00.000Z' },
+      {
+        appId: 'telegram',
+        name: 'Telegram',
+        source: 'desktop',
+        firstSeenAt: '2026-01-02T00:00:00.000Z',
+      },
     ],
   },
 };
