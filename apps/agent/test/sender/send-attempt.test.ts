@@ -243,6 +243,18 @@ describe('sendAttempt', () => {
     );
   });
 
+  it('logs the names of unexpected reply keys, never their values', async () => {
+    await buffer.append(SAMPLES);
+    replies.push(httpReply(STATUS_OK, { ...OK_REPLY, extra: 'secret window title' }));
+
+    await sendAttempt(deps(), FULL_BATCH);
+
+    expect(logs).toContainEqual(
+      expect.objectContaining({ paths: [''], unexpectedKeys: ['extra'] }),
+    );
+    expect(JSON.stringify(logs)).not.toContain('secret window title');
+  });
+
   it('runs the other handlers when one throws, and never resends', async () => {
     await buffer.append(SAMPLES);
     const failing: ReplyHandler = {

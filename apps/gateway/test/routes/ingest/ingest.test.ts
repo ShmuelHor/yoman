@@ -5,7 +5,8 @@ import {
   profileFixture,
   sessionFixture,
 } from '@yoman/shared/fixtures/data';
-import type { IngestBatch } from '@yoman/shared/ingest';
+import { type IngestBatch, IngestResult } from '@yoman/shared/ingest';
+import { LIMITS } from '@yoman/shared/limits';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -15,6 +16,7 @@ import type { ServiceClient } from '../../../src/core/service-client.js';
 import { createIngest, type IngestDeps } from '../../../src/routes/ingest/ingest-flow.js';
 import { agentHeaders, testGateway } from '../../gateway-harness.js';
 import { STATUS } from '../../harness.js';
+import { recordingLogger } from '../../log-capture.js';
 import { type CallKey, fakeServices, type RecordedCall, routeHarness } from '../route-harness.js';
 import { batterySample, pressureSample, windowSample } from './samples.js';
 
@@ -50,6 +52,7 @@ const DEPS: IngestDeps = {
 };
 
 /** The ingest rate limit (once per 10 s) is the agent's backoff to respect, not this test's. */
+const ERROR_LEVEL = 50;
 const NO_LIMIT = { max: Number.MAX_SAFE_INTEGER, timeWindow: 60_000 };
 
 describe('POST /v1/ingest', () => {
@@ -91,6 +94,15 @@ describe('POST /v1/ingest', () => {
         systemApps: ['org.gnome.Settings'],
       },
     });
+  });
+
+  it('replies exactly what the agent parses: the strict IngestResult, mute included', async () => {
+    const { response } = await ingest(ALL_UP);
+
+    const parsed = IngestResult.safeParse(response.json());
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.mute).toBeDefined();
   });
 
   it('sends each service only its own samples, with the thresholds to system', async () => {
@@ -245,5 +257,26 @@ describe('POST /v1/ingest', () => {
     const body: Record<string, unknown> = response.json();
     expect(body).toMatchObject({ deliver: [alertFixture], queued: 1, degraded: ['focus'] });
     expect(body).not.toHaveProperty('mute');
+  });
+
+  it('answers a degraded result and logs the paths when its own reply breaks the contract', async () => {
+    const { logger, lines } = recordingLogger();
+    const tooMany = Array.from({ length: LIMITS.listSize + 1 }, (_, index) => `app-${index}`);
+    const { client } = fakeServices(ALL_UP);
+    const handle = createIngest({ ...DEPS, systemApps: () => Promise.resolve(tooMany) });
+
+    const reply = await handle({
+      params: undefined,
+      query: undefined,
+      body: FULL_BATCH,
+      principal: { kind: 'agent' },
+      services: client,
+      log: logger,
+    });
+
+    expect(reply).toEqual({ accepted: 3, deliver: [], queued: 0, degraded: ['focus'] });
+    expect(lines).toContainEqual(
+      expect.objectContaining({ paths: ['mute.systemApps'], level: ERROR_LEVEL }),
+    );
   });
 });
