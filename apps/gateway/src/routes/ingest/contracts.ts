@@ -1,6 +1,6 @@
 import { Alert } from '@yoman/shared/alerts';
 import { Category, LocalDate } from '@yoman/shared/common';
-import { Profile } from '@yoman/shared/focus';
+import { KnownApp, Profile } from '@yoman/shared/focus';
 import { LIMITS } from '@yoman/shared/limits';
 import { AppTotal, CategoryTotal } from '@yoman/shared/reports';
 import { Session } from '@yoman/shared/sessions';
@@ -59,3 +59,7 @@ export type RouteReply = z.infer<typeof RouteReply>;
 /** `focus GET /profiles` reply. */
 export const ProfilesReply = z.object({ items: z.array(Profile).max(LIMITS.listSize) });
 export type ProfilesReply = z.infer<typeof ProfilesReply>;
+
+/** `focus GET /known-apps` reply. */
+export const KnownAppsReply = z.object({ items: z.array(KnownApp).max(LIMITS.listSize) });
+export type KnownAppsReply = z.infer<typeof KnownAppsReply>;

@@ -1,6 +1,6 @@
 import type { Alert } from '@yoman/shared/alerts';
 import type { AppId, ServiceName } from '@yoman/shared/common';
-import { FocusState, type MuteDirective } from '@yoman/shared/focus';
+import { FocusState, type MuteDirective, type Profile } from '@yoman/shared/focus';
 import { LIMITS } from '@yoman/shared/limits';
 
 import type { RouteHandler } from '../../core/route-handler.js';
@@ -12,6 +12,7 @@ import {
   CountedReply,
   DayUsage,
   EvaluateReply,
+  KnownAppsReply,
   ProfilesReply,
   RouteReply,
   SessionsReply,
@@ -141,6 +142,22 @@ async function decide(
   };
 }
 
+/** The apps "mute new apps" adds to the mute list, read only when the active profile has it on. */
+async function readKnownApps(
+  services: ServiceClient,
+  state: FocusState,
+  profiles: readonly Profile[],
+): Promise<AppId[] | null> {
+  const active = state.active ? profiles.find((profile) => profile.id === state.profileId) : null;
+  if (active?.muteNewApps !== true) {
+    return [];
+  }
+  const known = await orDegraded('focus', () =>
+    services.call('focus', { method: 'GET', path: '/known-apps', response: KnownAppsReply }),
+  );
+  return known.value === null ? null : known.value.items.map((app) => app.appId);
+}
+
 async function readMute(services: ServiceClient, deps: IngestDeps): Promise<MuteDirective | null> {
   // After `/route`, which closes a session that has run out.
   const state = await orDegraded('focus', () =>
@@ -157,7 +174,11 @@ async function readMute(services: ServiceClient, deps: IngestDeps): Promise<Mute
   if (profiles.value === null) {
     return null;
   }
-  return buildMuteDirective(state.value, profiles.value.items, await deps.systemApps());
+  const known = await readKnownApps(services, state.value, profiles.value.items);
+  if (known === null) {
+    return null;
+  }
+  return buildMuteDirective(state.value, profiles.value.items, await deps.systemApps(), known);
 }
 
 /**
