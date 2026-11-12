@@ -7,6 +7,8 @@ const TOKEN_BYTES = 32;
 
 /** Built at runtime so no token-shaped literal is ever committed. */
 export const AGENT_TOKEN = randomBytes(TOKEN_BYTES).toString('base64url');
+/** Random per run, like the token, so nothing secret-looking is committed. */
+export const GATEWAY_DB_PASSWORD = randomBytes(TOKEN_BYTES).toString('base64url');
 export const GATEWAY_HOST = '127.0.0.1:4711';
 export const WEB_ORIGIN = 'http://127.0.0.1:4710';
 
