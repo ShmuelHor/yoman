@@ -13,6 +13,8 @@ import { page } from '../../../src/pages/battery/route.js';
 import { fakeNotifier } from '../../support/fake-notifier.js';
 import { renderRouter } from '../../support/render-router.js';
 
+/** Rendering the whole shell with a data grid is slow in happy-dom, more so when the suite runs in parallel. */
+const RENDER_TIMEOUT_MS = 30_000;
 const WEEK = 7;
 const MONTH = 30;
 
@@ -35,7 +37,7 @@ function renderAt(path: string, client: GatewayClient): void {
 
 afterEach(cleanup);
 
-describe('/battery route', () => {
+describe('/battery route', { timeout: RENDER_TIMEOUT_MS }, () => {
   it('registers as a navigation page', () => {
     expect(page).toMatchObject({ path: 'battery', namespace: 'battery' });
   });

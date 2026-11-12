@@ -15,6 +15,9 @@ import { BatteryPage } from '../../../src/pages/battery/battery-page.js';
 import { fakeNotifier } from '../../support/fake-notifier.js';
 import { renderWithTheme } from '../../support/render-with-theme.js';
 
+/** Data grids and charts are slow to mount in happy-dom, more so when the suite runs in parallel. */
+const RENDER_TIMEOUT_MS = 30_000;
+const RETRY_TIMEOUT_MS = 5000;
 const NOW = new Date('2026-11-08T12:00:00');
 const DAYS = 30;
 const WEEK = 7;
@@ -55,7 +58,7 @@ function renderPage(
 
 afterEach(cleanup);
 
-describe('Battery page', () => {
+describe('Battery page', { timeout: RENDER_TIMEOUT_MS }, () => {
   it('shows skeletons while the requests are pending', () => {
     renderPage({ request: () => new Promise(() => undefined) } as unknown as GatewayClient);
 
@@ -131,7 +134,11 @@ describe('Battery page', () => {
 
     expect(await screen.findByText('64%')).toBeTruthy();
     expect(
-      await screen.findByText('Power use by app could not be loaded.', {}, { timeout: 5000 }),
+      await screen.findByText(
+        'Power use by app could not be loaded.',
+        {},
+        { timeout: RETRY_TIMEOUT_MS },
+      ),
     ).toBeTruthy();
   });
 
