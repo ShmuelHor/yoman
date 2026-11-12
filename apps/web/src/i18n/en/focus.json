@@ -1,0 +1,120 @@
+{
+  "title": "Focus mode",
+  "banner": "Focus mode · {{minutes}} min left",
+  "inactive": "Focus mode is off. Start it to mute notifications from the apps in a profile.",
+  "active": {
+    "profile": "Profile: {{name}}"
+  },
+  "stop": "Stop focus",
+  "newTag": "New",
+  "yes": "Yes",
+  "no": "No",
+  "edit": "Edit",
+  "delete": "Delete",
+  "start": {
+    "profile": "Profile",
+    "defaultProfile": "Default profile",
+    "mode": "Length",
+    "minutes": "Minutes",
+    "until": "Until",
+    "submit": "Start focus"
+  },
+  "profiles": {
+    "title": "Profiles",
+    "add": "Add profile",
+    "label": "Focus profiles",
+    "empty": "No profiles yet. Add one to choose which apps focus mode mutes.",
+    "none": "None",
+    "columns": {
+      "name": "Name",
+      "muted": "Muted apps",
+      "exceptions": "Exceptions",
+      "muteNewApps": "Mute new apps",
+      "actions": "Actions"
+    }
+  },
+  "apps": {
+    "title": "Apps on this computer",
+    "label": "Apps found on this computer",
+    "empty": "No apps found yet. The agent lists them once it is running."
+  },
+  "queue": {
+    "title": "Held alerts",
+    "label": "Alerts held back during focus",
+    "empty": "No alerts were held back."
+  },
+  "policy": {
+    "title": "Alert levels",
+    "default": "Default"
+  },
+  "levels": {
+    "critical": "Critical",
+    "important": "Important",
+    "normal": "Normal"
+  },
+  "dialog": {
+    "create": "Add profile",
+    "edit": "Edit profile"
+  },
+  "deleteDialog": {
+    "title": "Delete this profile?",
+    "body": "Focus mode no longer uses it. Apps stay as they are.",
+    "confirm": "Delete profile"
+  },
+  "form": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "invalidName": "Enter a name of 1 to 128 characters.",
+    "invalidMinutes": "Enter a whole number of minutes from 1 to 720.",
+    "invalidUntil": "Choose a time of day."
+  },
+  "errors": {
+    "state": "Focus state could not be loaded.",
+    "profiles": "Profiles could not be loaded.",
+    "apps": "Apps could not be loaded.",
+    "queue": "Held alerts could not be loaded.",
+    "policy": "Alert levels could not be loaded."
+  },
+  "toast": {
+    "started": "Focus mode started",
+    "stopped": "Focus mode stopped",
+    "profileCreated": "Profile created",
+    "profileSaved": "Profile saved",
+    "profileDeleted": "Profile deleted",
+    "policySaved": "Alert levels saved"
+  },
+  "notifications": {
+    "batteryLow": {
+      "title": "Battery low",
+      "body": "{{percent}}% left. Plug in the charger soon."
+    },
+    "batteryCritical": {
+      "title": "Battery almost empty",
+      "body": "{{percent}}% left. Plug in the charger now."
+    },
+    "batteryPluggedFull": {
+      "title": "Battery full for a long time",
+      "body": "Plugged in at 100% for {{hours}} hours. Unplug the charger to protect the battery."
+    },
+    "pressureIncident": {
+      "title": "The computer is choking",
+      "body": "{{resource}} pressure peaked at {{peak}}%. Heaviest: {{culprit}}."
+    },
+    "memoryCritical": {
+      "title": "Memory almost full",
+      "body": "Only {{availablePct}}% of memory is available."
+    },
+    "thermal": {
+      "title": "The CPU is hot",
+      "body": "The CPU temperature reached {{celsius}}°C."
+    },
+    "memoryLeak": {
+      "title": "Possible memory leak",
+      "body": "{{comm}} grows by {{mbPerHour}} MB per hour."
+    },
+    "goalBreach": {
+      "title": "Goal alert",
+      "body": "{{target}}: {{minutesUsed}} of {{targetMinutes}} minutes today."
+    }
+  }
+}
