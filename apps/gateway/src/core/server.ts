@@ -4,6 +4,7 @@ import type { DestinationStream, Logger } from 'pino';
 import { buildGateway } from './app.js';
 import { type Environment, loadConfig } from './config.js';
 import { installCrashHandlers } from './crash-handlers.js';
+import { type ConnectDatabase, connectDatabase, type GatewayDatabase } from './database.js';
 import { createLogger } from './logger.js';
 import { loadRouteHandlers } from './route-loader.js';
 import { createServiceClient } from './service-client.js';
@@ -20,6 +21,8 @@ export interface StartOptions {
   readonly routesDir: string;
   /** Defaults to stdout. */
   readonly logStream?: DestinationStream;
+  /** Opens the database and migrates it. Defaults to the real one; tests pass a stub. */
+  readonly connectDatabase?: ConnectDatabase;
   /** Install SIGTERM and SIGINT handlers. Defaults to true. */
   readonly handleSignals?: boolean;
 }
@@ -27,7 +30,7 @@ export interface StartOptions {
 export interface RunningGateway {
   readonly app: FastifyInstance;
   readonly log: Logger;
-  /** Stops accepting requests and waits for in-flight ones. Idempotent. */
+  /** Stops accepting requests, waits for in-flight ones and closes the database. Idempotent. */
   readonly stop: () => Promise<void>;
 }
 
@@ -56,7 +59,9 @@ function installSignalHandlers(log: Logger, stop: () => Promise<void>): void {
 export async function startGateway(options: StartOptions): Promise<RunningGateway> {
   const config = loadConfig(options.env ?? process.env);
   const log = createLogger(config.logLevel, options.logStream, config.logFormat === 'pretty');
+  let database: GatewayDatabase | undefined;
   try {
+    database = await (options.connectDatabase ?? connectDatabase)(config.db, log);
     const app = await buildGateway({
       logger: log,
       agentToken: config.agentToken,
@@ -66,7 +71,7 @@ export async function startGateway(options: StartOptions): Promise<RunningGatewa
     });
     let stopping: Promise<void> | undefined;
     const stop = (): Promise<void> => {
-      stopping ??= app.close();
+      stopping ??= app.close().then(() => database?.close());
       return stopping;
     };
     await app.listen({ host: config.host, port: config.port });
@@ -77,6 +82,7 @@ export async function startGateway(options: StartOptions): Promise<RunningGatewa
     return { app, log, stop };
   } catch (error: unknown) {
     log.fatal({ err: error }, 'Gateway failed to start');
+    await database?.close();
     throw error;
   }
 }

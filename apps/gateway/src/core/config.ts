@@ -1,3 +1,4 @@
+import type { DatabaseConfig } from '@yoman/service-kit/config';
 import type { ServiceName } from '@yoman/shared/common';
 import { z } from 'zod';
 
@@ -7,6 +8,10 @@ const DEFAULT_PORT = 8080;
 const MIN_TOKEN_LENGTH = 32;
 const MAX_TOKEN_LENGTH = 256;
 const MAX_URL_LENGTH = 256;
+const MAX_PASSWORD_LENGTH = 256;
+const DEFAULT_DB_PORT = 5432;
+/** The role and the schema the gateway owns (`infra/postgres/init`); it can reach nothing else. */
+const DB_ROLE = 'gateway';
 
 /** Where a service listens on the internal `core` network (SPEC §3), `http://<name>:8080` by default. */
 const serviceUrl = (service: ServiceName): z.ZodType<URL, string | undefined> =>
@@ -29,6 +34,11 @@ const GatewayEnvironment = z.object({
     .min(MIN_TOKEN_LENGTH)
     .max(MAX_TOKEN_LENGTH)
     .regex(/^[A-Za-z0-9_-]+$/),
+  DB_HOST: z.string().min(1).default('postgres'),
+  DB_PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_DB_PORT),
+  // infra/postgres/init creates every role and schema in the `postgres` database.
+  DB_NAME: z.string().min(1).default('postgres'),
+  GATEWAY_DB_PASSWORD: z.string().min(1).max(MAX_PASSWORD_LENGTH),
   SESSIONS_URL: serviceUrl('sessions'),
   REPORTS_URL: serviceUrl('reports'),
   GOALS_URL: serviceUrl('goals'),
@@ -49,6 +59,8 @@ export interface GatewayConfig {
   /** `LOG_FORMAT`: one readable line per entry, or JSON for filtering and `pino-pretty`. */
   readonly logFormat: LogFormat;
   readonly agentToken: string;
+  /** The gateway's own role and schema: `gateway.settings` is all it stores. */
+  readonly db: DatabaseConfig;
   readonly serviceUrls: Readonly<Record<ServiceName, URL>>;
 }
 
@@ -72,6 +84,14 @@ export function loadConfig(env: Environment): GatewayConfig {
     development: data.NODE_ENV === 'development',
     logFormat: data.LOG_FORMAT ?? (data.NODE_ENV === 'development' ? 'pretty' : 'json'),
     agentToken: data.AGENT_TOKEN,
+    db: {
+      host: data.DB_HOST,
+      port: data.DB_PORT,
+      database: data.DB_NAME,
+      user: DB_ROLE,
+      schema: DB_ROLE,
+      password: data.GATEWAY_DB_PASSWORD,
+    },
     serviceUrls: {
       sessions: data.SESSIONS_URL,
       reports: data.REPORTS_URL,
