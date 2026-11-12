@@ -348,8 +348,8 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 
 - **T42 · systemd user service:** install and uninstall, and a check that the Window Calls extension is installed
   - **Done when:** [ ] The agent starts after login and comes back after `kill -9`
-- **T57 · Five-page shell (first; T43, T56, T58 and T59 depend on it):** the web moves from seven pages to five (SPEC §6): Overview, Computer, Processes, Focus mode, Settings. A styled navigation per DESIGN.md nav tabs, the new routes with tab state in the URL, redirects from the old paths, and header language and theme pickers that save to the settings. Moves every existing page into its new folder without rewriting it (`today` → `pages/overview/`, `battery` and `system` → `pages/computer/`, `apps` and `focus/alert-policy.tsx` → `pages/settings/`), merges their i18n namespaces into the new pages' namespaces, and deletes the old folders and route files. Owns: `apps/web/src/app/`, `apps/web/src/router/`, `apps/web/src/pages/*/route.tsx`, the moves above and their i18n files
-- **T43 · Overview page:** the Today page gains a day/week switch. Week: columns by day and category, comparison with the previous week, and the weekly summary. Owns: `apps/web/src/pages/overview/`
+- **T57 · Five-page shell (first; T43, T56, T58 and T59 depend on it):** the web moves from seven pages to five (SPEC §6): Overview, Computer, Processes, Focus mode, Settings. A styled navigation per DESIGN.md nav tabs, the new routes with tab state in the URL, redirects from the old paths, and header language and theme pickers that save to the settings. Moves every existing page into its new folder without rewriting it (`today` → `pages/overview/`, `battery` and `system` → `pages/computer/`, `focus/alert-policy.tsx` → `pages/settings/`; the `apps` page is deleted, see T59), merges their i18n namespaces into the new pages' namespaces, and deletes the old folders and route files. Owns: `apps/web/src/app/`, `apps/web/src/router/`, `apps/web/src/pages/*/route.tsx`, the moves above and their i18n files
+- **T43 · Overview page:** the Today page gains a day/week switch. Week: columns by day and category, comparison with the previous week, and the weekly summary. Clicking an app in the top apps changes its category (a small menu, `PUT /v1/apps`). Owns: `apps/web/src/pages/overview/`
 - **T58 · Computer page:** Battery (from T38) and System (from T39) become tabs under one summary line written in plain language. The Load tab is redesigned so a non-technical user understands it at a glance: slowdown count and stuck time, an incident timeline in plain words ("memory full", "processor busy") with the active app, recurring culprits by app name, and the pressure chart as a secondary "Details" view. Design brief: issue #189. Owns: `apps/web/src/pages/computer/`
 - **T44 · GNOME "Do Not Disturb":** optional per profile, with the same save-and-restore mechanism. Owns: `apps/agent/src/actuators/dnd/`
 - **T45 · Automatic focus triggers:** a schedule, and an app in focus for more than N min. Owns: `services/focus/src/triggers/`
@@ -360,7 +360,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **T50 · Tray icon:** StatusNotifierItem. Owns: `apps/agent/src/tray/`
 - **T51 · CLI:** Owns: `apps/agent/src/cli/`
 - **T56 · Processes page (Task Manager):** the Processes page (`/processes`, its own page, not a Computer tab) with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136. Owns: `apps/web/src/pages/processes/`. Blocked by T57
-- **T59 · Settings absorbs Apps and alert levels:** the Apps page (from T36: apps and category rules) and the alert level policy (from T40) move into Settings sections. Owns: `apps/web/src/pages/settings/`
+- **T59 · Settings absorbs alert levels; the Apps page goes:** the alert level policy (from T40) moves into a Settings section. The Apps page (from T36) is removed from the UI with its i18n and tests; categories come from the built-in rules, and the only manual change is the click in Overview (T43). Owns: `apps/web/src/pages/settings/`
 
 **Gate G4:**
 - [ ] Every feature in the coverage matrix is checked off
@@ -393,7 +393,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 | Active window tracking | T20, T13, T27 |
 | Idle and screen lock | T21, T13 |
 | Categories and rules | T13, T36 |
-| Overview (day and week) and apps and rules | T35, T43, T36, T57, T59 |
+| Overview (day and week) and automatic categories | T35, T43, T13, T57, T59 |
 | Continuous focus (streaks) | T14, T35 |
 | Weekly summary | T14, T43, T33 |
 | Battery health, cycles and discharge rate | T22, T16, T29, T38 |
