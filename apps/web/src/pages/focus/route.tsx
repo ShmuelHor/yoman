@@ -33,6 +33,6 @@ const route = createRoute({
 export const page: PageRoute = {
   path: 'focus',
   namespace: 'focus',
-  order: 40,
+  order: 60,
   route,
 };
