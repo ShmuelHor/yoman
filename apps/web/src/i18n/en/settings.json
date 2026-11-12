@@ -1,0 +1,40 @@
+{
+  "title": "Settings",
+  "error": "Settings could not be loaded.",
+  "save": "Save settings",
+  "listHint": "One app ID per line, or separated by commas.",
+  "sections": {
+    "appearance": "Appearance",
+    "privacy": "Privacy",
+    "thresholds": "Pressure thresholds",
+    "systemApps": "System apps",
+    "quietHours": "Quiet hours"
+  },
+  "language": { "label": "Language", "he": "Hebrew", "en": "English" },
+  "theme": {
+    "label": "Color theme",
+    "system": "Follow the system",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "privacy": {
+    "storeTitles": "Store window titles",
+    "excludedApps": "Apps that are never tracked"
+  },
+  "thresholds": {
+    "memory": "Memory pressure (%)",
+    "cpu": "CPU pressure (%)",
+    "io": "Disk pressure (%)"
+  },
+  "systemApps": {
+    "label": "Apps that are never muted",
+    "hint": "These are added to the built-in list of system apps."
+  },
+  "quietHours": { "enabled": "Quiet hours", "start": "From", "end": "Until" },
+  "errors": {
+    "appList": "Use app IDs made of letters, digits, dots, dashes and underscores.",
+    "percent": "Enter a number from 0 to 100.",
+    "time": "Enter a time of day."
+  },
+  "toast": { "saved": "Settings saved" }
+}

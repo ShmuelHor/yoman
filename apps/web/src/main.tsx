@@ -39,6 +39,7 @@ async function main(): Promise<void> {
         i18n={i18n}
         queryClient={queryClient}
         notifier={notifier}
+        client={client}
         router={createAppRouter({ pages: pageRoutes, queryClient, client })}
       />
     </StrictMode>,
