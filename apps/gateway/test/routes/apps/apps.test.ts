@@ -1,10 +1,10 @@
 import { appFixture } from '@yoman/shared/fixtures/data';
 import { responseFixtures } from '@yoman/shared/fixtures/responses';
 import { afterEach, describe, expect, it } from 'vitest';
-
 import { NotFoundError, ServiceUnavailableError } from '../../../src/core/errors.js';
 import { appHandlers } from '../../../src/routes/apps/apps.js';
 import { STATUS, silentLogger } from '../../harness.js';
+import { memorySettings } from '../../memory-settings.js';
 import { type CallKey, fakeServices, type RouteHarness, routeHarness } from '../route-harness.js';
 
 const update = { name: 'Code', category: 'work' };
@@ -79,6 +79,7 @@ describe('app routes', () => {
         body: update,
         principal: { kind: 'session', id: 'test-session' },
         services: services.client,
+        settings: memorySettings(),
         log: silentLogger,
       });
 

@@ -3,6 +3,7 @@ import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { buildGateway, type GatewayOptions } from '../src/core/app.js';
 import type { ServiceClient } from '../src/core/service-client.js';
 import { AGENT_TOKEN, GATEWAY_HOST, silentLogger, WEB_ORIGIN } from './harness.js';
+import { memorySettings } from './memory-settings.js';
 
 export const noServices: ServiceClient = {
   call: () => Promise.reject(new Error('this test calls no service')),
@@ -13,6 +14,7 @@ export function testGateway(options: Partial<GatewayOptions> = {}): Promise<Fast
     logger: silentLogger,
     agentToken: AGENT_TOKEN,
     services: noServices,
+    settings: memorySettings(),
     ...options,
   });
 }

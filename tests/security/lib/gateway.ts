@@ -39,6 +39,10 @@ export function securityGateway(options: Partial<GatewayOptions> = {}): Promise<
     logger: pino({ level: 'silent' }),
     agentToken: AGENT_TOKEN,
     services: { call: () => Promise.reject(new Error('no services in the security suite')) },
+    settings: {
+      read: () => Promise.reject(new Error('no database in the security suite')),
+      write: () => Promise.reject(new Error('no database in the security suite')),
+    },
     ...options,
   });
 }

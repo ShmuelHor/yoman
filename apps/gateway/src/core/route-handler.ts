@@ -4,6 +4,7 @@ import type { z } from 'zod';
 
 import type { Principal } from './authenticate.js';
 import type { ServiceClient } from './service-client.js';
+import type { SettingsStore } from './settings-store.js';
 
 export interface HandlerContext<Params, Query, Body> {
   /** Already validated against the route's contract. */
@@ -12,6 +13,7 @@ export interface HandlerContext<Params, Query, Body> {
   readonly body: Body;
   readonly principal: Principal;
   readonly services: ServiceClient;
+  readonly settings: SettingsStore;
   readonly log: FastifyBaseLogger;
 }
 
