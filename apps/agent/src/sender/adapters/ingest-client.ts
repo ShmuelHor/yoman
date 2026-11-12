@@ -52,11 +52,11 @@ export interface IngestClient {
   post(batch: IngestBatch, requestId?: string): Promise<IngestHttpReply>;
 }
 
-function isTimeout(error: unknown): boolean {
+export function isTimeout(error: unknown): boolean {
   return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }
 
-async function readJson(response: Response): Promise<unknown> {
+export async function readJson(response: Response): Promise<unknown> {
   const declared = Number(response.headers.get('content-length') ?? '0');
   if (declared > MAX_REPLY_BYTES) {
     throw new IngestRequestError('REPLY_TOO_LARGE');
