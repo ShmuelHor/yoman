@@ -67,7 +67,7 @@ branch t13-…  →  commits  →  push  →  PR (draft)  →  CI green  →  Re
 | 1 · Contracts and infrastructure | [x] T08 [x] T09 [x] T10 [x] T11 [x] T12 | G1 |
 | 2 · Independent units | [x] T13 [x] T14 [x] T15 [x] T16 [x] T17 [x] T18 [x] T19 [x] T20 [x] T21 [x] T22 [x] T23 [x] T24 [x] T25 [x] T26 | G2 |
 | 3 · Integration | [x] T27 [x] T28 [x] T29 [x] T30 [x] T31 [x] T32 [x] T33 [x] T34 [x] T35 [x] T36 [x] T37 [x] T38 [x] T39 [x] T40 [x] T41 | G3 |
-| 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 [ ] T56 | G4 |
+| 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 [ ] T56 [ ] T57 [ ] T58 [ ] T59 | G4 |
 | 5 · Release | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
 
 ---
@@ -344,11 +344,13 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 
 ---
 
-## Wave 4 · Completion (up to 5 in parallel out of 10)
+## Wave 4 · Completion (up to 5 in parallel out of 14)
 
 - **T42 · systemd user service:** install and uninstall, and a check that the Window Calls extension is installed
   - **Done when:** [ ] The agent starts after login and comes back after `kill -9`
-- **T43 · "Week" page:** columns by day and category, comparison with the previous week, and the weekly summary
+- **T57 · Four-page shell (first; T43, T58 and T59 depend on it):** the web moves from seven pages to four (SPEC §6): Overview, Computer, Focus mode, Settings. A styled navigation per DESIGN.md nav tabs, the new routes with tab state in the URL, redirects from the old paths, and header language and theme pickers that save to the settings. Existing page components move without being rewritten. Owns: `apps/web/src/app/`, `apps/web/src/router/`, the page route files
+- **T43 · Overview page:** the Today page gains a day/week switch. Week: columns by day and category, comparison with the previous week, and the weekly summary. Goals (from T37) become progress cards on this page, with create and edit from here. Owns: `apps/web/src/pages/overview/`
+- **T58 · Computer page:** Battery (from T38) and System (from T39) become tabs under one summary line written in plain language. The Load tab is redesigned so a non-technical user understands it at a glance: slowdown count and stuck time, an incident timeline in plain words ("memory full", "processor busy") with the active app, recurring culprits by app name, and the pressure chart as a secondary "Details" view. Design brief: issue #189. Owns: `apps/web/src/pages/computer/`
 - **T44 · GNOME "Do Not Disturb":** optional per profile, with the same save-and-restore mechanism. Owns: `apps/agent/src/actuators/dnd/`
 - **T45 · Automatic focus triggers:** a schedule, and an app in focus for more than N min. Owns: `services/focus/src/triggers/`
 - **T46 · Pomodoro:** Owns: `services/focus/src/pomodoro/` and a component in `apps/web/src/pages/focus/pomodoro/`
@@ -357,7 +359,8 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **T49 · Cleaning up old data:** a `src/jobs/retention.ts` file in every service, including a log of what was deleted
 - **T50 · Tray icon:** StatusNotifierItem. Owns: `apps/agent/src/tray/`
 - **T51 · CLI:** Owns: `apps/agent/src/cli/`
-- **T56 · Processes page (Task Manager):** a new Processes page with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136
+- **T56 · Processes tab (Task Manager):** the Processes tab of the Computer page (after T58) with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136
+- **T59 · Settings absorbs Apps and alert levels:** the Apps page (from T36: apps and category rules) and the alert level policy (from T40) move into Settings sections. Owns: `apps/web/src/pages/settings/`
 
 **Gate G4:**
 - [ ] Every feature in the coverage matrix is checked off
@@ -390,14 +393,14 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 | Active window tracking | T20, T13, T27 |
 | Idle and screen lock | T21, T13 |
 | Categories and rules | T13, T36 |
-| "Today", "Week" and "Apps" pages | T35, T43, T36 |
+| Overview (day and week) and apps and rules | T35, T43, T36, T57, T59 |
 | Continuous focus (streaks) | T14, T35 |
 | Weekly summary | T14, T43, T33 |
-| Goals and breach alerts | T15, T28, T37 |
+| Goals and breach alerts | T15, T28, T37, T43 |
 | Battery health, cycles and discharge rate | T22, T16, T29, T38 |
 | "What is draining my battery" | T16, T29, T38 |
 | Battery alerts (15%, 8%, 100% for a long time) | T16, T27, T33 |
-| PSI load and choke incidents | T23, T17, T29, T39 |
+| PSI load and choke incidents | T23, T17, T29, T39, T58 |
 | Who is heaviest (including containers) | T23, T24, T17 |
 | Temperature and throttling | T24, T17 |
 | Memory leaks | T17 |
