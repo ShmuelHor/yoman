@@ -1,7 +1,6 @@
 import type { Alert } from '../alerts.js';
 import type { BatteryNow } from '../battery.js';
 import type { FocusState, Profile } from '../focus.js';
-import type { Goal } from '../goals.js';
 import type { WindowSample } from '../ingest.js';
 import type { DayReport } from '../reports.js';
 import type { App, Rule, Session } from '../sessions.js';
@@ -11,15 +10,10 @@ import type { Incident } from '../system.js';
 /** Realistic, contract-valid sample data for tests, MSW and the web's demo mode. */
 export const FIXTURE_IDS = {
   rule: '6f1c2a9e-1b3d-4c5e-8f70-9a1b2c3d4e5f',
-  goal: '7a2d3b0f-2c4e-4d6f-9081-ab2c3d4e5f60',
   profile: '8b3e4c1a-3d5f-4e70-a192-bc3d4e5f6071',
   incident: '9c4f5d2b-4e60-4f81-b2a3-cd4e5f607182',
   session: 'ad506e3c-5f71-4092-83b4-de5f60718293',
 } as const;
-
-/** The Israeli working week, Sunday (0) to Thursday (4). */
-const THURSDAY = 4;
-const SUNDAY_TO_THURSDAY = Array.from({ length: THURSDAY + 1 }, (_, day) => day);
 
 export const FIXTURE_DATE = '2026-11-08';
 export const FIXTURE_NOW = '2026-11-08T10:00:00.000Z';
@@ -38,14 +32,6 @@ export const ruleFixture: Rule = {
   pattern: 'code',
   category: 'work',
   priority: 10,
-};
-
-export const goalFixture: Goal = {
-  id: FIXTURE_IDS.goal,
-  type: 'max',
-  target: { kind: 'category', category: 'social' },
-  minutes: 30,
-  days: SUNDAY_TO_THURSDAY,
 };
 
 export const profileFixture: Profile = {

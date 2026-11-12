@@ -41,7 +41,6 @@ const GatewayEnvironment = z.object({
   GATEWAY_DB_PASSWORD: z.string().min(1).max(MAX_PASSWORD_LENGTH),
   SESSIONS_URL: serviceUrl('sessions'),
   REPORTS_URL: serviceUrl('reports'),
-  GOALS_URL: serviceUrl('goals'),
   BATTERY_URL: serviceUrl('battery'),
   SYSTEM_URL: serviceUrl('system'),
   FOCUS_URL: serviceUrl('focus'),
@@ -95,7 +94,6 @@ export function loadConfig(env: Environment): GatewayConfig {
     serviceUrls: {
       sessions: data.SESSIONS_URL,
       reports: data.REPORTS_URL,
-      goals: data.GOALS_URL,
       battery: data.BATTERY_URL,
       system: data.SYSTEM_URL,
       focus: data.FOCUS_URL,

@@ -25,16 +25,16 @@ const routes = {
     body: z.strictObject({ name: z.string().max(10) }),
     response: z.strictObject({ id: z.string() }),
   },
-  createGoal: {
+  createItem: {
     method: 'POST',
-    path: '/v1/goals',
+    path: '/v1/items',
     status: CREATED,
     body: z.strictObject({ minutes: z.number() }),
     response: z.strictObject({ id: z.number() }),
   },
-  deleteGoal: {
+  deleteItem: {
     method: 'DELETE',
-    path: '/v1/goals/:id',
+    path: '/v1/items/:id',
     status: NO_CONTENT,
     params: z.strictObject({ id: z.string() }),
     response: null,
@@ -107,13 +107,13 @@ describe('createApiClient', () => {
   it('accepts the route-specific success status', async () => {
     const api = createApiClient({ routes, baseUrl: BASE, fetch: fakeFetch(CREATED, { id: 7 }) });
 
-    await expect(api.request('createGoal', { body: { minutes: 30 } })).resolves.toEqual({ id: 7 });
+    await expect(api.request('createItem', { body: { minutes: 30 } })).resolves.toEqual({ id: 7 });
   });
 
   it('resolves to undefined for 204 No Content', async () => {
     const api = createApiClient({ routes, baseUrl: BASE, fetch: fakeFetch(NO_CONTENT) });
 
-    await expect(api.request('deleteGoal', { params: { id: '1' } })).resolves.toBeUndefined();
+    await expect(api.request('deleteItem', { params: { id: '1' } })).resolves.toBeUndefined();
   });
 
   it('passes the abort signal to fetch', async () => {

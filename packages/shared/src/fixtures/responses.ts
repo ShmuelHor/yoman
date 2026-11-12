@@ -8,7 +8,6 @@ import {
   FIXTURE_DATE,
   FIXTURE_NOW,
   focusActiveFixture,
-  goalFixture,
   incidentFixture,
   profileFixture,
   ruleFixture,
@@ -58,14 +57,6 @@ export const responseFixtures: ResponseFixtures = {
   createRule: ruleFixture,
   updateRule: ruleFixture,
   deleteRule: null,
-  listGoals: { items: [goalFixture] },
-  createGoal: goalFixture,
-  updateGoal: goalFixture,
-  deleteGoal: null,
-  goalProgress: {
-    date: FIXTURE_DATE,
-    items: [{ goalId: goalFixture.id, minutesUsed: 45, targetMinutes: 30, status: 'breached' }],
-  },
   batteryNow: batteryNowFixture,
   batteryHealthTrend: {
     items: [
@@ -114,7 +105,6 @@ export const responseFixtures: ResponseFixtures = {
     items: [
       { type: 'battery-critical', level: 'critical' },
       { type: 'battery-low', level: 'important' },
-      { type: 'goal-breach', level: 'normal' },
     ],
   },
   updateAlertPolicy: { items: [{ type: 'battery-low', level: 'critical' }] },
@@ -125,7 +115,6 @@ export const responseFixtures: ResponseFixtures = {
     settings: settingsFixture,
     apps: { items: [appFixture] },
     rules: { items: [ruleFixture] },
-    goals: { items: [goalFixture] },
     sessions: [sessionFixture],
   },
   getSettings: settingsFixture,

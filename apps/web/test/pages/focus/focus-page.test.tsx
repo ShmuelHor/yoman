@@ -210,13 +210,13 @@ describe('Focus page', { timeout: SLOW_TIMEOUT_MS }, () => {
     const { client, request } = clientAnswering({ getAlertPolicy: { items: [] } });
     const notifier = renderPage(client);
 
-    await userEvent.selectOptions(await screen.findByLabelText('Goal alert'), 'Critical');
+    await userEvent.selectOptions(await screen.findByLabelText('The CPU is hot'), 'Critical');
     const save = screen.getAllByRole('button', { name: 'Save' }).at(-1) as HTMLElement;
     await userEvent.click(save);
 
     await waitFor(() =>
       expect(request).toHaveBeenCalledWith('updateAlertPolicy', {
-        body: { items: [{ type: 'goal-breach', level: 'critical' }] },
+        body: { items: [{ type: 'thermal', level: 'critical' }] },
       }),
     );
     await waitFor(() => expect(notifier.success).toHaveBeenCalledWith('focus:toast.policySaved'));

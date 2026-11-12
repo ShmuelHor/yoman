@@ -32,7 +32,7 @@ function toClosedSession(span: StoredSpan): ClosedSession {
 /**
  * The sessions a retried batch closed the first time. Its samples are all
  * `late`, so nothing new closes, yet the gateway still has to hand those
- * sessions to reports and goals if the first attempt failed after this
+ * sessions to reports if the first attempt failed after this
  * service committed. Reports counts a session id once, so over-returning is
  * harmless; under-returning would lose time.
  *

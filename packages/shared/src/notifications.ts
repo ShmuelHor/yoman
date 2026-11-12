@@ -49,11 +49,6 @@ export const notificationMessages = {
     body: 'notifications.memoryLeak.body',
     params: ['comm', 'mbPerHour'],
   },
-  'goal-breach': {
-    title: 'notifications.goalBreach.title',
-    body: 'notifications.goalBreach.body',
-    params: ['target', 'minutesUsed', 'targetMinutes'],
-  },
 } as const satisfies Record<AlertType, NotificationMessage>;
 
 /** Every notification i18n key, for checking that a translation file is complete. */

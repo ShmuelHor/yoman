@@ -13,15 +13,7 @@ interface SecretSpec {
 }
 
 /** Services that each get their own Postgres role, and so their own password (SPEC, SECURITY). */
-const SERVICE_ROLES = [
-  'sessions',
-  'reports',
-  'goals',
-  'battery',
-  'system',
-  'focus',
-  'gateway',
-] as const;
+const SERVICE_ROLES = ['sessions', 'reports', 'battery', 'system', 'focus', 'gateway'] as const;
 
 /**
  * Every secret `.env` must hold, in the order they are written.

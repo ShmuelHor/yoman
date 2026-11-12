@@ -6,7 +6,7 @@
 # format(%I / %L); nothing is spliced into SQL by the shell.
 set -eu
 
-SERVICES="sessions reports goals battery system focus gateway"
+SERVICES="sessions reports battery system focus gateway"
 PLACEHOLDER_PREFIX="change-me"
 
 fail() {

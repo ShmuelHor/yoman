@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const run = promisify(execFile);
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const SERVICES = ['sessions', 'reports', 'goals', 'battery', 'system', 'focus', 'gateway'] as const;
+const SERVICES = ['sessions', 'reports', 'battery', 'system', 'focus', 'gateway'] as const;
 const STARTUP_TIMEOUT_MS = 180_000;
 const QUERY_TIMEOUT_MS = 30_000;
 /** Random bytes in the project name and each password; hex doubles the length. */

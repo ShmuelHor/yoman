@@ -5,7 +5,6 @@ include:
   - apps/web/compose.yml
   - services/sessions/compose.yml
   - services/reports/compose.yml
-  - services/goals/compose.yml
   - services/battery/compose.yml
   - services/system/compose.yml
   - services/focus/compose.yml
@@ -47,7 +46,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run npm run setup}
       SESSIONS_DB_PASSWORD: ${SESSIONS_DB_PASSWORD:?run npm run setup}
       REPORTS_DB_PASSWORD: ${REPORTS_DB_PASSWORD:?run npm run setup}
-      GOALS_DB_PASSWORD: ${GOALS_DB_PASSWORD:?run npm run setup}
       BATTERY_DB_PASSWORD: ${BATTERY_DB_PASSWORD:?run npm run setup}
       SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:?run npm run setup}
       FOCUS_DB_PASSWORD: ${FOCUS_DB_PASSWORD:?run npm run setup}

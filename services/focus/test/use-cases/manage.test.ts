@@ -61,15 +61,15 @@ describe('alert policy', () => {
 
     const policy = await replaceAlertPolicy(store, {
       items: [
-        { type: 'goal-breach', level: 'normal' },
         { type: 'thermal', level: 'critical' },
+        { type: 'battery-critical', level: 'normal' },
       ],
     });
 
     expect(policy).toEqual({
       items: [
+        { type: 'battery-critical', level: 'normal' },
         { type: 'thermal', level: 'critical' },
-        { type: 'goal-breach', level: 'normal' },
       ],
     });
     expect(await readAlertPolicy(store)).toEqual(policy);

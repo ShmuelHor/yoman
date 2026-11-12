@@ -11,7 +11,6 @@ import {
   Profile,
   ProfileList,
 } from '@yoman/shared/focus';
-import { Goal, GoalList, GoalProgress } from '@yoman/shared/goals';
 import { DayReport, WeeklySummary, WeekReport } from '@yoman/shared/reports';
 import { App, AppList, Rule, RuleList } from '@yoman/shared/sessions';
 import { CulpritList, IncidentList, SystemTimeline } from '@yoman/shared/system';
@@ -21,8 +20,6 @@ import { SampleResult as BatterySampleResult } from '../../services/battery/src/
 import { createBatteryService } from '../../services/battery/src/service.js';
 import { FocusTransition, RouteResult, Schedule } from '../../services/focus/src/contracts.js';
 import { createFocusService } from '../../services/focus/src/service.js';
-import { EvaluateResult } from '../../services/goals/src/contracts.js';
-import { createGoalsService } from '../../services/goals/src/service.js';
 import { SessionBatchResult, TopAppList } from '../../services/reports/src/contracts.js';
 import { createReportsService } from '../../services/reports/src/service.js';
 import { SampleResult, SessionList } from '../../services/sessions/src/contracts.js';
@@ -388,143 +385,6 @@ describe('ST12 SQL injection', () => {
       expect(week.days[0]?.longestFocusStreakSeconds).toBe(streakMs / MS_PER_SECOND);
       expect(TopAppList.parse(top.json).items).toEqual([
         { appId: 'code', seconds: countedSeconds },
-      ]);
-      expect(logs.output()).not.toContain('DatabaseError');
-      expect(logs.output()).not.toContain('Request failed');
-    });
-  });
-  // `describe(name, { skip })` rather than `describe.skipIf`, so Biome scopes the hooks per suite.
-  describe('goals-service', { skip: !available }, () => {
-    const SUNDAY = '2026-11-08';
-    const MONDAY = '2026-11-09';
-    const TARGET_MINUTES = 30;
-    const SECONDS_PER_MINUTE = 60;
-    const OVER_TARGET_MINUTES = 45;
-    const OVER_TARGET_SECONDS = OVER_TARGET_MINUTES * SECONDS_PER_MINUTE;
-    const goal = {
-      type: 'max',
-      target: { kind: 'category', category: 'social' },
-      minutes: TARGET_MINUTES,
-      days: [0],
-    };
-    const totals = {
-      date: SUNDAY,
-      apps: [{ appId: 'org.telegram.desktop', seconds: OVER_TARGET_SECONDS }],
-      categories: [{ category: 'social', seconds: OVER_TARGET_SECONDS }],
-    };
-    let postgres: DisposablePostgres | undefined;
-    let service: ReturnType<typeof createGoalsService> | undefined;
-    const logs = captureLogs();
-
-    beforeAll(async () => {
-      postgres = await startPostgres();
-      service = createGoalsService({
-        env: {
-          HOST: '127.0.0.1',
-          PORT: String(await freePort()),
-          DB_HOST: postgres.host,
-          DB_PORT: String(postgres.port),
-          GOALS_DB_PASSWORD: postgres.passwords.goals,
-          LOG_LEVEL: 'info',
-        },
-        logStream: logs.stream,
-        handleSignals: false,
-      });
-      // The real migrations, run as the service's own least-privilege role.
-      await service.start();
-    }, STARTUP_TIMEOUT_MS);
-
-    afterAll(async () => {
-      try {
-        await service?.stop();
-      } finally {
-        await postgres?.stop();
-      }
-    }, STARTUP_TIMEOUT_MS);
-
-    /** Every answer, accepted or rejected, is below 500 and carries no DB detail. */
-    async function send(
-      method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-      url: string,
-      payload?: object,
-    ): Promise<{ status: number; json: unknown }> {
-      if (service === undefined) {
-        throw new Error('The service did not start');
-      }
-      const response = await service.app.inject({
-        method,
-        url,
-        ...(payload === undefined ? {} : { payload }),
-      });
-      expect(response.statusCode, `${method} ${url}`).toBeLessThan(HTTP_INTERNAL);
-      expect(response.body).not.toMatch(LEAK);
-      const json: unknown = response.body === '' ? undefined : JSON.parse(response.body);
-      return { status: response.statusCode, json };
-    }
-
-    it('rejects injection in every goal field and id', {
-      timeout: REQUEST_TIMEOUT_MS,
-    }, async () => {
-      for (const payload of PAYLOADS) {
-        const bad = [
-          { ...goal, type: payload },
-          { ...goal, target: { kind: payload, category: 'social' } },
-          { ...goal, target: { kind: 'app', appId: payload } },
-          { ...goal, target: { kind: 'category', category: payload } },
-          { ...goal, minutes: payload },
-          { ...goal, days: payload },
-          { ...goal, days: [payload] },
-        ];
-        for (const body of bad) {
-          expect((await send('POST', '/goals', body)).status).toBe(HTTP_BAD_REQUEST);
-        }
-        const badId = `/goals/${encodeURIComponent(payload)}`;
-        expect((await send('PUT', badId, goal)).status).toBe(HTTP_BAD_REQUEST);
-        expect((await send('DELETE', badId)).status).toBe(HTTP_BAD_REQUEST);
-      }
-    });
-
-    it('rejects injection in every totals field and in the progress date', {
-      timeout: REQUEST_TIMEOUT_MS,
-    }, async () => {
-      for (const payload of PAYLOADS) {
-        const bad = [
-          { ...totals, date: payload },
-          { ...totals, apps: [{ appId: payload, seconds: 1 }] },
-          { ...totals, apps: [{ appId: 'code', seconds: payload }] },
-          { ...totals, categories: [{ category: payload, seconds: 1 }] },
-          { ...totals, categories: [{ category: 'social', seconds: payload }] },
-        ];
-        for (const body of bad) {
-          expect((await send('POST', '/evaluate', body)).status).toBe(HTTP_BAD_REQUEST);
-        }
-        const url = `/progress?date=${encodeURIComponent(payload)}`;
-        expect((await send('GET', url)).status).toBe(HTTP_BAD_REQUEST);
-      }
-    });
-
-    it('still stores, evaluates and reports goals, and logs no database error', {
-      timeout: REQUEST_TIMEOUT_MS,
-    }, async () => {
-      const created = Goal.parse((await send('POST', '/goals', goal)).json);
-      const first = EvaluateResult.parse((await send('POST', '/evaluate', totals)).json);
-      const again = EvaluateResult.parse((await send('POST', '/evaluate', totals)).json);
-      const nextDay = { date: MONDAY, apps: [], categories: [] };
-      EvaluateResult.parse((await send('POST', '/evaluate', nextDay)).json);
-      const progress = GoalProgress.parse((await send('GET', `/progress?date=${SUNDAY}`)).json);
-
-      expect(GoalList.parse((await send('GET', '/goals')).json).items).toEqual([created]);
-      expect(first.breaches.map((alert) => alert.alertKey)).toEqual([
-        `goal-breach:${created.id}:${SUNDAY}`,
-      ]);
-      expect(again.breaches).toEqual([]);
-      expect(progress.items).toEqual([
-        {
-          goalId: created.id,
-          minutesUsed: OVER_TARGET_MINUTES,
-          targetMinutes: TARGET_MINUTES,
-          status: 'breached',
-        },
       ]);
       expect(logs.output()).not.toContain('DatabaseError');
       expect(logs.output()).not.toContain('Request failed');

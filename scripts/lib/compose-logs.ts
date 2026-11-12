@@ -5,7 +5,6 @@ export const LOG_SERVICES = [
   'gateway',
   'sessions',
   'reports',
-  'goals',
   'battery',
   'system',
   'focus',

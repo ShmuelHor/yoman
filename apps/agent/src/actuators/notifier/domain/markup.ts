@@ -13,7 +13,7 @@ const MARKUP_ENTITIES: Readonly<Record<string, string>> = {
   "'": '&#39;',
 };
 
-/** A value from outside (a process or goal name) with every control character removed. */
+/** A value from outside (a process name) with every control character removed. */
 export function plainText(value: string): string {
   return value.replace(UNSAFE_CHARACTERS, '');
 }

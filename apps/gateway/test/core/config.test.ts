@@ -19,7 +19,6 @@ describe('loadConfig', () => {
     expect(Object.keys(config.serviceUrls)).toEqual([
       'sessions',
       'reports',
-      'goals',
       'battery',
       'system',
       'focus',

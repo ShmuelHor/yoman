@@ -8,7 +8,7 @@ import type { z } from 'zod';
 
 import { Button } from '../../components/button.js';
 import { FocusBanner } from '../../components/focus-banner.js';
-import { SelectField, TextField } from '../goals/form-controls.js';
+import { SelectField, TextField } from './form-controls.js';
 import { NEW_START_FORM, StartForm, type StartFormInput } from './start-form.js';
 import { minutesLeft } from './time-left.js';
 

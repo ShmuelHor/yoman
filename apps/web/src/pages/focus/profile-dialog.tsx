@@ -11,8 +11,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '../../components/button.js';
 import { Switch } from '../../components/switch.js';
-import { TextField } from '../goals/form-controls.js';
 import { AppChecklist } from './app-checklist.js';
+import { TextField } from './form-controls.js';
 import {
   appLabel,
   NEW_PROFILE_FORM,

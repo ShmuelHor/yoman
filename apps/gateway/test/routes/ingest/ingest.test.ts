@@ -1,6 +1,5 @@
 import {
   alertFixture,
-  dayReportFixture,
   focusActiveFixture,
   profileFixture,
   sessionFixture,
@@ -26,7 +25,6 @@ import { type CallKey, fakeServices, type RecordedCall, routeHarness } from '../
 import { batterySample, pressureSample, windowSample } from './samples.js';
 
 const THRESHOLDS = { memory: 11, cpu: 41, io: 31 };
-const goalAlert = { ...alertFixture, alertKey: 'goal:1', type: 'goal-breach' as const };
 const closed = { session: sessionFixture, category: 'work' };
 
 const FULL_BATCH: IngestBatch = {
@@ -39,8 +37,6 @@ const ALL_UP: Partial<Record<CallKey, unknown>> = {
   'battery POST /samples': { accepted: 1, duplicates: 0, alerts: [alertFixture] },
   'system POST /samples': { accepted: 1, late: 0, alerts: [] },
   'reports POST /sessions': { counted: 1, duplicates: 0 },
-  'reports GET /today': dayReportFixture,
-  'goals POST /evaluate': { breaches: [goalAlert] },
   'focus POST /route': {
     deliver: [alertFixture],
     queued: 1,
@@ -133,37 +129,28 @@ describe('POST /v1/ingest', () => {
     });
   });
 
-  it('forwards closed sessions to reports and evaluates goals on the day totals', async () => {
+  it('forwards closed sessions to reports', async () => {
     const { calls } = await ingest(ALL_UP);
 
     expect(calls).toContainEqual({ key: 'reports POST /sessions', body: { sessions: [closed] } });
-    expect(calls).toContainEqual({
-      key: 'goals POST /evaluate',
-      body: {
-        date: dayReportFixture.date,
-        apps: dayReportFixture.topApps,
-        categories: dayReportFixture.byCategory,
-      },
-    });
   });
 
-  it('routes the battery, system and goal alerts through focus together', async () => {
+  it('routes the battery and system alerts through focus together', async () => {
     const { calls } = await ingest(ALL_UP);
 
     expect(calls).toContainEqual({
       key: 'focus POST /route',
-      body: { alerts: [alertFixture, goalAlert] },
+      body: { alerts: [alertFixture] },
     });
   });
 
-  it('skips reports and goals when no session closed', async () => {
+  it('skips reports when no session closed', async () => {
     const { calls } = await ingest({
       ...ALL_UP,
       'sessions POST /samples': { accepted: 1, late: 0, closed: [] },
     });
 
     expect(calls.map((call) => call.key)).not.toContain('reports POST /sessions');
-    expect(calls.map((call) => call.key)).not.toContain('goals POST /evaluate');
   });
 
   it('does not call a service that has no samples in the batch', async () => {
@@ -190,21 +177,17 @@ describe('POST /v1/ingest', () => {
     expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
   });
 
-  it.each(['reports POST /sessions', 'reports GET /today', 'goals POST /evaluate'] as const)(
-    'fails the batch when %s fails, so the agent resends',
-    async (key) => {
-      const service = key.startsWith('reports') ? 'reports' : 'goals';
-      const { response, calls } = await ingest({
-        ...ALL_UP,
-        [key]: new ServiceUnavailableError(service, 'unreachable'),
-      });
+  it('fails the batch when reports is down, so the agent resends', async () => {
+    const { response, calls } = await ingest({
+      ...ALL_UP,
+      'reports POST /sessions': new ServiceUnavailableError('reports', 'unreachable'),
+    });
 
-      expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
-      expect(calls.map((call) => call.key)).not.toContain('focus POST /route');
-    },
-  );
+    expect(response.statusCode).toBe(STATUS.UNAVAILABLE);
+    expect(calls.map((call) => call.key)).not.toContain('focus POST /route');
+  });
 
-  it('hands reports and goals the closed session once, when a battery failure forces a resend', async () => {
+  it('hands reports the closed session once, when a battery failure forces a resend', async () => {
     const services = fakeServices(ALL_UP);
     let batteryUp = false;
     const client: ServiceClient = {
@@ -241,7 +224,6 @@ describe('POST /v1/ingest', () => {
     expect(forwarded('reports POST /sessions')).toEqual([
       { key: 'reports POST /sessions', body: { sessions: [closed] } },
     ]);
-    expect(forwarded('goals POST /evaluate')).toHaveLength(1);
   });
 
   it('delivers the alerts as they are, without a mute decision, when focus is down', async () => {
@@ -253,7 +235,7 @@ describe('POST /v1/ingest', () => {
     expect(response.statusCode).toBe(STATUS.OK);
     const body: Record<string, unknown> = response.json();
     expect(body).toMatchObject({
-      deliver: [alertFixture, goalAlert],
+      deliver: [alertFixture],
       queued: 0,
       degraded: ['focus'],
     });

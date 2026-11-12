@@ -13,8 +13,6 @@ import {
   AlertingReply,
   type ClosedSession,
   CountedReply,
-  DayUsage,
-  EvaluateReply,
   KnownAppsReply,
   ProfilesReply,
   RouteReply,
@@ -95,20 +93,18 @@ async function storeSamples(
 }
 
 /**
- * Hands closed sessions to reports, then asks goals to evaluate the day's
- * totals, which reports has just updated. Returns goal-breach alerts.
+ * Hands closed sessions to reports.
  *
- * Both are data owners, so a failure fails the batch. The agent resends it,
- * sessions hands the same closed sessions back, reports counts each session
- * id once and goals evaluates absolute totals, so nothing is lost or counted
- * twice.
+ * Reports is a data owner, so a failure fails the batch. The agent resends it,
+ * sessions hands the same closed sessions back and reports counts each session
+ * id once, so nothing is lost or counted twice.
  */
-async function countAndEvaluate(
+async function countClosed(
   services: ServiceClient,
   closed: readonly ClosedSession[],
-): Promise<Alert[]> {
+): Promise<void> {
   if (closed.length === 0) {
-    return [];
+    return;
   }
   await services.call('reports', {
     method: 'POST',
@@ -116,18 +112,6 @@ async function countAndEvaluate(
     body: { sessions: closed },
     response: CountedReply,
   });
-  const usage = await services.call('reports', {
-    method: 'GET',
-    path: '/today',
-    response: DayUsage,
-  });
-  const evaluated = await services.call('goals', {
-    method: 'POST',
-    path: '/evaluate',
-    body: { date: usage.date, apps: usage.topApps, categories: usage.byCategory },
-    response: EvaluateReply,
-  });
-  return evaluated.breaches;
 }
 
 /**
@@ -203,18 +187,18 @@ async function readMute(services: ServiceClient, deps: IngestDeps): Promise<Mute
 
 /**
  * `POST /v1/ingest` (SPEC §3): splits the batch across sessions, battery and
- * system; forwards closed sessions to reports and goals; routes every alert
+ * system; forwards closed sessions to reports; routes every alert
  * through focus; and answers with what to notify now and what to mute.
  *
- * Every data owner (sessions, battery, system, reports, goals) is idempotent
+ * Every data owner (sessions, battery, system, reports) is idempotent
  * on a retried batch, so its failure fails the request with a 5xx and the
  * agent resends. Only focus degrades: its alerts fail open.
  */
 export function createIngest(deps: IngestDeps): RouteHandler<'ingest'> {
   return async ({ services, body, log }) => {
     const stored = await storeSamples(services, deps, body);
-    const goalAlerts = await countAndEvaluate(services, stored.closed);
-    const decision = await decide(services, deps, [...stored.alerts, ...goalAlerts]);
+    await countClosed(services, stored.closed);
+    const decision = await decide(services, deps, stored.alerts);
     const degraded: ServiceName[] = decision.degradedBy ? ['focus'] : [];
     const reply = IngestResult.safeParse({
       accepted: stored.accepted,

@@ -15,7 +15,7 @@ const run = promisify(execFile);
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const INIT_DIR = join(REPO_ROOT, 'infra/postgres/init');
 /** Every role the init script creates; it refuses to start unless each has a password. */
-const ROLES = ['sessions', 'reports', 'goals', 'battery', 'system', 'focus', 'gateway'] as const;
+const ROLES = ['sessions', 'reports', 'battery', 'system', 'focus', 'gateway'] as const;
 export type ServiceRole = (typeof ROLES)[number];
 
 const PROJECT_SUFFIX_BYTES = 4;

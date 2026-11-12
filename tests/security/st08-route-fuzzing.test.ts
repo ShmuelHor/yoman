@@ -44,11 +44,6 @@ const T28_ROUTES: readonly HandledRouteName[] = [
   'createRule',
   'updateRule',
   'deleteRule',
-  'listGoals',
-  'createGoal',
-  'updateGoal',
-  'deleteGoal',
-  'goalProgress',
 ];
 
 const T29_ROUTES: readonly HandledRouteName[] = [
@@ -236,7 +231,7 @@ describe('ST08 route fuzzing', () => {
     },
   );
   it.each(routesNamed(T28_ROUTES))(
-    'dashboard, reports, apps, rules and goals routes pass the fuzzing check with their handlers: $name',
+    'dashboard, reports, apps and rules routes pass the fuzzing check with their handlers: $name',
     async (route) => {
       expect(handlers.has(route.name)).toBe(true);
 
