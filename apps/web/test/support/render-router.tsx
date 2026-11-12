@@ -35,6 +35,12 @@ export function renderRouter({
     history: createMemoryHistory({ initialEntries: [path] }),
   });
   return render(
-    <App i18n={i18n} queryClient={queryClient} notifier={createNotifier(i18n)} router={router} />,
+    <App
+      i18n={i18n}
+      queryClient={queryClient}
+      notifier={createNotifier(i18n)}
+      router={router}
+      client={client}
+    />,
   );
 }
