@@ -1,0 +1,39 @@
+{
+  "title": "Battery",
+  "error": "Battery data could not be loaded.",
+  "noBattery": "This device has no battery, so there is nothing to show here.",
+  "percent": "{{value}}%",
+  "watts": "{{value}} W",
+  "duration": "{{hours}}h {{minutes}}m",
+  "range": { "label": "Time range", "days": "{{count}} days" },
+  "status": {
+    "charging": "Charging",
+    "discharging": "On battery",
+    "full": "Full",
+    "not-charging": "Not charging",
+    "unknown": "Unknown"
+  },
+  "now": {
+    "charge": "Charge",
+    "remaining": "Time remaining",
+    "remainingNone": "Needs some time on battery to estimate.",
+    "unknown": "Not available",
+    "power": "Power draw",
+    "health": "Health",
+    "healthContext": "Full charge compared with the design capacity"
+  },
+  "trend": {
+    "label": "Health over time",
+    "series": "Health",
+    "error": "The health trend could not be loaded.",
+    "empty": "No history yet. The trend appears after a day or two of tracking."
+  },
+  "cycles": { "label": "Cycles per month", "series": "Cycles" },
+  "drain": {
+    "label": "What is draining your battery",
+    "context": "Average power draw while each app was in focus",
+    "error": "Power use by app could not be loaded.",
+    "empty": "No data in this range yet.",
+    "columns": { "app": "App", "power": "Average draw", "time": "Time in focus" }
+  }
+}
