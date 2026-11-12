@@ -67,7 +67,7 @@ branch t13-…  →  commits  →  push  →  PR (draft)  →  CI green  →  Re
 | 1 · Contracts and infrastructure | [x] T08 [x] T09 [x] T10 [x] T11 [x] T12 | G1 |
 | 2 · Independent units | [x] T13 [x] T14 [x] T15 [x] T16 [x] T17 [x] T18 [x] T19 [x] T20 [x] T21 [x] T22 [x] T23 [x] T24 [x] T25 [x] T26 | G2 |
 | 3 · Integration | [x] T27 [x] T28 [x] T29 [x] T30 [x] T31 [x] T32 [x] T33 [x] T34 [x] T35 [x] T36 [x] T37 [x] T38 [x] T39 [x] T40 [x] T41 | G3 |
-| 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 | G4 |
+| 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 [ ] T56 | G4 |
 | 5 · Release | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
 
 ---
@@ -357,6 +357,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **T49 · Cleaning up old data:** a `src/jobs/retention.ts` file in every service, including a log of what was deleted
 - **T50 · Tray icon:** StatusNotifierItem. Owns: `apps/agent/src/tray/`
 - **T51 · CLI:** Owns: `apps/agent/src/cli/`
+- **T56 · Processes page (Task Manager):** a new Processes page with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136
 
 **Gate G4:**
 - [ ] Every feature in the coverage matrix is checked off
