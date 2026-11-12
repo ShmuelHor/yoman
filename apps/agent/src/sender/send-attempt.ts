@@ -58,7 +58,14 @@ async function dispatchReply(deps: SendAttemptDeps, body: unknown): Promise<void
   if (!reply.success) {
     // The samples are already acked: the gateway took them. Only the commands are lost.
     const paths = reply.error.issues.map((issue) => issue.path.map(String).join('.'));
-    deps.logger.warn({ paths }, 'ingest reply failed its contract; skipped its commands');
+    // Names only: a strict object fails at the root (`paths: ['']`), and the keys say which one.
+    const unexpectedKeys = reply.error.issues.flatMap((issue) =>
+      issue.code === 'unrecognized_keys' ? issue.keys : [],
+    );
+    deps.logger.warn(
+      { paths, unexpectedKeys },
+      'ingest reply failed its contract; skipped its commands',
+    );
     return;
   }
   for (const handler of deps.replyHandlers) {

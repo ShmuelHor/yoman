@@ -1,6 +1,7 @@
 import type { Alert } from '@yoman/shared/alerts';
 import type { AppId, ServiceName } from '@yoman/shared/common';
 import { FocusState, type MuteDirective, type Profile } from '@yoman/shared/focus';
+import { IngestResult } from '@yoman/shared/ingest';
 import { LIMITS } from '@yoman/shared/limits';
 
 import type { RouteHandler } from '../../core/route-handler.js';
@@ -191,17 +192,28 @@ async function readMute(services: ServiceClient, deps: IngestDeps): Promise<Mute
  * agent resends. Only focus degrades: its alerts fail open.
  */
 export function createIngest(deps: IngestDeps): RouteHandler<'ingest'> {
-  return async ({ services, body }) => {
+  return async ({ services, body, log }) => {
     const stored = await storeSamples(services, deps, body);
     const goalAlerts = await countAndEvaluate(services, stored.closed);
     const decision = await decide(services, deps, [...stored.alerts, ...goalAlerts]);
     const degraded: ServiceName[] = decision.degradedBy ? ['focus'] : [];
-    return {
+    const reply = IngestResult.safeParse({
       accepted: stored.accepted,
       deliver: decision.deliver,
       queued: decision.queued,
       degraded,
       ...(decision.mute === undefined ? {} : { mute: decision.mute }),
-    };
+    });
+    if (reply.success) {
+      return reply.data;
+    }
+    // The samples are already stored: failing now would make the agent resend
+    // them for ever. The agent drops a reply that breaks this same strict
+    // schema, so answer with the safe minimum and log the bug (paths only).
+    log.error(
+      { paths: reply.error.issues.map((issue) => issue.path.map(String).join('.')) },
+      'ingest reply broke its contract; answered with a degraded result',
+    );
+    return { accepted: stored.accepted, deliver: [], queued: 0, degraded: ['focus'] };
   };
 }

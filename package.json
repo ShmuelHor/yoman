@@ -17,7 +17,7 @@
     "setup": "tsx scripts/setup.ts",
     "start": "tsx scripts/start.ts",
     "stop": "tsx scripts/stop.ts",
-    "agent:dev": "tsx apps/agent/src/main.ts",
+    "agent:dev": "npm run --silent build:packages && tsx apps/agent/src/main.ts",
     "logs": "tsx scripts/logs.ts",
     "check": "npm run lint && npm run typecheck && npm run check:language",
     "lint": "biome check --error-on-warnings .",
