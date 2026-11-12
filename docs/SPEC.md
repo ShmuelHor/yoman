@@ -167,7 +167,7 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 
 ## 6. Web
 
-- Vite + React 19 + TypeScript, MUI (Emotion, MUI X), React Router, TanStack Query, react-hook-form, react-i18next
+- Vite + React 19 + TypeScript, MUI (Emotion, MUI X), TanStack Router, TanStack Query, react-hook-form, react-i18next
 - **Pages:** Today · Week · Apps · Battery · System · Goals · Focus mode · Alerts · Settings
 - **i18n:** `he` (default) and `en`. `dir` on `<html>` updates with the language. Only logical properties are used (in `sx` and `styled`). Dates and numbers go through `Intl`
 - **Color theme:** `system`, `light` or `dark`, stored in the settings. See [DESIGN.md](DESIGN.md)
