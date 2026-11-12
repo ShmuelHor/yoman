@@ -168,7 +168,13 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 ## 6. Web
 
 - Vite + React 19 + TypeScript, MUI (Emotion, MUI X), TanStack Router, TanStack Query, react-hook-form, react-i18next
-- **Pages:** Today · Week · Apps · Battery · System · Goals · Focus mode · Alerts · Settings
+- **Pages (four, in this order):**
+  - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Week: columns by day and category, comparison with the previous week, the weekly summary. Goals appear here as progress cards and are created and edited from this page
+  - **Computer** (`/computer`): one plain-language summary line at the top (for example "Battery healthy · the computer got stuck twice today, mostly while Chrome was running"), then tabs: **Battery** (charge, health, cycles, time remaining, what is draining it), **Load** (slowdowns as an incident timeline with the resource and the active app in plain words, recurring culprits, and the raw pressure chart as a secondary "Details" view) and **Processes** (the task manager)
+  - **Focus mode** (`/focus`): start and stop, profiles, apps with a "new" tag, exceptions, schedules, Pomodoro, the alert center (held alerts) and FocusBanner
+  - **Settings** (`/settings`): language, color theme, privacy, thresholds, system apps, quiet hours, **apps and category rules**, and the **alert level policy**
+- **Old paths** (`/apps`, `/battery`, `/system`, `/goals`, `/week`) redirect to their new place, so links in notifications keep working
+- **Shell:** the navigation follows DESIGN.md (nav tabs). The header language and theme pickers save to the settings, so a reload keeps the choice and the Settings form stays in sync
 - **i18n:** `he` (default) and `en`. `dir` on `<html>` updates with the language. Only logical properties are used (in `sx` and `styled`). Dates and numbers go through `Intl`
 - **Color theme:** `system`, `light` or `dark`, stored in the settings. See [DESIGN.md](DESIGN.md)
 - **Charts:** MUI X Charts, in token colors only
