@@ -91,6 +91,12 @@ export function createAppsCollector(options: AppsCollectorOptions = {}): AppsCol
         'discovered new apps',
       );
     }
+    announce();
+  }
+
+  /** Tells the agent core to report the catalog, and the caller that asked to know. */
+  function announce(): void {
+    context?.reportKnownApps(catalog);
     options.onChange?.(catalog);
   }
 
@@ -211,7 +217,7 @@ export function createAppsCollector(options: AppsCollectorOptions = {}): AppsCol
         { collector: APPS_COLLECTOR_NAME, apps: catalog.length },
         'app catalog loaded',
       );
-      options.onChange?.(catalog);
+      announce();
     },
     async stop(): Promise<void> {
       running = false;

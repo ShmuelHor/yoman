@@ -1,3 +1,4 @@
+import type { KnownApp } from '@yoman/shared/focus';
 import type { Sample } from '@yoman/shared/ingest';
 import { z } from 'zod';
 import type { AgentLogger } from './logger.js';
@@ -16,6 +17,8 @@ export interface CollectorContext extends PluginContext {
   readonly emit: (samples: readonly Sample[]) => Promise<void>;
   /** The latest idle time and lock state. */
   readonly presence: Presence;
+  /** For the apps collector: the whole catalog, on start and on every change (SPEC §4.3). */
+  readonly reportKnownApps: (apps: readonly KnownApp[]) => void;
   /** For the idle and lock collectors only. Locking pauses every polling collector. */
   readonly reportPresence: (update: PresenceUpdate) => void;
 }

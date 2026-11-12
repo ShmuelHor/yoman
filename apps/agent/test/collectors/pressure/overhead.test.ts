@@ -36,6 +36,7 @@ function context(): CollectorContext {
     sessionBus: unreachableSessionBus(),
     ...recordedPresence(),
     emit: (): Promise<void> => Promise.resolve(),
+    reportKnownApps: (): void => undefined,
   };
 }
 

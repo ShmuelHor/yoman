@@ -41,6 +41,7 @@ function context(
     logger: createLogger({ level: 'silent' }),
     sessionBus: unreachableSessionBus(),
     ...recordedPresence(),
+    reportKnownApps: (): void => undefined,
     emit: (samples): Promise<void> => {
       emitted.push(...samples);
       return Promise.resolve();
