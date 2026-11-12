@@ -60,6 +60,21 @@ const T29_ROUTES: readonly HandledRouteName[] = [
   'systemTimeline',
 ];
 
+const T30_ROUTES: readonly HandledRouteName[] = [
+  'focusStart',
+  'focusStop',
+  'focusState',
+  'listProfiles',
+  'createProfile',
+  'updateProfile',
+  'deleteProfile',
+  'focusQueue',
+  'listKnownApps',
+  'reportKnownApps',
+  'getAlertPolicy',
+  'updateAlertPolicy',
+];
+
 interface HandledRoute extends ContractRoute {
   readonly name: HandledRouteName;
 }
@@ -234,6 +249,13 @@ describe('ST08 route fuzzing', () => {
       await fuzzRoute(handled, route);
     },
   );
-  it.todo('[T30] focus routes pass the fuzzing check');
+  it.each(routesNamed(T30_ROUTES))(
+    'focus routes pass the fuzzing check with their handlers: $name',
+    async (route) => {
+      expect(handlers.has(route.name)).toBe(true);
+
+      await fuzzRoute(handled, route);
+    },
+  );
   it.todo('[T31] settings routes pass the fuzzing check');
 });
