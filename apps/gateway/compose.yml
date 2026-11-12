@@ -22,9 +22,15 @@ services:
       PORT: "8080"
       LOG_LEVEL: info
       AGENT_TOKEN: ${AGENT_TOKEN:?run npm run setup}
+      # The gateway's own role and schema, for `gateway.settings` only.
+      DB_HOST: postgres
+      GATEWAY_DB_PASSWORD: ${GATEWAY_DB_PASSWORD:?run npm run setup}
     ports:
       - "127.0.0.1:4711:8080"
     networks: [edge, core]
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       # Sends `Host: 127.0.0.1:4711`: any other host gets 421 (SECURITY A4).
       test: ["CMD", "node", "/app/apps/gateway/dist/core/healthcheck.js"]
