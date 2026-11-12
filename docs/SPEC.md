@@ -65,6 +65,7 @@
 |---|---|
 | **ingest** (from the agent, every 60 s) | The gateway splits the batch: window and idle samples → `sessions`, battery → `battery`, load → `system`. It then forwards closed sessions to `reports` and collects events to alert on. Each event goes through `focus` for a decision (deliver now or queue), and the decisions return to the agent in the response. |
 | **dashboard/today** | The gateway calls `reports`, `battery`, `system` and `focus` in parallel and returns a single response |
+| **known apps** (from the agent, on start and on change) | gateway → `focus` `POST /known-apps` → the Focus page lists them and profiles can mute them |
 | **focus start/stop** | gateway → `focus` (state and profile) → returns mute and restore commands to the agent |
 
 ---
@@ -98,6 +99,7 @@
 - A local JSONL file in `~/.local/state/yoman/buffer/`, with a new file every hour
 - Every 60 s a batch is sent to `POST /v1/ingest`. If sending succeeds, the files are deleted. If it fails, exponential backoff up to 10 min
 - A 50MB cap. Beyond it the oldest files are deleted, with a warning in the log
+- **Known apps:** the apps collector's catalog is not a sample and does not go through the buffer. The agent sends the whole catalog (at most 500 apps) to `POST /v1/focus/known-apps` once at start and again whenever it changes, never on a schedule. The latest catalog replaces one still waiting. If the gateway is unreachable or busy it retries with a backoff (10 s, doubling up to 10 min); a catalog the gateway refuses (4xx) is dropped. Nothing is sent while the screen is locked, and it goes out when the screen unlocks. The gateway forwards it to focus `POST /known-apps`, which stores it for the Focus page; the never-muted rule applies when the mute list is built, not here
 
 ### 4.4 Battery budget (required)
 - Agent average CPU **≤ 0.5%** and memory **≤ 60MB**
