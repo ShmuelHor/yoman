@@ -164,9 +164,10 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 ## 6. Web
 
 - Vite + React 19 + TypeScript, MUI (Emotion, MUI X), TanStack Router, TanStack Query, react-hook-form, react-i18next
-- **Pages (four, in this order):**
+- **Pages (five, in this order):**
   - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Week: columns by day and category, comparison with the previous week, the weekly summary.
-  - **Computer** (`/computer`): one plain-language summary line at the top (for example "Battery healthy · the computer got stuck twice today, mostly while Chrome was running"), then tabs: **Battery** (charge, health, cycles, time remaining, what is draining it), **Load** (slowdowns as an incident timeline with the resource and the active app in plain words, recurring culprits, and the raw pressure chart as a secondary "Details" view) and **Processes** (the task manager)
+  - **Computer** (`/computer`): one plain-language summary line at the top (for example "Battery healthy · the computer got stuck twice today, mostly while Chrome was running"), then two tabs: **Battery** (charge, health, cycles, time remaining, what is draining it), **Load** (slowdowns as an incident timeline with the resource and the active app in plain words, recurring culprits, and the raw pressure chart as a secondary "Details" view)
+  - **Processes** (`/processes`): the task manager. What is running now with live CPU, RAM and IO, grouping by app, All/Apps/Docker views, and End task with confirmation
   - **Focus mode** (`/focus`): start and stop, profiles, apps with a "new" tag, exceptions, schedules, Pomodoro, the alert center (held alerts) and FocusBanner
   - **Settings** (`/settings`): language, color theme, privacy, thresholds, system apps, quiet hours, **apps and category rules**, and the **alert level policy**
 - **Old paths** (`/apps`, `/battery`, `/system`, `/week`) redirect to their new place, so links in notifications keep working
