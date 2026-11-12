@@ -5,7 +5,7 @@ import {
   profileFixture,
   sessionFixture,
 } from '@yoman/shared/fixtures/data';
-import type { IngestBatch } from '@yoman/shared/ingest';
+import { type IngestBatch, IngestResult } from '@yoman/shared/ingest';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -91,6 +91,15 @@ describe('POST /v1/ingest', () => {
         systemApps: ['org.gnome.Settings'],
       },
     });
+  });
+
+  it('replies exactly what the agent parses: the strict IngestResult, mute included', async () => {
+    const { response } = await ingest(ALL_UP);
+
+    const parsed = IngestResult.safeParse(response.json());
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.mute).toBeDefined();
   });
 
   it('sends each service only its own samples, with the thresholds to system', async () => {

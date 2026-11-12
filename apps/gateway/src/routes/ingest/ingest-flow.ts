@@ -1,6 +1,7 @@
 import type { Alert } from '@yoman/shared/alerts';
 import type { AppId, ServiceName } from '@yoman/shared/common';
 import { FocusState, type MuteDirective } from '@yoman/shared/focus';
+import { IngestResult } from '@yoman/shared/ingest';
 import { LIMITS } from '@yoman/shared/limits';
 
 import type { RouteHandler } from '../../core/route-handler.js';
@@ -175,12 +176,14 @@ export function createIngest(deps: IngestDeps): RouteHandler<'ingest'> {
     const goalAlerts = await countAndEvaluate(services, stored.closed);
     const decision = await decide(services, deps, [...stored.alerts, ...goalAlerts]);
     const degraded: ServiceName[] = decision.degradedBy ? ['focus'] : [];
-    return {
+    // The agent parses the reply with this same strict schema and drops every
+    // command when it does not match, so a mismatch must fail here, not there.
+    return IngestResult.parse({
       accepted: stored.accepted,
       deliver: decision.deliver,
       queued: decision.queued,
       degraded,
       ...(decision.mute === undefined ? {} : { mute: decision.mute }),
-    };
+    });
   };
 }
