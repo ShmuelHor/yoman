@@ -2,10 +2,12 @@ import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
 
-import { describe, expect, it } from 'vitest';
+import pg from 'pg';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { ConnectDatabase } from '../../src/core/database.js';
 import { startGateway } from '../../src/core/server.js';
-import { AGENT_TOKEN, GATEWAY_HOST, STATUS } from '../harness.js';
+import { AGENT_TOKEN, GATEWAY_DB_PASSWORD, GATEWAY_HOST, STATUS } from '../harness.js';
 
 function capture(): { stream: Writable; output: () => string } {
   const chunks: string[] = [];
@@ -33,17 +35,26 @@ function freePort(): Promise<string> {
 
 const testEnv = async (): Promise<Record<string, string>> => ({
   AGENT_TOKEN,
+  GATEWAY_DB_PASSWORD,
   PORT: await freePort(),
   LOG_LEVEL: 'info',
 });
+/** A database that connects to nothing; `close` is observable. */
+function stubDatabase(): { connect: ConnectDatabase; close: () => Promise<void> } {
+  const close = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  const connect: ConnectDatabase = () => Promise.resolve({ pool: new pg.Pool(), close });
+  return { connect, close };
+}
 const noRoutes = join(import.meta.dirname, 'no-such-routes-dir');
 
 describe('startGateway', () => {
   it('listens on loopback and serves the health check', async () => {
     const logs = capture();
+    const database = stubDatabase();
     const gateway = await startGateway({
       env: await testEnv(),
       routesDir: noRoutes,
+      connectDatabase: database.connect,
       logStream: logs.stream,
       handleSignals: false,
     });
@@ -61,6 +72,8 @@ describe('startGateway', () => {
       await gateway.stop();
     }
     expect(logs.output()).not.toContain(AGENT_TOKEN);
+    expect(logs.output()).not.toContain(GATEWAY_DB_PASSWORD);
+    expect(database.close).toHaveBeenCalledOnce();
   });
 
   it('fails on an invalid environment without echoing it', async () => {
@@ -72,15 +85,18 @@ describe('startGateway', () => {
   it('logs and rethrows when it cannot start', async () => {
     const logs = capture();
     const routesDir = join(import.meta.dirname, 'route-loader.test.ts');
+    const database = stubDatabase();
 
     await expect(
       startGateway({
         env: await testEnv(),
         routesDir,
+        connectDatabase: database.connect,
         logStream: logs.stream,
         handleSignals: false,
       }),
     ).rejects.toThrow();
     expect(logs.output()).toContain('Gateway failed to start');
+    expect(database.close).toHaveBeenCalledOnce();
   });
 });

@@ -21,6 +21,18 @@
     "./sql": {
       "types": "./dist/sql.d.ts",
       "default": "./dist/sql.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./database": {
+      "types": "./dist/database.d.ts",
+      "default": "./dist/database.js"
+    },
+    "./migrations": {
+      "types": "./dist/migrations.d.ts",
+      "default": "./dist/migrations.js"
     }
   },
   "scripts": {
