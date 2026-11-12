@@ -35,7 +35,14 @@ export function planStartSteps(options: { readonly envExists: boolean }): readon
       String(HEALTHY_TIMEOUT_SECONDS),
     ],
   };
-  return options.envExists ? [stack] : [setup, stack];
+  // The agent imports the shared contracts from their build. A stale build
+  // rejects replies carrying fields added since (a strict object fails at the root).
+  const build: StartStep = {
+    label: 'Building the shared packages',
+    command: 'npm',
+    args: ['run', '--silent', 'build:packages'],
+  };
+  return options.envExists ? [build, stack] : [setup, build, stack];
 }
 
 /** The agent runs in the foreground, so Ctrl+C stops it. */
