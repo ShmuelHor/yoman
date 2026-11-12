@@ -56,6 +56,8 @@ Two weights only: 400 and 500. Numbers use `font-variant-numeric: tabular-nums`.
 5. **Charts:** 1.5px lines, bars with `--radius-sm`, and anomaly regions in `--accent` at 12% opacity.
 6. **RTL and LTR:** only `margin-inline-*`, `padding-inline-*` and `inset-inline-*` (`marginInlineStart` and so on in `sx`). Directional icons (arrows) flip according to `dir`; MUI's own styles are mirrored by the right-to-left Emotion cache.
 7. **Dark mode** is only a different set of values for the same tokens: `[data-theme="dark"]`, or `prefers-color-scheme` when the choice is `system`.
+8. **Lists, not tables.** A user-managed collection (apps, category rules, focus profiles, alert levels) is a readable list: one plain-language sentence per row ("Apps whose name contains **youtube** → Media"), app display names instead of IDs, and technical fields (priority, match type, raw ID) only in the edit dialog. No pagination or "rows per page" on short lists, and an empty state that says what to do next. A Data Grid is only for large sortable data where sorting is the point, such as the Processes page.
+9. **Plain language first.** A page opens with what it means for the user ("the computer got stuck twice today"); raw metrics and technical charts come after, as details.
 
 ## Components
 | Component | Appearance |
