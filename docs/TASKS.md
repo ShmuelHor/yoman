@@ -245,7 +245,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
   - [x] There is a test for a rollup that crosses midnight
 
 ### T15 · goals-service (removed)
-- **What:** CRUD, `/evaluate` with one alert per goal per day, and `/progress`. Enables: **ST12**
+- **What:** CRUD, `/evaluate` with one alert per goal per day, and `/progress`.
 
 ### T16 · battery-service
 - **What:** samples, daily, health, time remaining, `power-by-app` and alerts. Enables: **ST12**
