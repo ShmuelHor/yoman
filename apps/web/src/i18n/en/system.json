@@ -1,0 +1,55 @@
+{
+  "title": "System",
+  "range": { "label": "History range", "days": "{{count}} days" },
+  "day": { "previous": "Previous day", "next": "Next day" },
+  "metric": { "cpu": "CPU", "memory": "Memory", "io": "Disk IO" },
+  "peak": {
+    "percent": "{{value}}%",
+    "celsius": "{{value}}°C",
+    "leak": "{{value}} MB/h"
+  },
+  "duration": {
+    "minutes": "{{minutes}}m {{seconds}}s",
+    "hours": "{{hours}}h {{minutes}}m"
+  },
+  "chart": {
+    "label": "Load through the day",
+    "context": "How often each resource was waiting. Shaded stretches are incidents.",
+    "error": "The load chart could not be loaded.",
+    "empty": "No load data for this day yet."
+  },
+  "incidentType": {
+    "cpu": "CPU load",
+    "memory": "Memory pressure",
+    "io": "Disk IO load",
+    "memory-critical": "Memory almost exhausted",
+    "thermal": "Overheating",
+    "memory-leak": "Memory leak"
+  },
+  "incidents": {
+    "label": "Incident history",
+    "error": "Incidents could not be loaded.",
+    "empty": "No incidents in this range. That is good news.",
+    "ongoing": "Ongoing",
+    "columns": {
+      "type": "Type",
+      "start": "Started",
+      "duration": "Duration",
+      "peak": "Peak",
+      "culprits": "Heaviest processes"
+    }
+  },
+  "culprits": {
+    "label": "Recurring culprits",
+    "context": "Processes that were heaviest during incidents",
+    "error": "Culprits could not be loaded.",
+    "empty": "No repeat offenders in this range.",
+    "noContainer": "Not in a container",
+    "columns": { "process": "Process", "container": "Container", "incidents": "Incidents" }
+  },
+  "thresholds": {
+    "label": "Thresholds",
+    "error": "The thresholds could not be loaded.",
+    "hint": "An incident opens when the load stays above its level for more than 15 seconds. You can change the levels in Settings."
+  }
+}
