@@ -66,7 +66,7 @@ branch t13-…  →  commits  →  push  →  PR (draft)  →  CI green  →  Re
 | 0 · CI/CD and security | [x] T01 [x] T02 [x] T03 [x] T04 [x] T05 [x] T06 [x] T07 | G0 |
 | 1 · Contracts and infrastructure | [x] T08 [x] T09 [x] T10 [x] T11 [x] T12 | G1 |
 | 2 · Independent units | [x] T13 [x] T14 [x] T15 [x] T16 [x] T17 [x] T18 [x] T19 [x] T20 [x] T21 [x] T22 [x] T23 [x] T24 [x] T25 [x] T26 | G2 |
-| 3 · Integration | [ ] T27 [ ] T28 [ ] T29 [ ] T30 [ ] T31 [ ] T32 [ ] T33 [ ] T34 [ ] T35 [ ] T36 [ ] T37 [ ] T38 [ ] T39 [ ] T40 [ ] T41 | G3 |
+| 3 · Integration | [x] T27 [x] T28 [x] T29 [x] T30 [x] T31 [x] T32 [x] T33 [x] T34 [x] T35 [x] T36 [x] T37 [x] T38 [x] T39 [x] T40 [x] T41 | G3 |
 | 4 · Completion | [ ] T42 [ ] T43 [ ] T44 [ ] T45 [ ] T46 [ ] T47 [ ] T48 [ ] T49 [ ] T50 [ ] T51 | G4 |
 | 5 · Release | [ ] T52 [ ] T53 [ ] T54 [ ] T55 | G5 = v1.0.0 |
 
@@ -197,7 +197,7 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
 ### T11 · Web skeleton ‖
 - **Owns:** `apps/web/` (except `apps/web/src/pages/*` and `apps/web/src/components/*`)
 - **What:**
-  - Vite, React, TS, a Router with glob, TanStack Query, and an API client built from the contracts
+  - Vite, React, TS, TanStack Router (routes collected from `pages/*/route.tsx` by glob), TanStack Query, and an API client built from the contracts
   - react-i18next with namespaces, and `dir` and `lang` on `<html>`
   - A system, light or dark color theme (only the mechanism, no tokens)
   - MSW in dev mode
