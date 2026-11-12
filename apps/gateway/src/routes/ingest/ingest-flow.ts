@@ -8,7 +8,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { RouteHandler } from '../../core/route-handler.js';
 import { orDegraded, type ServiceClient } from '../../core/service-client.js';
-import { DEFAULT_SETTINGS, type SettingsStore } from '../../core/settings-store.js';
+import { readSettingsOrDefaults, type SettingsStore } from '../../core/settings-store.js';
 import {
   AlertingReply,
   type ClosedSession,
@@ -42,10 +42,7 @@ export interface IngestDeps {
 export function settingsDeps(settings: SettingsStore, log: FastifyBaseLogger): IngestDeps {
   let current: Promise<Settings> | undefined;
   const read = (): Promise<Settings> => {
-    current ??= settings.read().catch((error: unknown) => {
-      log.warn({ err: error }, 'settings unreadable; ingest used the defaults');
-      return DEFAULT_SETTINGS;
-    });
+    current ??= readSettingsOrDefaults(settings, log);
     return current;
   };
   return {

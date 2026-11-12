@@ -3,7 +3,9 @@ import type { FastifyInstance } from 'fastify';
 
 import { type RouteHandlers, toHandlerMap } from '../../src/core/route-handler.js';
 import type { ServiceClient, ServiceMethod } from '../../src/core/service-client.js';
+import type { SettingsStore } from '../../src/core/settings-store.js';
 import { testGateway, webSession } from '../gateway-harness.js';
+import { memorySettings } from '../memory-settings.js';
 
 /** `sessions PUT /apps/code`: a service, a method and a path on it. */
 export type CallKey = `${ServiceName} ${ServiceMethod} /${string}`;
@@ -59,9 +61,14 @@ export interface RouteHarness {
 export async function routeHarness(
   handlers: RouteHandlers,
   replies: Partial<Record<CallKey, unknown>>,
+  settings: SettingsStore = memorySettings(),
 ): Promise<RouteHarness> {
   const services = fakeServices(replies);
-  const app = await testGateway({ services: services.client, handlers: toHandlerMap(handlers) });
+  const app = await testGateway({
+    services: services.client,
+    handlers: toHandlerMap(handlers),
+    settings,
+  });
   const { headers } = await webSession(app);
   return { app, headers, calls: services.calls };
 }

@@ -69,4 +69,27 @@ describe('settings routes', () => {
     expect(response.statusCode).toBe(STATUS.BAD_REQUEST);
     expect(read.json()).toEqual(DEFAULT_SETTINGS);
   });
+
+  it('rejects a write without a session, and without the CSRF token', async () => {
+    const { gateway, headers } = await start();
+    const { 'x-csrf-token': _csrf, ...withoutCsrf } = headers;
+
+    const anonymous = await gateway.inject({
+      method: 'PUT',
+      url: '/v1/settings',
+      headers: { host: headers['host'] ?? '', ...JSON_HEADERS },
+      payload: settingsFixture,
+    });
+    const noToken = await gateway.inject({
+      method: 'PUT',
+      url: '/v1/settings',
+      headers: { ...withoutCsrf, ...JSON_HEADERS },
+      payload: settingsFixture,
+    });
+    const read = await gateway.inject({ method: 'GET', url: '/v1/settings', headers });
+
+    expect(anonymous.statusCode).toBe(STATUS.UNAUTHORIZED);
+    expect(noToken.statusCode).toBe(STATUS.FORBIDDEN);
+    expect(read.json()).toEqual(DEFAULT_SETTINGS);
+  });
 });

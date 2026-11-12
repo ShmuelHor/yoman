@@ -323,7 +323,7 @@ describe('POST /v1/ingest', () => {
     expect(await fromSaved.systemApps()).toEqual(['org.gnome.Settings']);
     expect(await fromBroken.thresholds()).toEqual(DEFAULT_SETTINGS.thresholds);
     expect(lines).toContainEqual(
-      expect.objectContaining({ msg: 'settings unreadable; ingest used the defaults' }),
+      expect.objectContaining({ msg: 'settings unreadable; used the defaults' }),
     );
   });
 });

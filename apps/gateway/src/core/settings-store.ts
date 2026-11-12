@@ -1,5 +1,6 @@
 import { createQueryBuilder } from '@yoman/service-kit/sql';
 import { Settings } from '@yoman/shared/settings';
+import type { FastifyBaseLogger } from 'fastify';
 import type { ColumnType } from 'kysely';
 import type { Pool } from 'pg';
 
@@ -61,4 +62,21 @@ export function createSettingsStore(pool: Pool): SettingsStore {
       return read();
     },
   };
+}
+
+/**
+ * The settings, or the defaults when they cannot be read. For callers that
+ * must not fail because of a settings problem (a batch is still stored, a
+ * focus still starts); the failure is logged.
+ */
+export async function readSettingsOrDefaults(
+  store: SettingsStore,
+  log: FastifyBaseLogger,
+): Promise<Settings> {
+  try {
+    return await store.read();
+  } catch (error: unknown) {
+    log.warn({ err: error }, 'settings unreadable; used the defaults');
+    return DEFAULT_SETTINGS;
+  }
 }
