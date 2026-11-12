@@ -359,7 +359,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **T49 · Cleaning up old data:** a `src/jobs/retention.ts` file in every service, including a log of what was deleted
 - **T50 · Tray icon:** StatusNotifierItem. Owns: `apps/agent/src/tray/`
 - **T51 · CLI:** Owns: `apps/agent/src/cli/`
-- **T56 · Processes tab (Task Manager):** the Processes tab of the Computer page. Blocked by T58 (and so T57) with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136
+- **T56 · Processes tab (Task Manager):** the Processes tab of the Computer page, with live CPU, RAM and IO (on-demand 2 s sampling), grouping by app, live charts, All/Apps/Docker views, sortable columns, and End task with confirmation; Docker stop/restart/rm/rmi only when the user already has Docker access, with Yoman's own containers and images protected. Updates SPEC §4.1 and §4.2, SECURITY A15 plus a new threat row, the CLAUDE.md agent rule and an ST test. Design: issue #136. Blocked by T58 (and so T57)
 - **T59 · Settings absorbs Apps and alert levels:** the Apps page (from T36: apps and category rules) and the alert level policy (from T40) move into Settings sections. Owns: `apps/web/src/pages/settings/`
 
 **Gate G4:**
