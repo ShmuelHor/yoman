@@ -3,10 +3,12 @@ import type { AppId, ServiceName } from '@yoman/shared/common';
 import { FocusState, type MuteDirective, type Profile } from '@yoman/shared/focus';
 import { IngestResult } from '@yoman/shared/ingest';
 import { LIMITS } from '@yoman/shared/limits';
+import type { Settings } from '@yoman/shared/settings';
+import type { FastifyBaseLogger } from 'fastify';
 
 import type { RouteHandler } from '../../core/route-handler.js';
 import { orDegraded, type ServiceClient } from '../../core/service-client.js';
-import type { ThresholdsProvider } from '../system/thresholds.js';
+import { DEFAULT_SETTINGS, type SettingsStore } from '../../core/settings-store.js';
 import {
   AlertingReply,
   type ClosedSession,
@@ -21,6 +23,9 @@ import {
 import { buildMuteDirective } from './mute-directive.js';
 import { splitBatch } from './split-batch.js';
 
+/** Where the gateway reads the user's load thresholds for the system service's `POST /samples`. */
+export type ThresholdsProvider = () => Promise<Settings['thresholds']>;
+
 /** The apps the user never wants muted (`Settings.systemApps`). */
 export type SystemAppsProvider = () => Promise<readonly AppId[]>;
 
@@ -29,8 +34,25 @@ export interface IngestDeps {
   readonly systemApps: SystemAppsProvider;
 }
 
-/** Used until T31 serves `gateway.settings`, which replaces it with the stored list. */
-export const noSystemApps: SystemAppsProvider = () => Promise.resolve([]);
+/**
+ * The thresholds and system apps from `gateway.settings`, read once per batch
+ * and only if used. Unreadable settings must not stop a batch from being
+ * stored, so the defaults stand in and the failure is logged.
+ */
+export function settingsDeps(settings: SettingsStore, log: FastifyBaseLogger): IngestDeps {
+  let current: Promise<Settings> | undefined;
+  const read = (): Promise<Settings> => {
+    current ??= settings.read().catch((error: unknown) => {
+      log.warn({ err: error }, 'settings unreadable; ingest used the defaults');
+      return DEFAULT_SETTINGS;
+    });
+    return current;
+  };
+  return {
+    thresholds: async () => (await read()).thresholds,
+    systemApps: async () => (await read()).systemApps,
+  };
+}
 
 /** Stores the batch's samples. A failure here fails the batch, so the agent keeps it and retries. */
 async function storeSamples(
@@ -217,3 +239,7 @@ export function createIngest(deps: IngestDeps): RouteHandler<'ingest'> {
     return { accepted: stored.accepted, deliver: [], queued: 0, degraded: ['focus'] };
   };
 }
+
+/** `POST /v1/ingest` with the thresholds and system apps the user saved. */
+export const ingest: RouteHandler<'ingest'> = (context) =>
+  createIngest(settingsDeps(context.settings, context.log))(context);
