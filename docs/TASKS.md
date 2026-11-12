@@ -165,7 +165,7 @@ T01 → (T02 ‖ T03 ‖ T04 ‖ T05) → T06 → T07
 ### T08 · Contracts (`packages/shared`)
 - **Owns:** `packages/shared/`
 - **What:**
-  - zod schemas for every payload in SPEC §5, a file per domain: ingest, sessions, reports, goals, battery, system, focus, settings, alerts
+  - zod schemas for every payload in SPEC §5, a file per domain: ingest, sessions, reports, battery, system, focus, settings, alerts
   - **Route map** (`routes.ts`): method, path, auth, req and res for every endpoint under `/v1`. ST03 and ST08 are derived from it
   - Fixtures and MSW handlers for every route, so the web can work without a backend
   - i18n keys for alerts
@@ -244,7 +244,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 - **Done when:**
   - [x] There is a test for a rollup that crosses midnight
 
-### T15 · goals-service
+### T15 · goals-service (removed)
 - **What:** CRUD, `/evaluate` with one alert per goal per day, and `/progress`. Enables: **ST12**
 
 ### T16 · battery-service
@@ -314,8 +314,8 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 ## Wave 3 · Integration (up to 5 in parallel out of 15)
 
 ### Gateway (each task owns `apps/gateway/src/routes/<domain>/`)
-- **T27 · Ingest flow:** splitting to the services, closed sessions to reports and goals, collecting alerts, focus `/route`, and a `{notify, mute}` response. An integration test against compose. Enables: **ST08** (ingest)
-- **T28 · Dashboard, reports, apps, rules and goals routes:** including the `today` aggregation. Enables: **ST08**
+- **T27 · Ingest flow:** splitting to the services, closed sessions to reports, collecting alerts, focus `/route`, and a `{notify, mute}` response. An integration test against compose. Enables: **ST08** (ingest)
+- **T28 · Dashboard, reports, apps and rules routes:** including the `today` aggregation. Enables: **ST08**
 - **T29 · Battery and system routes:** including passing the session timeline to `power-by-app`. Enables: **ST08**
 - **T30 · Focus routes:** start and stop, mute and restore commands, and known-apps. Enables: **ST08**
 - **T31 · Settings:** the `gateway.settings` schema (language, color theme, privacy, thresholds, system apps, quiet hours). Enables: **ST08**
@@ -330,7 +330,7 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 ### Web (each task owns `apps/web/src/pages/<x>/` and its own namespace)
 - **T35 · Today:** Enables: **ST13** (XSS in a title)
 - **T36 · Apps and rules:** including a preview of "what the rule applies to"
-- **T37 · Goals**
+- **T37 · Goals** (removed)
 - **T38 · Battery:** trend, cycles, "what is draining my battery", and time remaining
 - **T39 · System:** a chart synced with the app timeline, incidents, recurring culprits and thresholds
 - **T40 · Focus mode and alerts:** profiles, apps with a "new" tag, exceptions, schedules, an alert center, FocusBanner, and the level policy
@@ -348,8 +348,8 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 
 - **T42 · systemd user service:** install and uninstall, and a check that the Window Calls extension is installed
   - **Done when:** [ ] The agent starts after login and comes back after `kill -9`
-- **T57 · Four-page shell (first; T43, T58 and T59 depend on it):** the web moves from seven pages to four (SPEC §6): Overview, Computer, Focus mode, Settings. A styled navigation per DESIGN.md nav tabs, the new routes with tab state in the URL, redirects from the old paths, and header language and theme pickers that save to the settings. Moves every existing page into its new folder without rewriting it (`today` and `goals` → `pages/overview/`, `battery` and `system` → `pages/computer/`, `apps` and `focus/alert-policy.tsx` → `pages/settings/`), merges their i18n namespaces into the new pages' namespaces, and deletes the old folders and route files. Owns: `apps/web/src/app/`, `apps/web/src/router/`, `apps/web/src/pages/*/route.tsx`, the moves above and their i18n files
-- **T43 · Overview page:** the Today page gains a day/week switch. Week: columns by day and category, comparison with the previous week, and the weekly summary. Goals (from T37) become progress cards on this page, with create and edit from here. Owns: `apps/web/src/pages/overview/`
+- **T57 · Four-page shell (first; T43, T58 and T59 depend on it):** the web moves from seven pages to four (SPEC §6): Overview, Computer, Focus mode, Settings. A styled navigation per DESIGN.md nav tabs, the new routes with tab state in the URL, redirects from the old paths, and header language and theme pickers that save to the settings. Moves every existing page into its new folder without rewriting it (`today` → `pages/overview/`, `battery` and `system` → `pages/computer/`, `apps` and `focus/alert-policy.tsx` → `pages/settings/`), merges their i18n namespaces into the new pages' namespaces, and deletes the old folders and route files. Owns: `apps/web/src/app/`, `apps/web/src/router/`, `apps/web/src/pages/*/route.tsx`, the moves above and their i18n files
+- **T43 · Overview page:** the Today page gains a day/week switch. Week: columns by day and category, comparison with the previous week, and the weekly summary. Owns: `apps/web/src/pages/overview/`
 - **T58 · Computer page:** Battery (from T38) and System (from T39) become tabs under one summary line written in plain language. The Load tab is redesigned so a non-technical user understands it at a glance: slowdown count and stuck time, an incident timeline in plain words ("memory full", "processor busy") with the active app, recurring culprits by app name, and the pressure chart as a secondary "Details" view. Design brief: issue #189. Owns: `apps/web/src/pages/computer/`
 - **T44 · GNOME "Do Not Disturb":** optional per profile, with the same save-and-restore mechanism. Owns: `apps/agent/src/actuators/dnd/`
 - **T45 · Automatic focus triggers:** a schedule, and an app in focus for more than N min. Owns: `services/focus/src/triggers/`
@@ -396,7 +396,6 @@ Each service owns `services/<x>/` (including its `compose.yml`). Each collector 
 | Overview (day and week) and apps and rules | T35, T43, T36, T57, T59 |
 | Continuous focus (streaks) | T14, T35 |
 | Weekly summary | T14, T43, T33 |
-| Goals and breach alerts | T15, T28, T37, T43 |
 | Battery health, cycles and discharge rate | T22, T16, T29, T38 |
 | "What is draining my battery" | T16, T29, T38 |
 | Battery alerts (15%, 8%, 100% for a long time) | T16, T27, T33 |

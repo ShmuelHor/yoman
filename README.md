@@ -21,7 +21,6 @@ Nothing ever leaves your computer.
 | **Battery health** | Tracks capacity versus design capacity, charge cycles and discharge rate over months, and shows which apps drain the battery the most.                                                                                                  |
 | **System load**    | Uses Linux [PSI](https://docs.kernel.org/accounting/psi.html) to detect when the machine is actually stalling (not just busy), then names the heaviest processes and Docker containers. Also flags memory leaks and thermal throttling. |
 | **Focus mode**     | Mutes notifications from selected apps (Telegram, Chrome web apps, anything installed later) for a set time. Critical alerts still get through, and you get a summary at the end. Settings survive crashes and are always restored.     |
-| **Goals**          | Daily limits or targets per app or category, such as "at most one hour of YouTube".                                                                                                                                                     |
 | **Bilingual UI**   | Hebrew (RTL) and English (LTR), plus light, dark and system themes in a warm "paper and ink" design.                                                                                                                                    |
 
 ## Architecture (by design)
@@ -37,7 +36,6 @@ flowchart LR
     gateway["gateway<br/>auth · orchestration"]
     sessions[sessions]
     reports[reports]
-    goals[goals]
     battery[battery]
     system[system]
     focus[focus]
@@ -46,8 +44,8 @@ flowchart LR
 
   agent -- "batched ingest, 60s" --> gateway
   web -- "HTTP" --> gateway
-  gateway --> sessions & reports & goals & battery & system & focus
-  sessions & reports & goals & battery & system & focus --> db
+  gateway --> sessions & reports & battery & system & focus
+  sessions & reports & battery & system & focus --> db
 ```
 
 - **One entry point.** The UI and the agent talk only to the gateway, which orchestrates every flow.
@@ -112,7 +110,7 @@ apps/                (planned)
   agent/         host process: collectors, notifier, muter, tray, CLI
   gateway/       the only public API; auth and orchestration
   web/           React UI
-services/        sessions · reports · goals · battery · system · focus (planned)
+services/        sessions · reports · battery · system · focus (planned)
 packages/        shared contracts and the service kit (planned)
 biome-plugins/   custom GritQL lint rules
 scripts/         repo tooling
@@ -151,7 +149,7 @@ Every container prints one readable line per request, tied together by a request
 
 ```
 docker compose logs -f                                   # everything
-docker compose logs -f gateway                           # one service: gateway sessions reports goals battery system focus web postgres
+docker compose logs -f gateway                           # one service: gateway sessions reports battery system focus web postgres
 docker compose logs | grep req-7f3a                      # one request, end to end
 npm run logs [-- <service>]                              # JSON lines (LOG_FORMAT=json) pretty-printed, service as a column
 docker compose logs -f --no-log-prefix gateway | npx pino-pretty --minimumLevel error   # errors only (LOG_FORMAT=json)

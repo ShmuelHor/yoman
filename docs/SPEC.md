@@ -44,10 +44,10 @@
 │ buffer · tray · cli   │        ├────▶│  gateway  │ 127.0.0.1:4711
 └───────────────────────┘        │      └─────┬─────┘
 ┌───────────────────────┐        │            │ routes and orchestrates
-│ web (React)           │────────┘   ┌──────┬─┴────┬───────┬────────┬───────┐
-│ 127.0.0.1:4710        │            ▼      ▼      ▼       ▼        ▼       ▼
-└───────────────────────┘        sessions reports goals  battery  system  focus
-                                     └──────┴──────┴───┬───┴────────┴───────┘
+│ web (React)           │────────┘   ┌──────┬─┴────┬────────┬───────┐
+│ 127.0.0.1:4710        │            ▼      ▼      ▼        ▼       ▼
+└───────────────────────┘        sessions reports battery  system  focus
+                                     └──────┴───┬───┴────────┴───────┘
                                                    ┌───▼────┐
                                                    │postgres│ one schema per service
                                                    └────────┘
@@ -63,7 +63,7 @@
 ### Flows the gateway orchestrates
 | Flow | Steps |
 |---|---|
-| **ingest** (from the agent, every 60 s) | The gateway splits the batch: window and idle samples → `sessions`, battery → `battery`, load → `system`. It then forwards closed sessions to `reports` and `goals` and collects events to alert on. Each event goes through `focus` for a decision (deliver now or queue), and the decisions return to the agent in the response. |
+| **ingest** (from the agent, every 60 s) | The gateway splits the batch: window and idle samples → `sessions`, battery → `battery`, load → `system`. It then forwards closed sessions to `reports` and collects events to alert on. Each event goes through `focus` for a decision (deliver now or queue), and the decisions return to the agent in the response. |
 | **dashboard/today** | The gateway calls `reports`, `battery`, `system` and `focus` in parallel and returns a single response |
 | **focus start/stop** | gateway → `focus` (state and profile) → returns mute and restore commands to the agent |
 
@@ -127,10 +127,6 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 - **API:** `GET /today`, `GET /week?start`, `GET /top-apps?from&to`, `GET /weekly-summary`
 - **Data retention:** sessions older than 90 days are merged into rollups and deleted, in a daily run
 
-### goals
-- **Entities:** `goals` (type: max or min, target: app or category, minutes, days of the week), `goal_events`
-- **API:** CRUD for `/goals`, `POST /evaluate` (receives totals and returns breaches), `GET /progress?date`
-
 ### battery
 - **Entities:** `battery_samples`, `battery_daily` (health %, cycles, average W)
 - **Logic:** health = energy_full / energy_full_design. Time remaining is based on average consumption over the last 30 minutes. **Per-app power attribution:** average `power_now` while each app is in focus; the gateway supplies the session timeline
@@ -158,7 +154,7 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 - **Authentication:**
   - The agent sends `Authorization: Bearer <AGENT_TOKEN>`, which is generated in `.env`
   - The web gets a local session cookie through `GET /v1/session`, which works only from the origin `http://127.0.0.1:4710` or `http://localhost:4710`
-- **Public API (v1):** `/v1/ingest`, `/v1/dashboard/today`, `/v1/week`, `/v1/apps`, `/v1/rules`, `/v1/goals`, `/v1/battery/*`, `/v1/system/*`, `/v1/focus/*`, `/v1/export`, `/v1/settings`
+- **Public API (v1):** `/v1/ingest`, `/v1/dashboard/today`, `/v1/week`, `/v1/apps`, `/v1/rules`, `/v1/battery/*`, `/v1/system/*`, `/v1/focus/*`, `/v1/export`, `/v1/settings`
 - **Timeouts** of 3 s per service, and a partial response when a service is down: `{data, degraded:["battery"]}`
 - **Settings** (`gateway.settings`): language, color theme, privacy (titles and excluded apps), load thresholds, system apps that must never be muted, and quiet hours. The gateway passes each service and the agent whatever is relevant to them
 - **Security:** Host allowlist, Origin check, CSRF, rate limit and body limit. Details in [SECURITY.md](SECURITY.md)
@@ -169,11 +165,11 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 
 - Vite + React 19 + TypeScript, MUI (Emotion, MUI X), TanStack Router, TanStack Query, react-hook-form, react-i18next
 - **Pages (four, in this order):**
-  - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Week: columns by day and category, comparison with the previous week, the weekly summary. Goals appear here as progress cards and are created and edited from this page
+  - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Week: columns by day and category, comparison with the previous week, the weekly summary.
   - **Computer** (`/computer`): one plain-language summary line at the top (for example "Battery healthy · the computer got stuck twice today, mostly while Chrome was running"), then tabs: **Battery** (charge, health, cycles, time remaining, what is draining it), **Load** (slowdowns as an incident timeline with the resource and the active app in plain words, recurring culprits, and the raw pressure chart as a secondary "Details" view) and **Processes** (the task manager)
   - **Focus mode** (`/focus`): start and stop, profiles, apps with a "new" tag, exceptions, schedules, Pomodoro, the alert center (held alerts) and FocusBanner
   - **Settings** (`/settings`): language, color theme, privacy, thresholds, system apps, quiet hours, **apps and category rules**, and the **alert level policy**
-- **Old paths** (`/apps`, `/battery`, `/system`, `/goals`, `/week`) redirect to their new place, so links in notifications keep working
+- **Old paths** (`/apps`, `/battery`, `/system`, `/week`) redirect to their new place, so links in notifications keep working
 - **Shell:** the navigation follows DESIGN.md (nav tabs). The header language and theme pickers save to the settings, so a reload keeps the choice and the Settings form stays in sync
 - **i18n:** `he` (default) and `en`. `dir` on `<html>` updates with the language. Only logical properties are used (in `sx` and `styled`). Dates and numbers go through `Intl`
 - **Color theme:** `system`, `light` or `dark`, stored in the settings. See [DESIGN.md](DESIGN.md)
