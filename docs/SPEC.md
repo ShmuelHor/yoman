@@ -167,7 +167,7 @@ All of them: Fastify + TypeScript, Kysely over Postgres, `GET /health`, JSON log
 
 - Vite + React 19 + TypeScript, MUI (Emotion, MUI X), TanStack Router, TanStack Query, react-hook-form, react-i18next
 - **Pages (five, in this order):**
-  - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Clicking an app in the top apps opens a small menu to change its category; that is the only category editing in the UI Week: columns by day and category, comparison with the previous week, the weekly summary.
+  - **Overview** (`/`): a day/week switch. Day: active time, focus streak, where the time went, top apps. Clicking an app in the top apps opens a small menu to change its category; that is the only category editing in the UI. Week: columns by day and category, comparison with the previous week, the weekly summary.
   - **Computer** (`/computer`): one plain-language summary line at the top (for example "Battery healthy · the computer got stuck twice today, mostly while Chrome was running"), then two tabs: **Battery** (charge, health, cycles, time remaining, what is draining it), **Load** (slowdowns as an incident timeline with the resource and the active app in plain words, recurring culprits, and the raw pressure chart as a secondary "Details" view)
   - **Processes** (`/processes`): the task manager. What is running now with live CPU, RAM and IO, grouping by app, All/Apps/Docker views, and End task with confirmation
   - **Focus mode** (`/focus`): start and stop, profiles, apps with a "new" tag, exceptions, schedules, Pomodoro, the alert center (held alerts) and FocusBanner
