@@ -20,7 +20,14 @@ const profile: Profile = {
 describe('reportKnownApps', () => {
   it('counts only new apps, refreshes known ones and reads a repeated app once', async () => {
     const store = createMemoryStore({
-      knownApps: [{ appId: 'slack', name: 'Slack', source: 'desktop' }],
+      knownApps: [
+        {
+          appId: 'slack',
+          name: 'Slack',
+          source: 'desktop',
+          firstSeenAt: '2025-12-31T23:59:59.000Z',
+        },
+      ],
     });
 
     const added = await reportKnownApps(store, {
@@ -33,8 +40,18 @@ describe('reportKnownApps', () => {
 
     expect(added).toBe(1);
     expect(store.state().knownApps).toEqual([
-      { appId: 'slack', name: 'Slack', source: 'gsettings' },
-      { appId: 'spotify', name: 'Spotify 2', source: 'desktop' },
+      {
+        appId: 'slack',
+        name: 'Slack',
+        source: 'gsettings',
+        firstSeenAt: '2025-12-31T23:59:59.000Z',
+      },
+      {
+        appId: 'spotify',
+        name: 'Spotify 2',
+        source: 'desktop',
+        firstSeenAt: expect.any(String),
+      },
     ]);
   });
 

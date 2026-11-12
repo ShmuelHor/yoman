@@ -10,20 +10,25 @@ type Db = Kysely<FocusDatabase>;
 const InsertedRow = z.object({ inserted: z.boolean() });
 
 export async function listKnownApps(db: Db, limit: number): Promise<KnownApp[]> {
+  const rows = await db
+    .selectFrom('known_apps')
+    .select(['app_id as appId', 'name', 'source', 'first_seen_at'])
+    .orderBy('app_id')
+    .limit(limit)
+    .execute();
   return parseRows(
     KnownApp,
-    await db
-      .selectFrom('known_apps')
-      .select(['app_id as appId', 'name', 'source'])
-      .orderBy('app_id')
-      .limit(limit)
-      .execute(),
+    rows.map(({ first_seen_at: firstSeenAt, ...app }) => ({
+      ...app,
+      firstSeenAt: firstSeenAt.toISOString(),
+    })),
   );
 }
 
 /**
  * Inserts new apps and refreshes known ones; a report without a name keeps
- * the one already stored. `xmax = 0` holds only for rows this statement
+ * the one already stored. `first_seen_at` is the transaction's time, so one
+ * catalog shares it, and "new" apps are the ones a later report adds. `xmax = 0` holds only for rows this statement
  * inserted, which is how the new ones are counted. The ids must be unique.
  */
 export async function saveKnownApps(db: Db, apps: readonly KnownApp[]): Promise<number> {

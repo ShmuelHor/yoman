@@ -10,16 +10,15 @@ import { isNeverMuted } from '../../core/never-muted.js';
  * agent restores whatever it had muted. Apps on the system list are never
  * muted, and a profile's exceptions keep notifying.
  *
- * With `muteNewApps`, every known app the profile does not list is muted too,
- * so an app installed after the profile was written is muted by default. This
- * is the same rule as the focus service's mute plan, applied to the apps the
- * agent has reported, so the commands here match what a start returned.
+ * With `muteNewApps`, the new apps are muted too: those first seen after the
+ * first known-apps sync, never the first catalog. This is the same rule as the
+ * focus service's mute plan, so the commands here match what a start returned.
  */
 export function buildMuteDirective(
   state: FocusState,
   profiles: readonly Profile[],
   systemApps: readonly AppId[],
-  knownApps: readonly AppId[] = [],
+  newApps: readonly AppId[] = [],
 ): MuteDirective {
   if (!state.active) {
     return { mute: [], restore: [], systemApps: [...systemApps] };
@@ -28,7 +27,7 @@ export function buildMuteDirective(
   const exceptions = new Set<string>(profile?.exceptions ?? []);
   const candidates = [
     ...(profile?.mutedApps ?? []),
-    ...(profile?.muteNewApps === true ? knownApps : []),
+    ...(profile?.muteNewApps === true ? newApps : []),
   ];
   const mute = [...new Set(candidates)]
     // Before the cap, so a system app never takes the place of a real one.

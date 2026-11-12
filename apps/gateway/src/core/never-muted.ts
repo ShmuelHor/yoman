@@ -1,22 +1,15 @@
 import type { AppId } from '@yoman/shared/common';
 import type { FocusChange } from '@yoman/shared/focus';
-
-/** SPEC §4.2 "Never muted": `gnome-*`, `org.gnome.*`, `update-manager` and `yoman`. */
-const NEVER_MUTED_PREFIXES = ['gnome-', 'org.gnome.'];
-const NEVER_MUTED_NAMES: ReadonlySet<string> = new Set(['update-manager', 'yoman']);
+import { isBuiltInNeverMuted, isSameApp } from '@yoman/shared/never-muted';
 
 /**
- * True for an app that must never be muted: the built-in system apps, and
- * every app on the user's system list. Compared case-insensitively, so
- * `ORG.GNOME.Shell` is no way round the rule.
+ * True for an app that must never be muted: the built-in system apps (SPEC
+ * §4.2, matched in both the dotted and the dashed ID form), and every app on
+ * the user's system list. Compared case-insensitively and across the two ID
+ * forms, so `ORG.GNOME.Shell` and `org-gnome-shell` are no way round the rule.
  */
 export function isNeverMuted(app: AppId, systemApps: readonly AppId[]): boolean {
-  const name = app.toLowerCase();
-  return (
-    NEVER_MUTED_NAMES.has(name) ||
-    NEVER_MUTED_PREFIXES.some((prefix) => name.startsWith(prefix)) ||
-    systemApps.some((system) => system.toLowerCase() === name)
-  );
+  return isBuiltInNeverMuted(app) || systemApps.some((system) => isSameApp(system, app));
 }
 
 /** A focus change without mute commands for never-muted apps. Restores stay: restoring is harmless. */
